@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+.env.*
+*.tsbuildinfo
+tailwind.config.js
+tailwind.config.d.ts

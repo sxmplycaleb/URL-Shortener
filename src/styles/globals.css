@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 239 84% 67%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 32% 91%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 221 83% 53%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --primary: 213 94% 68%;
+    --primary-foreground: 222 47% 5%;
+    --secondary: 239 84% 67%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 158 64% 52%;
+    --accent-foreground: 222 47% 5%;
+    --destructive: 0 91% 71%;
+    --destructive-foreground: 222 47% 5%;
+    --success: 142 76% 65%;
+    --warning: 43 96% 56%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 213 94% 68%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
