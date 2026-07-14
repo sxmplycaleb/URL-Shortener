@@ -4,11 +4,29 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  { ignores: ["dist", "coverage"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ["backend/**/*.js"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        setTimeout: "readonly",
+        URL: "readonly",
+      },
+    },
+  },
+  {
     files: ["**/*.{ts,tsx}"],
+    languageOptions: {
+      globals: {
+        document: "readonly",
+        localStorage: "readonly",
+        window: "readonly",
+      },
+    },
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
