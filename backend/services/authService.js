@@ -60,3 +60,7 @@ export async function refreshAuth(refreshToken) {
 export function logoutUser(refreshToken) {
   return revokeRefreshToken(refreshToken);
 }
+
+export function publicUserResource(user) {
+  return publicUser(user);
+}

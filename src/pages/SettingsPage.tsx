@@ -10,7 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
-import { clearAuthSession, getAuthSession } from "@/services/authStorage";
+import { deleteAccount, updatePassword, updateProfile } from "@/services/account";
+import { ApiError } from "@/services/api";
+import { logoutUser } from "@/services/auth";
+import { clearAuthSession, getAuthSession, saveAuthSession } from "@/services/authStorage";
 
 type NoticeTone = "success" | "error";
 type ThemeChoice = "light" | "dark";
@@ -42,11 +45,6 @@ interface Notice {
   message: string;
 }
 
-const MOCK_USER = {
-  name: "Chino",
-  email: "chino@example.com",
-};
-
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -64,11 +62,12 @@ function FieldError({ children, id }: { children: string | undefined; id: string
 export function SettingsPage() {
   const navigate = useNavigate();
   const session = getAuthSession();
+  const accessToken = session?.accessToken ?? "";
   const { theme, setTheme } = useTheme();
-  const user = session?.user ?? MOCK_USER;
+  const user = session?.user;
   const [profile, setProfile] = useState<ProfileForm>({
-    name: user.name,
-    email: user.email,
+    name: user?.name ?? "",
+    email: user?.email ?? "",
   });
   const [passwords, setPasswords] = useState<PasswordForm>({
     currentPassword: "",
@@ -141,8 +140,17 @@ export function SettingsPage() {
     window.setTimeout(() => setNotice(null), 3500);
   }
 
-  async function simulateSave() {
-    await new Promise((resolve) => window.setTimeout(resolve, 650));
+  function getNoticeMessage(error: unknown) {
+    return error instanceof ApiError ? [error.message, ...error.details].join(" ") : "Unable to save settings. Please try again.";
+  }
+
+  function shouldEndSession(error: unknown) {
+    return error instanceof ApiError && (error.status === 401 || error.status === 403);
+  }
+
+  function endSession(message = "Your session expired. Please log in again.") {
+    clearAuthSession();
+    navigate("/login", { replace: true, state: { message } });
   }
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
@@ -156,9 +164,27 @@ export function SettingsPage() {
     }
 
     setSavingProfile(true);
-    await simulateSave();
-    setSavingProfile(false);
-    showNotice({ tone: "success", message: "Profile settings saved." });
+    try {
+      const response = await updateProfile(accessToken, {
+        name: profile.name.trim(),
+        email: profile.email.trim(),
+      });
+      saveAuthSession({
+        accessToken: getAuthSession()?.accessToken ?? accessToken,
+        user: response.user,
+      });
+      setProfile({ name: response.user.name, email: response.user.email });
+      showNotice({ tone: "success", message: "Profile settings saved." });
+    } catch (error) {
+      if (shouldEndSession(error)) {
+        endSession();
+        return;
+      }
+
+      showNotice({ tone: "error", message: getNoticeMessage(error) });
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
@@ -172,25 +198,55 @@ export function SettingsPage() {
     }
 
     setSavingPassword(true);
-    await simulateSave();
-    setSavingPassword(false);
-    setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    showNotice({ tone: "success", message: "Password updated." });
+    try {
+      await updatePassword(accessToken, {
+        currentPassword: passwords.currentPassword,
+        newPassword: passwords.newPassword,
+      });
+      setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      showNotice({ tone: "success", message: "Password updated." });
+    } catch (error) {
+      if (shouldEndSession(error)) {
+        endSession();
+        return;
+      }
+
+      showNotice({ tone: "error", message: getNoticeMessage(error) });
+    } finally {
+      setSavingPassword(false);
+    }
   }
 
-  function handleLogout() {
-    clearAuthSession();
-    navigate("/login", { replace: true, state: { message: "You have been logged out." } });
+  async function handleLogout() {
+    try {
+      await logoutUser();
+    } catch {
+      // The browser session should still be cleared if the server token is gone.
+    } finally {
+      clearAuthSession();
+      navigate("/login", { replace: true, state: { message: "You have been logged out." } });
+    }
   }
 
   async function handleDeleteAccount() {
-    const confirmed = window.confirm("Delete this account? This is a frontend-only demo action.");
+    const confirmed = window.confirm("Delete this account? This permanently removes your URLs and analytics.");
     if (!confirmed) return;
 
     setDeletingAccount(true);
-    await simulateSave();
-    clearAuthSession();
-    navigate("/register", { replace: true, state: { message: "Account deleted in demo mode." } });
+    try {
+      await deleteAccount(accessToken);
+      clearAuthSession();
+      navigate("/register", { replace: true, state: { message: "Account deleted." } });
+    } catch (error) {
+      if (shouldEndSession(error)) {
+        endSession();
+        return;
+      }
+
+      showNotice({ tone: "error", message: getNoticeMessage(error) });
+    } finally {
+      setDeletingAccount(false);
+    }
   }
 
   function handleThemeChange(nextTheme: ThemeChoice) {
