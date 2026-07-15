@@ -33,3 +33,7 @@ export function registerUser(body: RegisterRequest) {
 export function loginUser(body: LoginRequest) {
   return apiRequest<AuthResponse, LoginRequest>("/api/auth/login", body);
 }
+
+export function logoutUser() {
+  return apiRequest<void, Record<string, never>>("/api/auth/logout", {});
+}
