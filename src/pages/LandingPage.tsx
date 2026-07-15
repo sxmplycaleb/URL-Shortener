@@ -1,149 +1,234 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { BarChart3, CheckCircle2, Lock, QrCode, Sparkles, Zap } from "lucide-react";
+import { BarChart3, ChartNoAxesColumnIncreasing, Link2, Menu, ShieldCheck, Sparkles, Tags, X, Zap } from "lucide-react";
 
-import { CopyButton } from "@/components/common/CopyButton";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
-import { CreateLinkForm } from "@/components/forms/CreateLinkForm";
 import { Footer } from "@/components/layout/Footer";
+import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/buttonVariants";
-import { Card } from "@/components/ui/card";
+import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-const features = [
-  { icon: Zap, title: "Fast redirects", description: "A focused UI for creating links that stay quick under real traffic." },
-  { icon: Lock, title: "Safer destinations", description: "Designed around validation, ownership, expiration, and abuse controls." },
-  { icon: BarChart3, title: "Actionable analytics", description: "Understand clicks by time, referrer, country, browser, and device." },
+const navigationItems = [
+  { label: "Home", href: "/" },
+  { label: "Features", href: "#features" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "Login", href: "/login" },
+  { label: "Register", href: "/register" },
 ];
 
-export function LandingPage() {
-  const [shortUrl, setShortUrl] = useState("https://sho.rt/demo");
+const features = [
+  {
+    icon: Zap,
+    title: "Shorten URLs instantly",
+    description: "Create compact, shareable links from long URLs with a focused flow built for speed.",
+  },
+  {
+    icon: ChartNoAxesColumnIncreasing,
+    title: "Dashboard management",
+    description: "Keep links organized, update destinations, and manage active campaigns from one place.",
+  },
+  {
+    icon: BarChart3,
+    title: "Click analytics",
+    description: "Track engagement signals so every link gives you clear feedback after it goes live.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Secure authentication",
+    description: "Protect accounts and link ownership with authentication-ready workflows.",
+  },
+  {
+    icon: Tags,
+    title: "Custom aliases",
+    description: "Use memorable aliases that make links easier to recognize, share, and trust.",
+  },
+];
+
+function LandingNav() {
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link className="flex items-center gap-2 font-semibold" to="/">
-            <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground">
-              <Sparkles className="h-5 w-5" aria-hidden="true" />
-            </span>
-            Shortly
-          </Link>
-          <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex" aria-label="Landing navigation">
-            <a className="hover:text-foreground" href="#features">
-              Features
-            </a>
-            <a className="hover:text-foreground" href="#how-it-works">
-              How it works
-            </a>
-            <a className="hover:text-foreground" href="#faq">
-              FAQ
-            </a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Link className={buttonVariants({ variant: "outline" })} to="/login">
-              Log in
-            </Link>
-          </div>
+    <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <Link className="flex items-center gap-2 font-semibold" to="/" onClick={() => setIsOpen(false)}>
+          <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground">
+            <Link2 className="h-5 w-5" aria-hidden="true" />
+          </span>
+          Shortly
+        </Link>
+
+        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
+          {navigationItems.map((item) =>
+            item.href.startsWith("/") ? (
+              <Link
+                className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                key={item.label}
+                to={item.href}
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <a
+                className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                href={item.href}
+                key={item.label}
+              >
+                {item.label}
+              </a>
+            ),
+          )}
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button
+            aria-controls="mobile-navigation"
+            aria-expanded={isOpen}
+            aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
+            className="md:hidden"
+            size="icon"
+            variant="ghost"
+            onClick={() => setIsOpen((current) => !current)}
+          >
+            {isOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+          </Button>
         </div>
-      </header>
-      <main id="main-content">
-        <section className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-20">
-          <div className="flex flex-col justify-center">
-            <p className="mb-4 inline-flex w-fit rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-              Secure link management for modern teams
-            </p>
-            <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
-              Short links with clean workflows and useful analytics.
-            </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              Create branded short links, validate risky destinations, monitor performance, and keep ownership controls ready for production.
-            </p>
-            <div className="mt-8">
-              <CreateLinkForm compact onCreated={setShortUrl} />
-            </div>
-            <Card className="mt-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-muted-foreground">Generated link</p>
-                <p className="mt-1 font-mono text-sm">{shortUrl}</p>
-              </div>
-              <CopyButton label="Copy generated link" value={shortUrl} />
-            </Card>
+      </div>
+
+      {isOpen ? (
+        <nav
+          aria-label="Mobile navigation"
+          className="border-t bg-background px-4 py-3 shadow-soft md:hidden"
+          id="mobile-navigation"
+        >
+          <div className="mx-auto grid max-w-7xl gap-1">
+            {navigationItems.map((item) =>
+              item.href.startsWith("/") ? (
+                <Link
+                  className="rounded-md px-3 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  key={item.label}
+                  to={item.href}
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <a
+                  className="rounded-md px-3 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  href={item.href}
+                  key={item.label}
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.label}
+                </a>
+              ),
+            )}
           </div>
-          <Card className="grid content-between gap-6 p-6 shadow-soft">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-muted-foreground">Live preview</span>
-              <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">Active</span>
+        </nav>
+      ) : null}
+    </header>
+  );
+}
+
+function FeatureCard({ feature }: { feature: (typeof features)[number] }) {
+  return (
+    <Card className="flex h-full flex-col p-6 transition-colors hover:border-primary/40 hover:bg-card/80">
+      <span className="grid h-11 w-11 place-items-center rounded-md bg-primary/10 text-primary">
+        <feature.icon className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <CardTitle className="mt-5 text-base leading-6">{feature.title}</CardTitle>
+      <CardDescription className="mt-3 leading-6">{feature.description}</CardDescription>
+    </Card>
+  );
+}
+
+export function LandingPage() {
+  return (
+    <div className="min-h-screen bg-background">
+      <LandingNav />
+      <main id="main-content">
+        <section className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-24">
+          <div className="flex flex-col justify-center">
+            <p className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Modern link management
+            </p>
+            <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">Shortly</h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+              Create short, memorable links, manage them from a clean dashboard, and understand every click with practical analytics.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto")} to="/register">
+                Get Started
+              </Link>
+              <Link className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full sm:w-auto")} to="/login">
+                Login
+              </Link>
             </div>
-            <div className="space-y-5">
-              <div className="rounded-lg border bg-muted/40 p-5">
-                <p className="text-sm text-muted-foreground">Destination</p>
-                <p className="mt-2 break-words font-mono text-sm">https://example.com/campaign/product-launch?utm_source=newsletter</p>
+          </div>
+
+          <Card className="overflow-hidden shadow-panel">
+            <div className="border-b bg-muted/40 p-4">
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-destructive" aria-hidden="true" />
+                <span className="h-3 w-3 rounded-full bg-warning" aria-hidden="true" />
+                <span className="h-3 w-3 rounded-full bg-success" aria-hidden="true" />
               </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {["18.4K clicks", "42 countries", "2.1% errors"].map((item) => (
-                  <div className="rounded-lg border p-4" key={item}>
-                    <p className="font-semibold">{item}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Last 7 days</p>
+            </div>
+            <div className="space-y-5 p-6">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Long URL</p>
+                <p className="mt-2 break-words rounded-md border bg-background p-3 font-mono text-sm">
+                  https://example.com/campaign/product-launch/summer
+                </p>
+              </div>
+              <div className="rounded-md border bg-primary/10 p-4 text-primary">
+                <p className="text-sm font-semibold">Short link ready</p>
+                <p className="mt-2 font-mono text-sm">short.ly/summer</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {["12.8K clicks", "34 regions", "99.9% uptime"].map((metric) => (
+                  <div className="rounded-md border bg-background p-4" key={metric}>
+                    <p className="font-semibold">{metric}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Live summary</p>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <QrCode className="h-5 w-5" aria-hidden="true" />
-              QR cards, API keys, and detailed reporting are ready in the dashboard.
-            </div>
           </Card>
         </section>
-        <section className="border-y bg-card/40 py-12" id="features">
-          <div className="mx-auto grid max-w-7xl gap-4 px-4 sm:px-6 md:grid-cols-3 lg:px-8">
-            {features.map((feature) => (
-              <Card className="p-6" key={feature.title}>
-                <feature.icon className="h-6 w-6 text-primary" aria-hidden="true" />
-                <h2 className="mt-4 text-lg font-semibold">{feature.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{feature.description}</p>
-              </Card>
-            ))}
-          </div>
-        </section>
-        <section className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:px-8" id="how-it-works">
-          <div>
-            <h2 className="text-3xl font-bold">How it works</h2>
-            <p className="mt-3 text-muted-foreground">A short path from paste to measurable link.</p>
-          </div>
-          <ol className="space-y-4">
-            {["Paste a validated URL.", "Choose an alias and expiration.", "Copy the short link.", "Track clicks and manage lifecycle."].map((step) => (
-              <li className="flex gap-3" key={step}>
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden="true" />
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-        <section className="mx-auto max-w-4xl px-4 pb-14 sm:px-6" id="faq">
-          <h2 className="text-3xl font-bold">FAQ</h2>
-          <div className="mt-6 grid gap-4">
-            {[
-              ["Can anonymous users create links?", "Yes, the UI supports anonymous creation while keeping management-token flows in mind."],
-              ["What happens when a link expires?", "The dashboard marks it expired and disables sharing actions until the owner updates it."],
-              ["Is dark mode supported?", "Yes, preference is stored locally and applied across every page."],
-            ].map(([question, answer]) => (
-              <Card className="p-5" key={question}>
-                <h3 className="font-semibold">{question}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{answer}</p>
-              </Card>
-            ))}
-          </div>
-        </section>
-        <section className="border-y bg-primary py-12 text-primary-foreground">
-          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
-            <div>
-              <h2 className="text-2xl font-bold">Ready to manage links?</h2>
-              <p className="mt-2 text-primary-foreground/80">Open the dashboard and start from a production-shaped UI.</p>
+
+        <section className="border-y bg-card/40 py-14 sm:py-16" id="features">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="max-w-2xl">
+              <h2 className="text-3xl font-bold leading-tight">Features built for everyday link operations</h2>
+              <p className="mt-3 leading-7 text-muted-foreground">
+                Everything visitors need to understand the product before creating an account.
+              </p>
             </div>
-            <Link className={cn(buttonVariants({ variant: "secondary" }), "w-full sm:w-auto")} to="/dashboard">
-              Open dashboard
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature) => (
+                <FeatureCard feature={feature} key={feature.title} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="sr-only" id="pricing" aria-label="Pricing placeholder">
+          Pricing information will be available later.
+        </section>
+
+        <section className="px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+          <div className="mx-auto flex max-w-7xl flex-col gap-6 rounded-lg border bg-primary p-6 text-primary-foreground shadow-panel sm:p-8 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold leading-tight sm:text-3xl">Ready to shorten your first URL?</h2>
+              <p className="mt-3 max-w-2xl text-primary-foreground/80">
+                Register now to save links, manage aliases, and review click activity from your dashboard.
+              </p>
+            </div>
+            <Link className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "w-full shrink-0 sm:w-auto")} to="/register">
+              Create account
             </Link>
           </div>
         </section>
