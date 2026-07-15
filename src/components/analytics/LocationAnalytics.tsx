@@ -1,9 +1,20 @@
-import { MapPin } from "lucide-react";
+import { CircleAlert, MapPin } from "lucide-react";
 
+import { EmptyState } from "@/components/common/EmptyState";
 import { formatNumber } from "@/lib/utils";
 import type { LocationAnalyticsItem } from "@/services/analyticsService";
 
 export function LocationAnalytics({ items }: { items: LocationAnalyticsItem[] }) {
+  if (!items.length) {
+    return (
+      <EmptyState
+        description="Top locations appear after your short URLs receive visits with location data."
+        icon={CircleAlert}
+        title="No location data yet"
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       {items.map((item) => (

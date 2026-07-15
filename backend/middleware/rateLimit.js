@@ -19,9 +19,11 @@ export function createApiRateLimiter() {
 }
 
 export function createAuthRateLimiter() {
+  const { rateLimitMax } = getEnv();
+
   return rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 10,
+    limit: rateLimitMax,
     standardHeaders: true,
     legacyHeaders: false,
     message: {

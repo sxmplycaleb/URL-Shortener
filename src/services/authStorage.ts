@@ -2,7 +2,7 @@ import type { AuthResponse } from "@/services/auth";
 
 const AUTH_SESSION_KEY = "shortly.auth";
 
-interface StoredAuthSession {
+export interface StoredAuthSession {
   accessToken: string;
   user: AuthResponse["user"];
 }

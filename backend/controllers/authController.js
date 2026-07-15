@@ -1,6 +1,6 @@
 import { loginUser, logoutUser, refreshAuth, registerUser } from "../services/authService.js";
 
-const REFRESH_COOKIE_OPTIONS = {
+export const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: "strict",
   secure: process.env.NODE_ENV === "production",

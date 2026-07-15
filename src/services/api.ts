@@ -1,3 +1,5 @@
+import { clearAuthSession, getAuthSession, saveAuthSession, type StoredAuthSession } from "@/services/authStorage";
+
 const API_BASE_URL = import.meta.env["VITE_API_URL"] ?? "";
 
 export interface ApiErrorBody {
@@ -51,14 +53,30 @@ export async function apiRequest<TResponse, TBody extends object>(
 
 interface AuthenticatedRequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
-  body?: object;
+  body?: object | undefined;
   accessToken: string;
 }
 
-export async function authenticatedApiRequest<TResponse>(
+async function refreshSession(): Promise<StoredAuthSession | null> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    clearAuthSession();
+    return null;
+  }
+
+  const session = await parseResponse<StoredAuthSession>(response);
+  saveAuthSession(session);
+  return session;
+}
+
+async function sendAuthenticatedRequest(
   path: string,
   { method = "GET", body, accessToken }: AuthenticatedRequestOptions,
-): Promise<TResponse> {
+) {
   const init: RequestInit = {
     method,
     headers: {
@@ -72,7 +90,23 @@ export async function authenticatedApiRequest<TResponse>(
     init.body = JSON.stringify(body);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, init);
+  return fetch(`${API_BASE_URL}${path}`, init);
+}
+
+export async function authenticatedApiRequest<TResponse>(
+  path: string,
+  { method = "GET", body, accessToken }: AuthenticatedRequestOptions,
+): Promise<TResponse> {
+  let response = await sendAuthenticatedRequest(path, { method, body, accessToken });
+
+  if (response.status === 401) {
+    const refreshedSession = await refreshSession();
+    const nextAccessToken = refreshedSession?.accessToken ?? getAuthSession()?.accessToken;
+
+    if (nextAccessToken) {
+      response = await sendAuthenticatedRequest(path, { method, body, accessToken: nextAccessToken });
+    }
+  }
 
   if (response.status === 204) {
     return undefined as TResponse;
