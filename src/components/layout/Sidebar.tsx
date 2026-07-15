@@ -4,6 +4,7 @@ import { BarChart3, Home, Link2, LogOut, Settings, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { AuthUser } from "@/services/auth";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -13,10 +14,12 @@ const items = [
 
 interface SidebarProps {
   open?: boolean;
+  user: AuthUser;
   onClose?: () => void;
+  onLogout: () => void;
 }
 
-export function Sidebar({ open = false, onClose }: SidebarProps) {
+export function Sidebar({ open = false, user, onClose, onLogout }: SidebarProps) {
   const labelId = useId();
   const mobilePanelRef = useRef<HTMLElement>(null);
 
@@ -60,7 +63,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   return (
     <>
       <aside className="hidden w-64 shrink-0 border-r bg-card/50 p-4 lg:block">
-        <SidebarContent />
+        <SidebarContent user={user} onLogout={onLogout} />
       </aside>
       <div
         className={cn("fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden", open ? "block" : "hidden")}
@@ -81,7 +84,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <SidebarContent onNavigate={onClose} />
+          <SidebarContent user={user} onNavigate={onClose} onLogout={onLogout} />
         </aside>
       </div>
     </>
@@ -99,11 +102,37 @@ function Brand({ id }: { id?: string }) {
   );
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
+function SidebarContent({
+  user,
+  onNavigate,
+  onLogout,
+}: {
+  user: AuthUser;
+  onNavigate?: (() => void) | undefined;
+  onLogout: () => void;
+}) {
+  const initials = user.name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <div className="flex h-full flex-col">
       <div className="mb-8 hidden lg:block">
         <Brand />
+      </div>
+      <div className="mb-6 rounded-md border bg-background p-3">
+        <div className="flex items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-accent text-sm font-bold text-accent-foreground">
+            {initials || "U"}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{user.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          </div>
+        </div>
       </div>
       <nav className="space-y-1" aria-label="Dashboard navigation">
         {items.map((item) => (
@@ -120,7 +149,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: (() => void) | undefined 
           </NavLink>
         ))}
       </nav>
-      <Button className="mt-auto justify-start" variant="ghost">
+      <Button className="mt-auto justify-start" variant="ghost" onClick={onLogout}>
         <LogOut className="h-4 w-4" />
         Log out
       </Button>

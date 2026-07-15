@@ -19,6 +19,20 @@ export class ApiError extends Error {
   }
 }
 
+async function parseResponse<TResponse>(response: Response): Promise<TResponse> {
+  const data = (await response.json().catch(() => null)) as ApiErrorBody | TResponse | null;
+
+  if (!response.ok) {
+    const errorBody = data as ApiErrorBody | null;
+    const message = errorBody?.error?.message ?? "Something went wrong. Please try again.";
+    const details = errorBody?.error?.details ?? [];
+
+    throw new ApiError(message, response.status, details);
+  }
+
+  return data as TResponse;
+}
+
 export async function apiRequest<TResponse, TBody extends object>(
   path: string,
   body: TBody,
@@ -32,15 +46,37 @@ export async function apiRequest<TResponse, TBody extends object>(
     body: JSON.stringify(body),
   });
 
-  const data = (await response.json().catch(() => null)) as ApiErrorBody | TResponse | null;
+  return parseResponse<TResponse>(response);
+}
 
-  if (!response.ok) {
-    const errorBody = data as ApiErrorBody | null;
-    const message = errorBody?.error?.message ?? "Something went wrong. Please try again.";
-    const details = errorBody?.error?.details ?? [];
+interface AuthenticatedRequestOptions {
+  method?: "GET" | "POST" | "PUT" | "DELETE";
+  body?: object;
+  accessToken: string;
+}
 
-    throw new ApiError(message, response.status, details);
+export async function authenticatedApiRequest<TResponse>(
+  path: string,
+  { method = "GET", body, accessToken }: AuthenticatedRequestOptions,
+): Promise<TResponse> {
+  const init: RequestInit = {
+    method,
+    headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: "include",
+  };
+
+  if (body) {
+    init.body = JSON.stringify(body);
   }
 
-  return data as TResponse;
+  const response = await fetch(`${API_BASE_URL}${path}`, init);
+
+  if (response.status === 204) {
+    return undefined as TResponse;
+  }
+
+  return parseResponse<TResponse>(response);
 }

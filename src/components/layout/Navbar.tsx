@@ -1,13 +1,14 @@
 import { Link, NavLink } from "react-router-dom";
-import { Link2, Menu } from "lucide-react";
+import { Link2, LogOut, Menu } from "lucide-react";
 
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/buttonVariants";
-import { cn } from "@/lib/utils";
+import type { AuthUser } from "@/services/auth";
 
 interface NavbarProps {
+  user?: AuthUser;
   onMenuClick?: () => void;
+  onLogout?: () => void;
 }
 
 const navItems = [
@@ -16,7 +17,7 @@ const navItems = [
   { href: "/settings", label: "Settings" },
 ];
 
-export function Navbar({ onMenuClick }: NavbarProps) {
+export function Navbar({ user, onMenuClick, onLogout }: NavbarProps) {
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
@@ -41,12 +42,17 @@ export function Navbar({ onMenuClick }: NavbarProps) {
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Link className={cn(buttonVariants({ variant: "outline" }), "hidden sm:inline-flex")} to="/login">
-            Log in
-          </Link>
-          <Link className={cn(buttonVariants(), "hidden sm:inline-flex")} to="/register">
-            Sign up
-          </Link>
+          {user ? (
+            <>
+              <div className="hidden min-w-0 text-right sm:block">
+                <p className="truncate text-sm font-medium">{user.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              </div>
+              <Button aria-label="Log out" className="hidden sm:inline-flex" size="icon" variant="ghost" onClick={onLogout}>
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </>
+          ) : null}
           <Button aria-label="Open navigation menu" className="md:hidden" size="icon" variant="ghost" onClick={onMenuClick}>
             <Menu className="h-5 w-5" />
           </Button>
