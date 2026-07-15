@@ -142,18 +142,14 @@ export function AnalyticsPage() {
                 <CardDescription>Share of clicks by device type.</CardDescription>
               </CardHeader>
               <CardContent>
-                {data.devices.some((item) => item.value > 0) ? (
-                  <DeviceChart data={data.devices} />
-                ) : (
-                  <EmptyState description="Device breakdown appears after your links receive visits." icon={CircleAlert} title="No device data yet" />
-                )}
+                <DeviceChart data={data.devices} />
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Browser statistics</CardTitle>
-                <CardDescription>Share of clicks by browser.</CardDescription>
+                <CardTitle>Browser analytics</CardTitle>
+                <CardDescription>Top browsers opening your short URLs.</CardDescription>
               </CardHeader>
               <CardContent>
                 <BrowserAnalytics items={data.browsers} />
