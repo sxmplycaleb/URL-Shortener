@@ -4,6 +4,7 @@ dotenv.config();
 
 const MIN_JWT_SECRET_LENGTH = 32;
 const MIN_HASH_SALT_LENGTH = 16;
+const DEFAULT_CLIENT_URL = "http://localhost:5173";
 
 function required(name) {
   const value = process.env[name];
@@ -41,11 +42,41 @@ function requiredSecret(name, minimumLength) {
   return value;
 }
 
+function urlListValue(name, fallback) {
+  const rawValue = process.env[name] ?? fallback;
+  const values = rawValue
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (values.length === 0) {
+    throw new Error(`${name} must include at least one URL.`);
+  }
+
+  for (const value of values) {
+    try {
+      const url = new URL(value);
+
+      if (!["http:", "https:"].includes(url.protocol)) {
+        throw new Error();
+      }
+    } catch {
+      throw new Error(`${name} must contain valid http or https URLs.`);
+    }
+  }
+
+  return values;
+}
+
 export function getEnv() {
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const clientUrls = urlListValue("CLIENT_URL", nodeEnv === "production" ? "" : DEFAULT_CLIENT_URL);
+
   return {
-    nodeEnv: process.env.NODE_ENV ?? "development",
+    nodeEnv,
     port: numberValue("PORT", 3000),
-    clientUrl: process.env.CLIENT_URL ?? "http://localhost:5173",
+    clientUrl: clientUrls[0],
+    clientUrls,
     accessTokenSecret: requiredSecret("JWT_SECRET", MIN_JWT_SECRET_LENGTH),
     refreshTokenSecret: requiredSecret("JWT_REFRESH_SECRET", MIN_JWT_SECRET_LENGTH),
     hashSalt: requiredSecret("HASH_SALT", MIN_HASH_SALT_LENGTH),

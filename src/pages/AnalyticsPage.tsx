@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CircleAlert } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { AnalyticsTable } from "@/components/analytics/AnalyticsTable";
+import { BrowserAnalytics } from "@/components/analytics/BrowserAnalytics";
 import { ClickChart } from "@/components/analytics/ClickChart";
 import { DeviceChart } from "@/components/analytics/DeviceChart";
 import { LocationAnalytics } from "@/components/analytics/LocationAnalytics";
+import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -14,6 +18,8 @@ import {
   type AnalyticsDashboardData,
   type AnalyticsPeriod,
 } from "@/services/analyticsService";
+import { ApiError } from "@/services/api";
+import { clearAuthSession, getAuthSession } from "@/services/authStorage";
 
 const periods: Array<{ label: string; value: AnalyticsPeriod }> = [
   { label: "Last 7 days", value: "7d" },
@@ -21,23 +27,41 @@ const periods: Array<{ label: string; value: AnalyticsPeriod }> = [
 ];
 
 export function AnalyticsPage() {
+  const navigate = useNavigate();
+  const session = getAuthSession();
+  const accessToken = session?.accessToken ?? "";
   const [period, setPeriod] = useState<AnalyticsPeriod>("7d");
   const [data, setData] = useState<AnalyticsDashboardData | null>(null);
   const [error, setError] = useState("");
+
+  const endSession = useCallback(() => {
+    clearAuthSession();
+    navigate("/login", { replace: true, state: { message: "Your session expired. Please log in again." } });
+  }, [navigate]);
 
   useEffect(() => {
     let active = true;
 
     async function loadAnalytics() {
+      if (!accessToken) {
+        endSession();
+        return;
+      }
+
       try {
-        const response = await getAnalyticsDashboard();
+        const response = await getAnalyticsDashboard(accessToken);
         if (active) {
           setData(response);
           setError("");
         }
-      } catch {
+      } catch (loadError) {
+        if (loadError instanceof ApiError && (loadError.status === 401 || loadError.status === 403)) {
+          endSession();
+          return;
+        }
+
         if (active) {
-          setError("Unable to load analytics right now. Please try again.");
+          setError(loadError instanceof ApiError ? loadError.message : "Unable to load analytics right now. Please try again.");
         }
       }
     }
@@ -47,7 +71,7 @@ export function AnalyticsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [accessToken, endSession]);
 
   const clickActivity = useMemo(() => data?.clickActivity[period] ?? [], [data, period]);
 
@@ -93,7 +117,11 @@ export function AnalyticsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <ClickChart data={clickActivity} />
+              {clickActivity.some((point) => point.clicks > 0) ? (
+                <ClickChart data={clickActivity} />
+              ) : (
+                <EmptyState description="Clicks will appear here after someone opens one of your short URLs." icon={CircleAlert} title="No clicks yet" />
+              )}
             </CardContent>
           </Card>
 
@@ -107,14 +135,28 @@ export function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-3">
             <Card>
               <CardHeader>
                 <CardTitle>Device analytics</CardTitle>
                 <CardDescription>Share of clicks by device type.</CardDescription>
               </CardHeader>
               <CardContent>
-                <DeviceChart data={data.devices} />
+                {data.devices.some((item) => item.value > 0) ? (
+                  <DeviceChart data={data.devices} />
+                ) : (
+                  <EmptyState description="Device breakdown appears after your links receive visits." icon={CircleAlert} title="No device data yet" />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Browser statistics</CardTitle>
+                <CardDescription>Share of clicks by browser.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <BrowserAnalytics items={data.browsers} />
               </CardContent>
             </Card>
 

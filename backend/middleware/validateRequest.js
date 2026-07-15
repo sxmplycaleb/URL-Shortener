@@ -157,3 +157,56 @@ export function validateUpdateUrl(request, _response, next) {
     next(error);
   }
 }
+
+export function validateUpdateProfile(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    const name = requiredString(request.body, "name");
+    const email = requiredString(request.body, "email").toLowerCase();
+
+    if (!isValidEmail(email)) {
+      throw new AppError("email must be a valid email address.", 400);
+    }
+
+    request.validatedBody = { name, email };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateUpdatePassword(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    const currentPassword = requiredString(request.body, "currentPassword");
+    const newPassword = requiredString(request.body, "newPassword");
+
+    if (!isStrongEnoughPassword(newPassword)) {
+      throw new AppError("newPassword must include uppercase, lowercase, and numeric characters.", 400);
+    }
+
+    request.validatedBody = { currentPassword, newPassword };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateUpdateAccountSettings(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    if (typeof request.body.notificationsEnabled !== "boolean") {
+      throw new AppError("notificationsEnabled must be a boolean.", 400);
+    }
+
+    request.validatedBody = {
+      notificationsEnabled: request.body.notificationsEnabled,
+    };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}

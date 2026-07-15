@@ -3,6 +3,7 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { connectDatabase, disconnectDatabase } from "../config/database.js";
+import { getEnv } from "../config/env.js";
 import Click from "../models/Click.js";
 import RefreshToken from "../models/RefreshToken.js";
 import URLModel from "../models/URL.js";
@@ -22,6 +23,8 @@ async function registerAndLogin(email = "api@example.com") {
     password: "Password123",
   });
 
+  expect(response.status).toBe(201);
+  expect(response.body.accessToken).toEqual(expect.any(String));
   return response.body;
 }
 
@@ -35,6 +38,7 @@ describe("backend API", () => {
     process.env.JWT_ACCESS_EXPIRES_IN = "15m";
     process.env.JWT_REFRESH_EXPIRES_IN = "7d";
     process.env.RATE_LIMIT_MAX = "1000";
+    process.env.CLIENT_URL = "http://localhost:5173";
 
     const appModule = await import("../app.js");
     app = appModule.createApp();
@@ -197,5 +201,167 @@ describe("backend API", () => {
     expect(analyticsResponse.body.analytics.totalClicks).toBe(1);
     expect(analyticsResponse.body.analytics.recentClicks).toHaveLength(1);
     expect(analyticsResponse.body.analytics.url.shortCode).toBe("stats1");
+  });
+
+  it("reports database readiness for deployment health checks", async () => {
+    const response = await request(app).get("/api/ready");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      status: "ready",
+      database: "connected",
+    });
+  });
+
+  it("requires an explicit client URL in production", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalClientUrl = process.env.CLIENT_URL;
+
+    process.env.NODE_ENV = "production";
+    delete process.env.CLIENT_URL;
+
+    expect(() => getEnv()).toThrow("CLIENT_URL must include at least one URL.");
+
+    process.env.NODE_ENV = originalNodeEnv;
+    if (originalClientUrl === undefined) {
+      delete process.env.CLIENT_URL;
+    } else {
+      process.env.CLIENT_URL = originalClientUrl;
+    }
+  });
+
+  it("updates account settings for authenticated users", async () => {
+    const auth = await registerAndLogin("settings-api@example.com");
+
+    const profileResponse = await request(app)
+      .put("/api/account/me")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        name: "Settings User",
+        email: "settings-updated@example.com",
+      });
+
+    expect(profileResponse.status).toBe(200);
+    expect(profileResponse.body.user.name).toBe("Settings User");
+    expect(profileResponse.body.user.email).toBe("settings-updated@example.com");
+    expect(profileResponse.body.user.accountSettings.notificationsEnabled).toBe(true);
+
+    const passwordResponse = await request(app)
+      .put("/api/account/me/password")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        currentPassword: "Password123",
+        newPassword: "NewPassword123",
+      });
+
+    expect(passwordResponse.status).toBe(200);
+
+    const loginResponse = await request(app).post("/api/auth/login").send({
+      email: "settings-updated@example.com",
+      password: "NewPassword123",
+    });
+
+    expect(loginResponse.status).toBe(200);
+
+    const oldPasswordResponse = await request(app).post("/api/auth/login").send({
+      email: "settings-updated@example.com",
+      password: "Password123",
+    });
+
+    expect(oldPasswordResponse.status).toBe(401);
+
+    const settingsResponse = await request(app)
+      .put("/api/account/me/settings")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        notificationsEnabled: false,
+      });
+
+    expect(settingsResponse.status).toBe(200);
+    expect(settingsResponse.body.user.accountSettings.notificationsEnabled).toBe(false);
+  });
+
+  it("deletes account data and revokes refresh tokens for authenticated users", async () => {
+    const agent = request.agent(app);
+    const registerResponse = await agent.post("/api/auth/register").send({
+      name: "Delete User",
+      email: "delete-account@example.com",
+      password: "Password123",
+    });
+
+    expect(registerResponse.status).toBe(201);
+
+    const createResponse = await agent
+      .post("/api/urls")
+      .set("Authorization", `Bearer ${registerResponse.body.accessToken}`)
+      .send({
+        originalUrl: "https://example.com/delete-me",
+        customAlias: "deleteme",
+      });
+
+    expect(createResponse.status).toBe(201);
+
+    await Click.create({
+      url: createResponse.body.url.id,
+      browser: "Chrome",
+      device: "Desktop",
+      country: "Kenya",
+      city: "Nairobi",
+      clickedAt: new Date(),
+    });
+
+    const deleteResponse = await agent.delete("/api/account/me").set("Authorization", `Bearer ${registerResponse.body.accessToken}`);
+
+    expect(deleteResponse.status).toBe(204);
+    expect(deleteResponse.headers["set-cookie"]?.join(";")).toContain("refreshToken=;");
+    await expect(User.findOne({ email: "delete-account@example.com" })).resolves.toBeNull();
+    await expect(URLModel.findById(createResponse.body.url.id)).resolves.toBeNull();
+    await expect(Click.find({ url: createResponse.body.url.id })).resolves.toHaveLength(0);
+    await expect(RefreshToken.find({ user: registerResponse.body.user.id })).resolves.toHaveLength(0);
+
+    const refreshResponse = await agent.post("/api/auth/refresh").send();
+
+    expect(refreshResponse.status).toBe(400);
+    expect(refreshResponse.body.error.message).toBe("refreshToken is required.");
+  });
+
+  it("returns dashboard analytics for the authenticated user", async () => {
+    const auth = await registerAndLogin("dashboard-analytics@example.com");
+    const createResponse = await request(app)
+      .post("/api/urls")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        originalUrl: "https://example.com/dashboard",
+        customAlias: "dash1",
+      });
+
+    expect(createResponse.status).toBe(201);
+    await Click.create({
+      url: createResponse.body.url.id,
+      browser: "Chrome",
+      device: "Mobile",
+      country: "Kenya",
+      city: "Nairobi",
+      clickedAt: new Date(),
+    });
+    await URLModel.updateOne({ _id: createResponse.body.url.id }, { clickCount: 1 });
+
+    const dashboardResponse = await request(app).get("/api/analytics").set("Authorization", `Bearer ${auth.accessToken}`);
+
+    expect(dashboardResponse.status).toBe(200);
+    expect(dashboardResponse.body.analytics.summary[0].value).toBe("1");
+    expect(dashboardResponse.body.analytics.links[0].shortUrl).toContain("/dash1");
+    expect(dashboardResponse.body.analytics.devices).toContainEqual({ name: "Mobile", value: 100 });
+    expect(dashboardResponse.body.analytics.browsers).toContainEqual({
+      name: "Chrome",
+      clicks: 1,
+      share: 100,
+    });
+    expect(dashboardResponse.body.analytics.locations).toContainEqual({
+      place: "Nairobi",
+      country: "Kenya",
+      clicks: 1,
+      share: 100,
+    });
   });
 });

@@ -6,6 +6,9 @@ export interface AuthUser {
   email: string;
   role: string;
   isVerified: boolean;
+  accountSettings?: {
+    notificationsEnabled: boolean;
+  };
   createdAt: string;
   updatedAt: string;
 }

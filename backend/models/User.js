@@ -61,6 +61,12 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    accountSettings: {
+      notificationsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+    },
   },
   {
     timestamps: true,
