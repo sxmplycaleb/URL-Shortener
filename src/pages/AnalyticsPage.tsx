@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { AnalyticsTable } from "@/components/analytics/AnalyticsTable";
+import { BrowserAnalytics } from "@/components/analytics/BrowserAnalytics";
 import { ClickChart } from "@/components/analytics/ClickChart";
 import { DeviceChart } from "@/components/analytics/DeviceChart";
 import { LocationAnalytics } from "@/components/analytics/LocationAnalytics";
@@ -134,18 +135,24 @@ export function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-3">
             <Card>
               <CardHeader>
                 <CardTitle>Device analytics</CardTitle>
                 <CardDescription>Share of clicks by device type.</CardDescription>
               </CardHeader>
               <CardContent>
-                {data.devices.some((item) => item.value > 0) ? (
-                  <DeviceChart data={data.devices} />
-                ) : (
-                  <EmptyState description="Device breakdown appears after your links receive visits." icon={CircleAlert} title="No device data yet" />
-                )}
+                <DeviceChart data={data.devices} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Browser analytics</CardTitle>
+                <CardDescription>Top browsers opening your short URLs.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <BrowserAnalytics items={data.browsers} />
               </CardContent>
             </Card>
 

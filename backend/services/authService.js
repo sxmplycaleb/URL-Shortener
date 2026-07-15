@@ -9,6 +9,9 @@ function publicUser(user) {
     email: user.email,
     role: user.role,
     isVerified: user.isVerified,
+    accountSettings: {
+      notificationsEnabled: user.accountSettings?.notificationsEnabled ?? true,
+    },
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

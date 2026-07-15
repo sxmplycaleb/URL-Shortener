@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
-import { deleteAccount, updatePassword, updateProfile } from "@/services/account";
+import { deleteAccount, updateAccountSettings, updatePassword, updateProfile } from "@/services/account";
 import { ApiError } from "@/services/api";
 import { logoutUser } from "@/services/auth";
 import { clearAuthSession, getAuthSession, saveAuthSession } from "@/services/authStorage";
@@ -76,9 +76,10 @@ export function SettingsPage() {
   });
   const [profileErrors, setProfileErrors] = useState<ProfileErrors>({});
   const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({});
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(user?.accountSettings?.notificationsEnabled ?? true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
 
@@ -246,6 +247,37 @@ export function SettingsPage() {
       showNotice({ tone: "error", message: getNoticeMessage(error) });
     } finally {
       setDeletingAccount(false);
+    }
+  }
+
+  async function handleNotificationChange() {
+    if (savingSettings) return;
+
+    const nextValue = !notificationsEnabled;
+    setNotificationsEnabled(nextValue);
+    setSavingSettings(true);
+
+    try {
+      const response = await updateAccountSettings(accessToken, {
+        notificationsEnabled: nextValue,
+      });
+      saveAuthSession({
+        accessToken: getAuthSession()?.accessToken ?? accessToken,
+        user: response.user,
+      });
+      setNotificationsEnabled(response.user.accountSettings?.notificationsEnabled ?? nextValue);
+      showNotice({ tone: "success", message: "Notification preferences saved." });
+    } catch (error) {
+      setNotificationsEnabled(!nextValue);
+
+      if (shouldEndSession(error)) {
+        endSession();
+        return;
+      }
+
+      showNotice({ tone: "error", message: getNoticeMessage(error) });
+    } finally {
+      setSavingSettings(false);
     }
   }
 
@@ -431,7 +463,8 @@ export function SettingsPage() {
               <Switch
                 checked={notificationsEnabled}
                 aria-label="Toggle notification preferences"
-                onClick={() => setNotificationsEnabled((current) => !current)}
+                disabled={savingSettings}
+                onClick={() => void handleNotificationChange()}
               />
             </div>
           </CardContent>

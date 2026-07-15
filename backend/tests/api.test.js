@@ -244,6 +244,7 @@ describe("backend API", () => {
     expect(profileResponse.status).toBe(200);
     expect(profileResponse.body.user.name).toBe("Settings User");
     expect(profileResponse.body.user.email).toBe("settings-updated@example.com");
+    expect(profileResponse.body.user.accountSettings.notificationsEnabled).toBe(true);
 
     const passwordResponse = await request(app)
       .put("/api/account/me/password")
@@ -268,6 +269,16 @@ describe("backend API", () => {
     });
 
     expect(oldPasswordResponse.status).toBe(401);
+
+    const settingsResponse = await request(app)
+      .put("/api/account/me/settings")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        notificationsEnabled: false,
+      });
+
+    expect(settingsResponse.status).toBe(200);
+    expect(settingsResponse.body.user.accountSettings.notificationsEnabled).toBe(false);
   });
 
   it("deletes account data and revokes refresh tokens for authenticated users", async () => {
@@ -341,6 +352,11 @@ describe("backend API", () => {
     expect(dashboardResponse.body.analytics.summary[0].value).toBe("1");
     expect(dashboardResponse.body.analytics.links[0].shortUrl).toContain("/dash1");
     expect(dashboardResponse.body.analytics.devices).toContainEqual({ name: "Mobile", value: 100 });
+    expect(dashboardResponse.body.analytics.browsers).toContainEqual({
+      name: "Chrome",
+      clicks: 1,
+      share: 100,
+    });
     expect(dashboardResponse.body.analytics.locations).toContainEqual({
       place: "Nairobi",
       country: "Kenya",

@@ -1,4 +1,4 @@
-import { deleteAccount, updatePassword, updateProfile } from "../services/accountService.js";
+import { deleteAccount, updatePassword, updateProfile, updateSettings } from "../services/accountService.js";
 import { REFRESH_COOKIE_OPTIONS } from "./authController.js";
 
 export async function updateMe(request, response) {
@@ -8,6 +8,11 @@ export async function updateMe(request, response) {
 
 export async function changePassword(request, response) {
   const user = await updatePassword(request.user._id, request.validatedBody);
+  response.json({ user });
+}
+
+export async function updateAccountSettings(request, response) {
+  const user = await updateSettings(request.user._id, request.validatedBody);
   response.json({ user });
 }
 

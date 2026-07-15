@@ -11,6 +11,10 @@ export interface UpdatePasswordRequest {
   newPassword: string;
 }
 
+export interface UpdateAccountSettingsRequest {
+  notificationsEnabled: boolean;
+}
+
 interface AccountResponse {
   user: AuthUser;
 }
@@ -25,6 +29,14 @@ export function updateProfile(accessToken: string, body: UpdateProfileRequest) {
 
 export function updatePassword(accessToken: string, body: UpdatePasswordRequest) {
   return authenticatedApiRequest<AccountResponse>("/api/account/me/password", {
+    method: "PUT",
+    accessToken,
+    body,
+  });
+}
+
+export function updateAccountSettings(accessToken: string, body: UpdateAccountSettingsRequest) {
+  return authenticatedApiRequest<AccountResponse>("/api/account/me/settings", {
     method: "PUT",
     accessToken,
     body,

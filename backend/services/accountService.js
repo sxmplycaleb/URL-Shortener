@@ -47,6 +47,23 @@ export async function updatePassword(userId, { currentPassword, newPassword }) {
   return publicUserResource(user);
 }
 
+export async function updateSettings(userId, { notificationsEnabled }) {
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { "accountSettings.notificationsEnabled": notificationsEnabled },
+    {
+      new: true,
+      runValidators: true,
+    },
+  );
+
+  if (!user) {
+    throw new AppError("Authenticated user no longer exists.", 401);
+  }
+
+  return publicUserResource(user);
+}
+
 export async function deleteAccount(userId) {
   const urls = await URLModel.find({ user: userId }).select("_id");
   const urlIds = urls.map((url) => url._id);

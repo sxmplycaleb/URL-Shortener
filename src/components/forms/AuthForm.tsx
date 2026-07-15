@@ -90,9 +90,9 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     try {
       if (isRegister) {
-        await registerUser({ name, email, password });
-        setSuccess("Account created. Redirecting to login...");
-        window.setTimeout(() => navigate("/login", { state: { message: "Account created. You can log in now." } }), 700);
+        const authSession = await registerUser({ name, email, password });
+        saveAuthSession(authSession);
+        navigate("/dashboard");
         return;
       }
 

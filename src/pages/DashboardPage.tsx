@@ -45,10 +45,6 @@ function getShortUrl(shortCode: string) {
     return `${new URL(apiBase).origin}/${encodeURIComponent(shortCode)}`;
   }
 
-  if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
-    return `${window.location.protocol}//${window.location.hostname}:5000/${encodeURIComponent(shortCode)}`;
-  }
-
   return `${window.location.origin}/${encodeURIComponent(shortCode)}`;
 }
 

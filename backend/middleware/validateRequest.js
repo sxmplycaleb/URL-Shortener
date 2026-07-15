@@ -193,3 +193,20 @@ export function validateUpdatePassword(request, _response, next) {
     next(error);
   }
 }
+
+export function validateUpdateAccountSettings(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    if (typeof request.body.notificationsEnabled !== "boolean") {
+      throw new AppError("notificationsEnabled must be a boolean.", 400);
+    }
+
+    request.validatedBody = {
+      notificationsEnabled: request.body.notificationsEnabled,
+    };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}

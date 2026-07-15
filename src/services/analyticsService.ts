@@ -23,6 +23,12 @@ export interface DeviceAnalyticsItem {
   value: number;
 }
 
+export interface BrowserAnalyticsItem {
+  name: string;
+  clicks: number;
+  share: number;
+}
+
 export interface LocationAnalyticsItem {
   place: string;
   country: string;
@@ -43,6 +49,7 @@ export interface AnalyticsDashboardData {
   summary: AnalyticsSummaryCard[];
   clickActivity: Record<AnalyticsPeriod, ClickActivityPoint[]>;
   devices: DeviceAnalyticsItem[];
+  browsers: BrowserAnalyticsItem[];
   locations: LocationAnalyticsItem[];
   links: LinkAnalyticsItem[];
 }

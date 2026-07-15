@@ -97,6 +97,24 @@ function buildDeviceAnalytics(clicks) {
   }));
 }
 
+function buildBrowserAnalytics(clicks) {
+  const totals = new Map();
+
+  for (const click of clicks) {
+    const browser = click.browser || "Unknown";
+    totals.set(browser, (totals.get(browser) ?? 0) + 1);
+  }
+
+  return Array.from(totals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, clicksCount]) => ({
+      name,
+      clicks: clicksCount,
+      share: toPercent(clicksCount, clicks.length),
+    }));
+}
+
 function buildLocationAnalytics(clicks) {
   const totals = new Map();
 
@@ -191,6 +209,7 @@ export async function getDashboardAnalytics(userId) {
       "30d": buildClickActivity(clicks, 30),
     },
     devices: buildDeviceAnalytics(clicks),
+    browsers: buildBrowserAnalytics(clicks),
     locations: buildLocationAnalytics(clicks),
     links: urls.map((url) => ({
       id: url._id.toString(),
