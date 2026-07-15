@@ -1,80 +1,135 @@
-import { BarChart3, Globe2, MonitorSmartphone, MousePointerClick } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-import { ClicksChart } from "@/components/charts/ClicksChart";
-import { MetricList } from "@/components/charts/MetricList";
-import { EmptyState } from "@/components/common/EmptyState";
-import { StatCard } from "@/components/common/StatCard";
+import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
+import { AnalyticsTable } from "@/components/analytics/AnalyticsTable";
+import { ClickChart } from "@/components/analytics/ClickChart";
+import { DeviceChart } from "@/components/analytics/DeviceChart";
+import { LocationAnalytics } from "@/components/analytics/LocationAnalytics";
+import { LoadingState } from "@/components/common/LoadingState";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { browsers, clickTimeline, countries, devices, referrers } from "@/services/mockData";
+import {
+  getAnalyticsDashboard,
+  type AnalyticsDashboardData,
+  type AnalyticsPeriod,
+} from "@/services/analyticsService";
+
+const periods: Array<{ label: string; value: AnalyticsPeriod }> = [
+  { label: "Last 7 days", value: "7d" },
+  { label: "Last 30 days", value: "30d" },
+];
 
 export function AnalyticsPage() {
+  const [period, setPeriod] = useState<AnalyticsPeriod>("7d");
+  const [data, setData] = useState<AnalyticsDashboardData | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAnalytics() {
+      try {
+        const response = await getAnalyticsDashboard();
+        if (active) {
+          setData(response);
+          setError("");
+        }
+      } catch {
+        if (active) {
+          setError("Unable to load analytics right now. Please try again.");
+        }
+      }
+    }
+
+    void loadAnalytics();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const clickActivity = useMemo(() => data?.clickActivity[period] ?? [], [data, period]);
+
+  if (!data && !error) {
+    return <LoadingState label="Loading analytics" />;
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Analytics</h1>
-        <p className="mt-1 text-muted-foreground">Click performance and audience breakdown for your links.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Analytics</h1>
+          <p className="mt-1 text-muted-foreground">Track clicks, link health, devices, and top audience locations.</p>
+        </div>
+        <div className="inline-flex rounded-md border bg-card p-1" aria-label="Analytics reporting period">
+          {periods.map((item) => (
+            <Button
+              className="h-9 px-3"
+              key={item.value}
+              variant={period === item.value ? "default" : "ghost"}
+              onClick={() => setPeriod(item.value)}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard detail="Last 7 days" icon={MousePointerClick} label="Clicks" value="6,060" />
-        <StatCard detail="Top country: United States" icon={Globe2} label="Countries" value="42" />
-        <StatCard detail="Mobile leads this week" icon={MonitorSmartphone} label="Device mix" value="58%" />
-      </div>
+      {error ? <Alert>{error}</Alert> : null}
+      {data ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {data.summary.map((item) => (
+              <AnalyticsCard item={item} key={item.id} />
+            ))}
+          </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Clicks timeline</CardTitle>
-          <CardDescription>Daily click volume for the selected reporting period.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ClicksChart data={clickTimeline} />
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader className="gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Click activity</CardTitle>
+                <CardDescription>Clicks over time for the selected reporting period.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ClickChart data={clickActivity} />
+            </CardContent>
+          </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Countries</CardTitle>
-            <CardDescription>Approximate country share.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MetricList items={countries} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Devices</CardTitle>
-            <CardDescription>Traffic by device category.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MetricList items={devices} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Browsers</CardTitle>
-            <CardDescription>Top browser families.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MetricList items={browsers} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Referrers</CardTitle>
-            <CardDescription>Where clicks originate.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MetricList items={referrers} />
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Link performance</CardTitle>
+              <CardDescription>Per-link analytics for your shortened URLs.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AnalyticsTable links={data.links} />
+            </CardContent>
+          </Card>
 
-      <EmptyState
-        description="When a link has not received traffic yet, analytics panels collapse into this state with a clear next action."
-        icon={BarChart3}
-        title="No analytics state"
-      />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Device analytics</CardTitle>
+                <CardDescription>Share of clicks by device type.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DeviceChart data={data.devices} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Location analytics</CardTitle>
+                <CardDescription>Top cities and countries generating clicks.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LocationAnalytics items={data.locations} />
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
