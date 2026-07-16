@@ -84,7 +84,7 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: [
     {
-      command: 'npm run server',
+      command: 'node tests/helpers/e2e-server.mjs',
       url: 'http://127.0.0.1:5000/api/ready',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
