@@ -1,13 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { AnalyticsTable } from "@/components/analytics/AnalyticsTable";
-import { BrowserAnalytics } from "@/components/analytics/BrowserAnalytics";
-import { ClickChart } from "@/components/analytics/ClickChart";
-import { DeviceChart } from "@/components/analytics/DeviceChart";
-import { LocationAnalytics } from "@/components/analytics/LocationAnalytics";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
 import { Alert } from "@/components/ui/alert";
@@ -25,6 +21,27 @@ const periods: Array<{ label: string; value: AnalyticsPeriod }> = [
   { label: "Last 7 days", value: "7d" },
   { label: "Last 30 days", value: "30d" },
 ];
+
+const BrowserAnalytics = lazy(() =>
+  import("@/components/analytics/BrowserAnalytics").then((module) => ({ default: module.BrowserAnalytics })),
+);
+const ClickChart = lazy(() =>
+  import("@/components/analytics/ClickChart").then((module) => ({ default: module.ClickChart })),
+);
+const DeviceChart = lazy(() =>
+  import("@/components/analytics/DeviceChart").then((module) => ({ default: module.DeviceChart })),
+);
+const LocationAnalytics = lazy(() =>
+  import("@/components/analytics/LocationAnalytics").then((module) => ({ default: module.LocationAnalytics })),
+);
+
+function ChartFallback({ label }: { label: string }) {
+  return (
+    <div className="grid min-h-56 place-items-center">
+      <LoadingState label={label} />
+    </div>
+  );
+}
 
 export function AnalyticsPage() {
   const navigate = useNavigate();
@@ -119,7 +136,9 @@ export function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               {clickActivity.some((point) => point.clicks > 0) ? (
-                <ClickChart data={clickActivity} />
+                <Suspense fallback={<ChartFallback label="Loading chart" />}>
+                  <ClickChart data={clickActivity} />
+                </Suspense>
               ) : (
                 <EmptyState description="Clicks will appear here after someone opens one of your short URLs." icon={CircleAlert} title="No clicks yet" />
               )}
@@ -143,7 +162,9 @@ export function AnalyticsPage() {
                 <CardDescription>Share of clicks by device type.</CardDescription>
               </CardHeader>
               <CardContent>
-                <DeviceChart data={data.devices} />
+                <Suspense fallback={<ChartFallback label="Loading device analytics" />}>
+                  <DeviceChart data={data.devices} />
+                </Suspense>
               </CardContent>
             </Card>
 
@@ -153,7 +174,9 @@ export function AnalyticsPage() {
                 <CardDescription>Top browsers opening your short URLs.</CardDescription>
               </CardHeader>
               <CardContent>
-                <BrowserAnalytics items={data.browsers} />
+                <Suspense fallback={<ChartFallback label="Loading browser analytics" />}>
+                  <BrowserAnalytics items={data.browsers} />
+                </Suspense>
               </CardContent>
             </Card>
 
@@ -163,7 +186,9 @@ export function AnalyticsPage() {
                 <CardDescription>Top cities and countries generating clicks.</CardDescription>
               </CardHeader>
               <CardContent>
-                <LocationAnalytics items={data.locations} />
+                <Suspense fallback={<ChartFallback label="Loading location analytics" />}>
+                  <LocationAnalytics items={data.locations} />
+                </Suspense>
               </CardContent>
             </Card>
           </div>

@@ -155,9 +155,15 @@ function buildTrend(currentCount, previousCount) {
 }
 
 export async function getDashboardAnalytics(userId) {
-  const urls = await URLModel.find({ user: userId }).sort({ createdAt: -1 }).lean();
+  const urls = await URLModel.find({ user: userId })
+    .select("_id shortCode originalUrl clickCount createdAt expiresAt isActive")
+    .sort({ createdAt: -1 })
+    .lean();
   const urlIds = urls.map((url) => url._id);
-  const clicks = await Click.find({ url: { $in: urlIds } }).sort({ clickedAt: -1 }).lean();
+  const clicks = await Click.find({ url: { $in: urlIds } })
+    .select("clickedAt device browser city country")
+    .sort({ clickedAt: -1 })
+    .lean();
 
   const now = new Date();
   const currentPeriodStart = new Date(now);
@@ -165,10 +171,30 @@ export async function getDashboardAnalytics(userId) {
   const previousPeriodStart = new Date(now);
   previousPeriodStart.setUTCDate(now.getUTCDate() - 60);
 
-  const currentClicks = clicks.filter((click) => click.clickedAt >= currentPeriodStart).length;
-  const previousClicks = clicks.filter((click) => click.clickedAt >= previousPeriodStart && click.clickedAt < currentPeriodStart).length;
+  let currentClicks = 0;
+  let previousClicks = 0;
+
+  for (const click of clicks) {
+    if (click.clickedAt >= currentPeriodStart) {
+      currentClicks += 1;
+    } else if (click.clickedAt >= previousPeriodStart) {
+      previousClicks += 1;
+    }
+  }
+
   const trend = buildTrend(currentClicks, previousClicks);
-  const activeUrls = urls.filter((url) => statusForUrl(url) === "active").length;
+  let activeUrls = 0;
+  let newUrls = 0;
+
+  for (const url of urls) {
+    if (statusForUrl(url) === "active") {
+      activeUrls += 1;
+    }
+
+    if (url.createdAt >= currentPeriodStart) {
+      newUrls += 1;
+    }
+  }
 
   return {
     summary: [
@@ -183,7 +209,7 @@ export async function getDashboardAnalytics(userId) {
         id: "total-links",
         title: "Total links created",
         value: urls.length.toLocaleString("en"),
-        trend: `${urls.filter((url) => url.createdAt >= currentPeriodStart).length.toLocaleString("en")} new in 30 days`,
+        trend: `${newUrls.toLocaleString("en")} new in 30 days`,
         trendDirection: "neutral",
         icon: "links",
       },
