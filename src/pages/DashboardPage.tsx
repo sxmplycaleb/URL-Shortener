@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { FormEvent, memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { BarChart3, CircleAlert, ExternalLink, Link2, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -45,12 +45,14 @@ function getShortUrl(shortCode: string) {
   return `${window.location.origin}/${encodeURIComponent(shortCode)}`;
 }
 
+const dateFormatter = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
+  return dateFormatter.format(new Date(value));
 }
 
 function getErrorMessage(error: unknown) {
@@ -176,29 +178,32 @@ export function DashboardPage() {
     }
   }
 
-  async function handleDelete(url: ShortenedUrl) {
-    if (deletingId || !accessToken) return;
+  const handleDelete = useCallback(
+    async (url: ShortenedUrl) => {
+      if (deletingId || !accessToken) return;
 
-    const confirmed = window.confirm(`Delete ${getShortUrl(url.shortCode)}?`);
-    if (!confirmed) return;
+      const confirmed = window.confirm(`Delete ${getShortUrl(url.shortCode)}?`);
+      if (!confirmed) return;
 
-    setDeletingId(url.id);
+      setDeletingId(url.id);
 
-    try {
-      await deleteShortenedUrl(accessToken, url.id);
-      setUrls((current) => current.filter((item) => item.id !== url.id));
-      setNotice({ tone: "success", message: "Short URL deleted." });
-    } catch (error) {
-      if (isAuthorizationError(error)) {
-        endSession();
-        return;
+      try {
+        await deleteShortenedUrl(accessToken, url.id);
+        setUrls((current) => current.filter((item) => item.id !== url.id));
+        setNotice({ tone: "success", message: "Short URL deleted." });
+      } catch (error) {
+        if (isAuthorizationError(error)) {
+          endSession();
+          return;
+        }
+
+        setNotice({ tone: "error", message: getErrorMessage(error) });
+      } finally {
+        setDeletingId("");
       }
-
-      setNotice({ tone: "error", message: getErrorMessage(error) });
-    } finally {
-      setDeletingId("");
-    }
-  }
+    },
+    [accessToken, deletingId, endSession],
+  );
 
   if (initialLoading) {
     return <LoadingState label="Loading dashboard" />;
@@ -325,7 +330,7 @@ export function DashboardPage() {
                           <Td>{formatDate(url.createdAt)}</Td>
                           <Td>
                             <div className="flex justify-end gap-1">
-                              <UrlActions deletingId={deletingId} shortUrl={shortUrl} url={url} onDelete={handleDelete} />
+                              <UrlActions isDeleting={deletingId === url.id} shortUrl={shortUrl} url={url} onDelete={handleDelete} />
                             </div>
                           </Td>
                         </tr>
@@ -350,7 +355,7 @@ export function DashboardPage() {
                           <p className="text-muted-foreground">{formatDate(url.createdAt)}</p>
                         </div>
                         <div className="flex shrink-0 gap-1">
-                          <UrlActions deletingId={deletingId} shortUrl={shortUrl} url={url} onDelete={handleDelete} />
+                          <UrlActions isDeleting={deletingId === url.id} shortUrl={shortUrl} url={url} onDelete={handleDelete} />
                         </div>
                       </div>
                     </Card>
@@ -379,19 +384,17 @@ export function DashboardPage() {
   );
 }
 
-function UrlActions({
-  deletingId,
+const UrlActions = memo(function UrlActions({
+  isDeleting,
   shortUrl,
   url,
   onDelete,
 }: {
-  deletingId: string;
+  isDeleting: boolean;
   shortUrl: string;
   url: ShortenedUrl;
   onDelete: (url: ShortenedUrl) => Promise<void>;
 }) {
-  const isDeleting = deletingId === url.id;
-
   return (
     <>
       <CopyButton label="Copy shortened URL" value={shortUrl} />
@@ -419,4 +422,4 @@ function UrlActions({
       </Tooltip>
     </>
   );
-}
+});
