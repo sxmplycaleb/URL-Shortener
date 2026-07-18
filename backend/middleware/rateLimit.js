@@ -19,16 +19,64 @@ export function createApiRateLimiter() {
 }
 
 export function createAuthRateLimiter() {
-  const { rateLimitMax } = getEnv();
+  const { authRateLimitWindowMs, authRateLimitMax } = getEnv();
 
   return rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: rateLimitMax,
+    windowMs: authRateLimitWindowMs,
+    limit: authRateLimitMax,
     standardHeaders: true,
     legacyHeaders: false,
     message: {
       error: {
         message: "Too many authentication attempts. Please try again later.",
+      },
+    },
+  });
+}
+
+export function createUrlCreationRateLimiter() {
+  const { urlCreationRateLimitWindowMs, urlCreationRateLimitMax } = getEnv();
+
+  return rateLimit({
+    windowMs: urlCreationRateLimitWindowMs,
+    limit: urlCreationRateLimitMax,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      error: {
+        message: "Too many URL creation attempts. Please try again later.",
+      },
+    },
+  });
+}
+
+export function createRedirectRateLimiter() {
+  const { redirectRateLimitWindowMs, redirectRateLimitMax } = getEnv();
+
+  return rateLimit({
+    windowMs: redirectRateLimitWindowMs,
+    limit: redirectRateLimitMax,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      error: {
+        message: "Too many redirect requests. Please try again later.",
+      },
+    },
+  });
+}
+
+export function createPasswordRateLimiter() {
+  const { passwordRateLimitWindowMs, passwordRateLimitMax } = getEnv();
+
+  return rateLimit({
+    windowMs: passwordRateLimitWindowMs,
+    limit: passwordRateLimitMax,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      error: {
+        message: "Too many password change attempts. Please try again later.",
       },
     },
   });

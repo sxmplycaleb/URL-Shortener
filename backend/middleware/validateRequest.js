@@ -1,5 +1,15 @@
 import AppError from "../utils/AppError.js";
-import { isCustomAlias, isHttpUrl, isStrongEnoughPassword, isValidEmail } from "../utils/validators.js";
+import {
+  MAX_ALIAS_LENGTH,
+  MAX_EMAIL_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_TOKEN_LENGTH,
+  MIN_SHORT_CODE_LENGTH,
+  isCustomAlias,
+  isHttpUrl,
+  isStrongEnoughPassword,
+  isValidEmail,
+} from "../utils/validators.js";
 
 function assertObject(value, label = "Request body") {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -34,6 +44,10 @@ function optionalDate(value, field) {
 function optionalCustomAlias(body) {
   const customAlias = body.customAlias?.trim();
 
+  if (customAlias && (customAlias.length < MIN_SHORT_CODE_LENGTH || customAlias.length > MAX_ALIAS_LENGTH)) {
+    throw new AppError(`customAlias must be between ${MIN_SHORT_CODE_LENGTH} and ${MAX_ALIAS_LENGTH} characters.`, 400);
+  }
+
   if (customAlias && !isCustomAlias(customAlias)) {
     throw new AppError("customAlias contains invalid characters.", 400);
   }
@@ -49,8 +63,16 @@ export function validateRegister(request, _response, next) {
     const email = requiredString(request.body, "email").toLowerCase();
     const password = requiredString(request.body, "password");
 
+    if (name.length > MAX_NAME_LENGTH) {
+      throw new AppError(`name cannot exceed ${MAX_NAME_LENGTH} characters.`, 400);
+    }
+
     if (!isValidEmail(email)) {
       throw new AppError("email must be a valid email address.", 400);
+    }
+
+    if (email.length > MAX_EMAIL_LENGTH) {
+      throw new AppError(`email cannot exceed ${MAX_EMAIL_LENGTH} characters.`, 400);
     }
 
     if (!isStrongEnoughPassword(password)) {
@@ -68,8 +90,14 @@ export function validateLogin(request, _response, next) {
   try {
     assertObject(request.body);
 
+    const email = requiredString(request.body, "email").toLowerCase();
+
+    if (!isValidEmail(email)) {
+      throw new AppError("email must be a valid email address.", 400);
+    }
+
     request.validatedBody = {
-      email: requiredString(request.body, "email").toLowerCase(),
+      email,
       password: requiredString(request.body, "password"),
     };
     next();
@@ -84,6 +112,10 @@ export function validateRefreshOrLogout(request, _response, next) {
 
     if (typeof refreshToken !== "string" || refreshToken.trim() === "") {
       throw new AppError("refreshToken is required.", 400);
+    }
+
+    if (refreshToken.length > MAX_TOKEN_LENGTH) {
+      throw new AppError(`refreshToken cannot exceed ${MAX_TOKEN_LENGTH} characters.`, 400);
     }
 
     request.validatedBody = { refreshToken };
@@ -168,6 +200,14 @@ export function validateUpdateProfile(request, _response, next) {
 
     if (!isValidEmail(email)) {
       throw new AppError("email must be a valid email address.", 400);
+    }
+
+    if (name.length > MAX_NAME_LENGTH) {
+      throw new AppError(`name cannot exceed ${MAX_NAME_LENGTH} characters.`, 400);
+    }
+
+    if (email.length > MAX_EMAIL_LENGTH) {
+      throw new AppError(`email cannot exceed ${MAX_EMAIL_LENGTH} characters.`, 400);
     }
 
     request.validatedBody = { name, email };
