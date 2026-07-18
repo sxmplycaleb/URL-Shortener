@@ -80,6 +80,8 @@ Never log or commit real secrets.
 
 Use `/ready` for deployment readiness gates because it validates database connectivity.
 
+For long-term operations, monitoring, backup, restore, and incident-response guidance, see [Operations Runbook](./operations.md).
+
 ## Common Troubleshooting
 
 - Startup fails with a missing environment variable: set the named variable before starting the server.

@@ -1,12 +1,15 @@
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 
+import { logError, logger } from "../utils/logger.js";
+
 dotenv.config();
 
 const DEFAULT_MAX_RETRIES = 5;
 const DEFAULT_RETRY_DELAY_MS = 2_000;
 
 let isShutdownRegistered = false;
+let isConnectionLoggingRegistered = false;
 
 function getMongoUri() {
   const mongoUri = process.env.MONGODB_URI;
@@ -25,30 +28,36 @@ function delay(ms) {
 }
 
 function registerConnectionLogging(connection = mongoose.connection) {
+  if (isConnectionLoggingRegistered) {
+    return;
+  }
+
+  isConnectionLoggingRegistered = true;
+
   connection.on("connected", () => {
-    console.log("MongoDB connected.");
+    logger.info("database.connected");
   });
 
   connection.on("reconnected", () => {
-    console.log("MongoDB reconnected.");
+    logger.warn("database.reconnected");
   });
 
   connection.on("disconnected", () => {
-    console.warn("MongoDB disconnected.");
+    logger.warn("database.disconnected");
   });
 
   connection.on("error", (error) => {
-    console.error("MongoDB connection error:", error.message);
+    logError(error, { event: "database.connection_error" });
   });
 }
 
 async function disconnect(signal) {
   try {
     await mongoose.connection.close(false);
-    console.log(`MongoDB connection closed${signal ? ` after ${signal}` : ""}.`);
+    logger.info("database.connection_closed", { signal });
     process.exit(0);
   } catch (error) {
-    console.error("Error during MongoDB shutdown:", error.message);
+    logError(error, { event: "database.shutdown_error", signal });
     process.exit(1);
   }
 }
@@ -90,7 +99,11 @@ export async function connectDatabase(options = {}) {
       return mongoose.connection;
     } catch (error) {
       lastError = error;
-      console.error(`MongoDB connection attempt ${attempt} of ${maxRetries} failed: ${error.message}`);
+      logError(error, {
+        event: "database.connection_attempt_failed",
+        attempt,
+        maxRetries,
+      });
 
       if (attempt < maxRetries) {
         await delay(retryDelayMs);

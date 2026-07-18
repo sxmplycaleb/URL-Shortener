@@ -11,6 +11,7 @@ import mongoose from "mongoose";
 import { getEnv } from "./config/env.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { createApiRateLimiter } from "./middleware/rateLimit.js";
+import { requestLogger } from "./middleware/requestLogger.js";
 import accountRoutes from "./routes/accountRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -72,6 +73,7 @@ export function createApp() {
   );
   app.use(express.json({ limit: "20kb" }));
   app.use(cookieParser());
+  app.use(requestLogger);
 
   app.get(["/health", "/api/health"], (_request, response) => sendHealth(response));
   app.get(["/ready", "/api/ready"], (_request, response) => sendReadiness(response));
