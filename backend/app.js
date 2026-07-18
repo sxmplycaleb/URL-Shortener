@@ -18,7 +18,20 @@ export function createApp() {
   const app = express();
 
   app.set("trust proxy", 1);
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
+          objectSrc: ["'none'"],
+        },
+      },
+      referrerPolicy: { policy: "no-referrer" },
+    }),
+  );
   app.use(
     cors({
       origin(origin, callback) {
@@ -43,6 +56,10 @@ export function createApp() {
   });
 
   app.use("/api", createApiRateLimiter());
+  app.use(["/api/auth", "/api/account", "/api/urls", "/api/analytics"], (_request, response, next) => {
+    response.set("Cache-Control", "no-store");
+    next();
+  });
   app.use("/api/auth", authRoutes);
   app.use("/api/account", accountRoutes);
   app.use("/api/urls", urlRoutes);

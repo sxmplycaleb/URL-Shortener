@@ -71,6 +71,8 @@ function urlListValue(name, fallback) {
 export function getEnv() {
   const nodeEnv = process.env.NODE_ENV ?? "development";
   const clientUrls = urlListValue("CLIENT_URL", nodeEnv === "production" ? "" : DEFAULT_CLIENT_URL);
+  const rateLimitWindowMs = numberValue("RATE_LIMIT_WINDOW_MS", 15 * 60 * 1000);
+  const rateLimitMax = numberValue("RATE_LIMIT_MAX", 100);
 
   return {
     nodeEnv,
@@ -83,7 +85,15 @@ export function getEnv() {
     accessTokenExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? "15m",
     refreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? "7d",
     refreshTokenTtlDays: numberValue("JWT_REFRESH_TTL_DAYS", 7),
-    rateLimitWindowMs: numberValue("RATE_LIMIT_WINDOW_MS", 15 * 60 * 1000),
-    rateLimitMax: numberValue("RATE_LIMIT_MAX", 100),
+    rateLimitWindowMs,
+    rateLimitMax,
+    authRateLimitWindowMs: numberValue("AUTH_RATE_LIMIT_WINDOW_MS", rateLimitWindowMs),
+    authRateLimitMax: numberValue("AUTH_RATE_LIMIT_MAX", rateLimitMax),
+    urlCreationRateLimitWindowMs: numberValue("URL_CREATION_RATE_LIMIT_WINDOW_MS", rateLimitWindowMs),
+    urlCreationRateLimitMax: numberValue("URL_CREATION_RATE_LIMIT_MAX", rateLimitMax),
+    redirectRateLimitWindowMs: numberValue("REDIRECT_RATE_LIMIT_WINDOW_MS", rateLimitWindowMs),
+    redirectRateLimitMax: numberValue("REDIRECT_RATE_LIMIT_MAX", rateLimitMax),
+    passwordRateLimitWindowMs: numberValue("PASSWORD_RATE_LIMIT_WINDOW_MS", rateLimitWindowMs),
+    passwordRateLimitMax: numberValue("PASSWORD_RATE_LIMIT_MAX", rateLimitMax),
   };
 }
