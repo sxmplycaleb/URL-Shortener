@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError } from "@/services/api";
+import { isValidEmail, MIN_PASSWORD_LENGTH } from "@/lib/utils";
+import { getApiErrorMessage } from "@/services/api";
 import { loginUser, registerUser } from "@/services/auth";
 import { saveAuthSession } from "@/services/authStorage";
 
@@ -15,9 +16,6 @@ interface AuthFormProps {
   mode: "login" | "register";
   initialMessage?: string | undefined;
 }
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LENGTH = 8;
 
 interface AuthFormErrors {
   name?: string;
@@ -47,7 +45,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
 
     if (!values.email) {
       nextErrors.email = "Email is required.";
-    } else if (!EMAIL_PATTERN.test(values.email)) {
+    } else if (!isValidEmail(values.email)) {
       nextErrors.email = "Enter a valid email address.";
     }
 
@@ -101,12 +99,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
       saveAuthSession(authSession);
       navigate("/dashboard");
     } catch (error) {
-      const message =
-        error instanceof ApiError
-          ? [error.message, ...error.details].join(" ")
-          : "Unable to reach the authentication service. Please try again.";
-
-      setErrors({ form: message });
+      setErrors({ form: getApiErrorMessage(error, "Unable to reach the authentication service. Please try again.") });
     } finally {
       setLoading(false);
     }

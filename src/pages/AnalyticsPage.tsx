@@ -18,7 +18,7 @@ import {
   type AnalyticsDashboardData,
   type AnalyticsPeriod,
 } from "@/services/analyticsService";
-import { ApiError } from "@/services/api";
+import { getApiErrorMessage, isAuthorizationError } from "@/services/api";
 import { clearAuthSession, getAuthSession } from "@/services/authStorage";
 
 const periods: Array<{ label: string; value: AnalyticsPeriod }> = [
@@ -56,13 +56,13 @@ export function AnalyticsPage() {
           setError("");
         }
       } catch (loadError) {
-        if (loadError instanceof ApiError && (loadError.status === 401 || loadError.status === 403)) {
+        if (isAuthorizationError(loadError)) {
           endSession();
           return;
         }
 
         if (active) {
-          setError(loadError instanceof ApiError ? loadError.message : "Unable to load analytics right now. Please try again.");
+          setError(getApiErrorMessage(loadError, "Unable to load analytics right now. Please try again."));
         }
       }
     }

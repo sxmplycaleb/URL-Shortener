@@ -14,13 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, Td, Th } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
-import { formatNumber, isValidHttpUrl } from "@/lib/utils";
-import { ApiError } from "@/services/api";
+import { formatNumber, isValidCustomAlias, isValidHttpUrl } from "@/lib/utils";
+import { getApiErrorMessage, isAuthorizationError } from "@/services/api";
 import { clearAuthSession, getAuthSession } from "@/services/authStorage";
 import { createShortenedUrl, deleteShortenedUrl, listShortenedUrls, type ShortenedUrl } from "@/services/urls";
-
-const ALIAS_PATTERN = /^[A-Za-z0-9_-]{3,64}$/;
-const RESERVED_ALIASES = new Set(["admin", "api", "docs", "health", "login", "register", "settings"]);
 
 interface FormErrors {
   originalUrl?: string;
@@ -57,15 +54,7 @@ function formatDate(value: string) {
 }
 
 function getErrorMessage(error: unknown) {
-  if (error instanceof ApiError) {
-    return [error.message, ...error.details].join(" ");
-  }
-
-  return "Unable to reach the URL service. Please try again.";
-}
-
-function shouldEndSession(error: unknown) {
-  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+  return getApiErrorMessage(error, "Unable to reach the URL service. Please try again.");
 }
 
 export function DashboardPage() {
@@ -109,7 +98,7 @@ export function DashboardPage() {
         setUrls(response.urls);
         setListError("");
       } catch (error) {
-        if (shouldEndSession(error)) {
+        if (isAuthorizationError(error)) {
           endSession();
           return;
         }
@@ -142,7 +131,7 @@ export function DashboardPage() {
       nextErrors.originalUrl = "Enter a valid http or https URL.";
     }
 
-    if (customAlias && (!ALIAS_PATTERN.test(customAlias) || RESERVED_ALIASES.has(customAlias.toLowerCase()))) {
+    if (customAlias && !isValidCustomAlias(customAlias)) {
       nextErrors.customAlias = "Use 3-64 letters, numbers, underscores, or hyphens, and avoid reserved aliases.";
     }
 
@@ -176,7 +165,7 @@ export function DashboardPage() {
       formElement.reset();
       setNotice({ tone: "success", message: `Created ${getShortUrl(response.url.shortCode)}` });
     } catch (error) {
-      if (shouldEndSession(error)) {
+      if (isAuthorizationError(error)) {
         endSession();
         return;
       }
@@ -200,7 +189,7 @@ export function DashboardPage() {
       setUrls((current) => current.filter((item) => item.id !== url.id));
       setNotice({ tone: "success", message: "Short URL deleted." });
     } catch (error) {
-      if (shouldEndSession(error)) {
+      if (isAuthorizationError(error)) {
         endSession();
         return;
       }
@@ -336,33 +325,7 @@ export function DashboardPage() {
                           <Td>{formatDate(url.createdAt)}</Td>
                           <Td>
                             <div className="flex justify-end gap-1">
-                              <CopyButton label="Copy shortened URL" value={shortUrl} />
-                              <Tooltip label="Open shortened URL">
-                                <a
-                                  className="inline-flex h-11 w-11 items-center justify-center rounded-md hover:bg-muted"
-                                  href={shortUrl}
-                                  rel="noopener noreferrer"
-                                  target="_blank"
-                                  aria-label="Open shortened URL"
-                                >
-                                  <ExternalLink className="h-4 w-4" />
-                                </a>
-                              </Tooltip>
-                              <Tooltip label="Delete URL">
-                                <Button
-                                  aria-label="Delete URL"
-                                  disabled={deletingId === url.id}
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => void handleDelete(url)}
-                                >
-                                  {deletingId === url.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  )}
-                                </Button>
-                              </Tooltip>
+                              <UrlActions deletingId={deletingId} shortUrl={shortUrl} url={url} onDelete={handleDelete} />
                             </div>
                           </Td>
                         </tr>
@@ -387,33 +350,7 @@ export function DashboardPage() {
                           <p className="text-muted-foreground">{formatDate(url.createdAt)}</p>
                         </div>
                         <div className="flex shrink-0 gap-1">
-                          <CopyButton label="Copy shortened URL" value={shortUrl} />
-                          <Tooltip label="Open shortened URL">
-                            <a
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-md hover:bg-muted"
-                              href={shortUrl}
-                              rel="noopener noreferrer"
-                              target="_blank"
-                              aria-label="Open shortened URL"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          </Tooltip>
-                          <Tooltip label="Delete URL">
-                            <Button
-                              aria-label="Delete URL"
-                              disabled={deletingId === url.id}
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => void handleDelete(url)}
-                            >
-                              {deletingId === url.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              )}
-                            </Button>
-                          </Tooltip>
+                          <UrlActions deletingId={deletingId} shortUrl={shortUrl} url={url} onDelete={handleDelete} />
                         </div>
                       </div>
                     </Card>
@@ -439,5 +376,47 @@ export function DashboardPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function UrlActions({
+  deletingId,
+  shortUrl,
+  url,
+  onDelete,
+}: {
+  deletingId: string;
+  shortUrl: string;
+  url: ShortenedUrl;
+  onDelete: (url: ShortenedUrl) => Promise<void>;
+}) {
+  const isDeleting = deletingId === url.id;
+
+  return (
+    <>
+      <CopyButton label="Copy shortened URL" value={shortUrl} />
+      <Tooltip label="Open shortened URL">
+        <a
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md hover:bg-muted"
+          href={shortUrl}
+          rel="noopener noreferrer"
+          target="_blank"
+          aria-label="Open shortened URL"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </a>
+      </Tooltip>
+      <Tooltip label="Delete URL">
+        <Button
+          aria-label="Delete URL"
+          disabled={isDeleting}
+          size="icon"
+          variant="ghost"
+          onClick={() => void onDelete(url)}
+        >
+          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
+        </Button>
+      </Tooltip>
+    </>
   );
 }

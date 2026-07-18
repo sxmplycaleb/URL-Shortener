@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/hooks/useTheme";
-import { cn } from "@/lib/utils";
+import { cn, isValidEmail, MIN_PASSWORD_LENGTH } from "@/lib/utils";
 import { deleteAccount, updateAccountSettings, updatePassword, updateProfile } from "@/services/account";
-import { ApiError } from "@/services/api";
+import { getApiErrorMessage, isAuthorizationError } from "@/services/api";
 import { logoutUser } from "@/services/auth";
 import { clearAuthSession, getAuthSession, saveAuthSession } from "@/services/authStorage";
 
@@ -43,10 +43,6 @@ interface PasswordErrors {
 interface Notice {
   tone: NoticeTone;
   message: string;
-}
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function FieldError({ children, id }: { children: string | undefined; id: string }) {
@@ -123,8 +119,8 @@ export function SettingsPage() {
 
     if (!passwords.newPassword) {
       nextErrors.newPassword = "New password is required.";
-    } else if (passwords.newPassword.length < 8) {
-      nextErrors.newPassword = "Use at least 8 characters.";
+    } else if (passwords.newPassword.length < MIN_PASSWORD_LENGTH) {
+      nextErrors.newPassword = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
     }
 
     if (!passwords.confirmPassword) {
@@ -142,11 +138,7 @@ export function SettingsPage() {
   }
 
   function getNoticeMessage(error: unknown) {
-    return error instanceof ApiError ? [error.message, ...error.details].join(" ") : "Unable to save settings. Please try again.";
-  }
-
-  function shouldEndSession(error: unknown) {
-    return error instanceof ApiError && (error.status === 401 || error.status === 403);
+    return getApiErrorMessage(error, "Unable to save settings. Please try again.");
   }
 
   function endSession(message = "Your session expired. Please log in again.") {
@@ -177,7 +169,7 @@ export function SettingsPage() {
       setProfile({ name: response.user.name, email: response.user.email });
       showNotice({ tone: "success", message: "Profile settings saved." });
     } catch (error) {
-      if (shouldEndSession(error)) {
+      if (isAuthorizationError(error)) {
         endSession();
         return;
       }
@@ -207,7 +199,7 @@ export function SettingsPage() {
       setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" });
       showNotice({ tone: "success", message: "Password updated." });
     } catch (error) {
-      if (shouldEndSession(error)) {
+      if (isAuthorizationError(error)) {
         endSession();
         return;
       }
@@ -239,7 +231,7 @@ export function SettingsPage() {
       clearAuthSession();
       navigate("/register", { replace: true, state: { message: "Account deleted." } });
     } catch (error) {
-      if (shouldEndSession(error)) {
+      if (isAuthorizationError(error)) {
         endSession();
         return;
       }
@@ -270,7 +262,7 @@ export function SettingsPage() {
     } catch (error) {
       setNotificationsEnabled(!nextValue);
 
-      if (shouldEndSession(error)) {
+      if (isAuthorizationError(error)) {
         endSession();
         return;
       }

@@ -22,6 +22,14 @@ export class ApiError extends Error {
   }
 }
 
+export function getApiErrorMessage(error: unknown, fallbackMessage: string) {
+  return error instanceof ApiError ? [error.message, ...error.details].join(" ") : fallbackMessage;
+}
+
+export function isAuthorizationError(error: unknown) {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+}
+
 async function parseResponse<TResponse>(response: Response): Promise<TResponse> {
   if (response.status === 204) {
     return undefined as TResponse;

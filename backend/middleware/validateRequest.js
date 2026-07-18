@@ -31,6 +31,16 @@ function optionalDate(value, field) {
   return value;
 }
 
+function optionalCustomAlias(body) {
+  const customAlias = body.customAlias?.trim();
+
+  if (customAlias && !isCustomAlias(customAlias)) {
+    throw new AppError("customAlias contains invalid characters.", 400);
+  }
+
+  return customAlias;
+}
+
 export function validateRegister(request, _response, next) {
   try {
     assertObject(request.body);
@@ -88,14 +98,10 @@ export function validateCreateUrl(request, _response, next) {
     assertObject(request.body);
 
     const originalUrl = requiredString(request.body, "originalUrl");
-    const customAlias = request.body.customAlias?.trim();
+    const customAlias = optionalCustomAlias(request.body);
 
     if (!isHttpUrl(originalUrl)) {
       throw new AppError("originalUrl must be a valid http or https URL.", 400);
-    }
-
-    if (customAlias && !isCustomAlias(customAlias)) {
-      throw new AppError("customAlias contains invalid characters.", 400);
     }
 
     request.validatedBody = {
@@ -126,12 +132,7 @@ export function validateUpdateUrl(request, _response, next) {
     }
 
     if (request.body.customAlias !== undefined) {
-      const customAlias = request.body.customAlias?.trim();
-
-      if (customAlias && !isCustomAlias(customAlias)) {
-        throw new AppError("customAlias contains invalid characters.", 400);
-      }
-
+      const customAlias = optionalCustomAlias(request.body);
       body.customAlias = customAlias ?? "";
     }
 

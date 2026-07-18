@@ -40,7 +40,7 @@ async function findOneAndUpdateWithGeneratedShortCode(filter, updates) {
           shortCode: generateShortCode(),
         },
         {
-          new: true,
+          returnDocument: "after",
           runValidators: true,
         },
       );
@@ -141,7 +141,7 @@ export async function updateUrl(userId, urlId, payload) {
     const url = payload.customAlias === ""
       ? await findOneAndUpdateWithGeneratedShortCode(filter, updates)
       : await URLModel.findOneAndUpdate(filter, updates, {
-          new: true,
+          returnDocument: "after",
           runValidators: true,
         });
 
