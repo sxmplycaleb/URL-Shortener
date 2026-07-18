@@ -42,6 +42,7 @@ describe("backend API", () => {
     process.env.JWT_ACCESS_EXPIRES_IN = "15m";
     process.env.JWT_REFRESH_EXPIRES_IN = "7d";
     process.env.RATE_LIMIT_MAX = "1000";
+    process.env.AUTH_RATE_LIMIT_MAX = "1000";
     process.env.CLIENT_URL = "http://localhost:5173";
 
     const appModule = await import("../app.js");

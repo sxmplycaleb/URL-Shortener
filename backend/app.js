@@ -69,6 +69,8 @@ export function createApp() {
         callback(null, !origin || clientUrls.includes(origin));
       },
       credentials: true,
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
     }),
   );
   app.use(express.json({ limit: "20kb" }));

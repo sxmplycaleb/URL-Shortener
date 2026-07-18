@@ -1,5 +1,5 @@
 import { deleteAccount, updatePassword, updateProfile, updateSettings } from "../services/accountService.js";
-import { REFRESH_COOKIE_OPTIONS } from "./authController.js";
+import { getRefreshCookieOptions } from "./authController.js";
 
 export async function updateMe(request, response) {
   const user = await updateProfile(request.user._id, request.validatedBody);
@@ -18,6 +18,6 @@ export async function updateAccountSettings(request, response) {
 
 export async function removeMe(request, response) {
   await deleteAccount(request.user._id);
-  response.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
+  response.clearCookie("refreshToken", getRefreshCookieOptions());
   response.status(204).send();
 }

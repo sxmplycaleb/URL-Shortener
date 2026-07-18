@@ -6,6 +6,7 @@ const MIN_JWT_SECRET_LENGTH = 32;
 const MIN_HASH_SALT_LENGTH = 16;
 const DEFAULT_CLIENT_URL = "http://localhost:5173";
 const VALID_NODE_ENVS = new Set(["development", "production", "test"]);
+const VALID_COOKIE_SAME_SITE_VALUES = new Set(["strict", "lax", "none"]);
 
 function required(name) {
   const value = process.env[name];
@@ -47,7 +48,7 @@ function trustProxyValue(nodeEnv) {
   const rawValue = process.env.TRUST_PROXY;
 
   if (rawValue == null || rawValue === "") {
-    return nodeEnv === "production" ? false : "loopback";
+    return nodeEnv === "production" ? 1 : "loopback";
   }
 
   const normalizedValue = rawValue.trim().toLowerCase();
@@ -65,6 +66,44 @@ function trustProxyValue(nodeEnv) {
   }
 
   return rawValue;
+}
+
+function booleanValue(name, fallback) {
+  const rawValue = process.env[name];
+
+  if (rawValue == null || rawValue === "") {
+    return fallback;
+  }
+
+  const normalizedValue = rawValue.trim().toLowerCase();
+
+  if (normalizedValue === "true") {
+    return true;
+  }
+
+  if (normalizedValue === "false") {
+    return false;
+  }
+
+  throw new Error(`${name} must be either true or false.`);
+}
+
+function cookieSameSiteValue(nodeEnv) {
+  const rawValue = process.env.AUTH_COOKIE_SAME_SITE;
+
+  if (rawValue == null || rawValue === "") {
+    return nodeEnv === "production" ? "none" : "strict";
+  }
+
+  const normalizedValue = rawValue.trim().toLowerCase();
+
+  if (!VALID_COOKIE_SAME_SITE_VALUES.has(normalizedValue)) {
+    throw new Error(
+      `AUTH_COOKIE_SAME_SITE must be one of: ${Array.from(VALID_COOKIE_SAME_SITE_VALUES).join(", ")}.`,
+    );
+  }
+
+  return normalizedValue;
 }
 
 function requiredSecret(name, minimumLength) {
@@ -113,6 +152,12 @@ export function getEnv() {
   const clientUrls = urlListValue("CLIENT_URL", nodeEnv === "production" ? "" : DEFAULT_CLIENT_URL);
   const rateLimitWindowMs = numberValue("RATE_LIMIT_WINDOW_MS", 15 * 60 * 1000);
   const rateLimitMax = numberValue("RATE_LIMIT_MAX", 100);
+  const authCookieSameSite = cookieSameSiteValue(nodeEnv);
+  const authCookieSecure = booleanValue("AUTH_COOKIE_SECURE", nodeEnv === "production");
+
+  if (authCookieSameSite === "none" && !authCookieSecure) {
+    throw new Error("AUTH_COOKIE_SECURE must be true when AUTH_COOKIE_SAME_SITE is none.");
+  }
 
   return {
     nodeEnv,
@@ -128,6 +173,8 @@ export function getEnv() {
     accessTokenExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? "15m",
     refreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? "7d",
     refreshTokenTtlDays: numberValue("JWT_REFRESH_TTL_DAYS", 7),
+    authCookieSameSite,
+    authCookieSecure,
     rateLimitWindowMs,
     rateLimitMax,
     authRateLimitWindowMs: numberValue("AUTH_RATE_LIMIT_WINDOW_MS", rateLimitWindowMs),
