@@ -5,6 +5,7 @@ dotenv.config();
 const MIN_JWT_SECRET_LENGTH = 32;
 const MIN_HASH_SALT_LENGTH = 16;
 const DEFAULT_CLIENT_URL = "http://localhost:5173";
+const VALID_NODE_ENVS = new Set(["development", "production", "test"]);
 
 function required(name) {
   const value = process.env[name];
@@ -30,6 +31,40 @@ function numberValue(name, fallback) {
   }
 
   return parsed;
+}
+
+function integerValue(name, fallback, { min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const parsed = numberValue(name, fallback);
+
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${name} must be an integer between ${min} and ${max}.`);
+  }
+
+  return parsed;
+}
+
+function trustProxyValue(nodeEnv) {
+  const rawValue = process.env.TRUST_PROXY;
+
+  if (rawValue == null || rawValue === "") {
+    return nodeEnv === "production" ? false : "loopback";
+  }
+
+  const normalizedValue = rawValue.trim().toLowerCase();
+
+  if (normalizedValue === "true") {
+    return true;
+  }
+
+  if (normalizedValue === "false") {
+    return false;
+  }
+
+  if (/^\d+$/.test(normalizedValue)) {
+    return Number(normalizedValue);
+  }
+
+  return rawValue;
 }
 
 function requiredSecret(name, minimumLength) {
@@ -70,13 +105,21 @@ function urlListValue(name, fallback) {
 
 export function getEnv() {
   const nodeEnv = process.env.NODE_ENV ?? "development";
+
+  if (!VALID_NODE_ENVS.has(nodeEnv)) {
+    throw new Error(`NODE_ENV must be one of: ${Array.from(VALID_NODE_ENVS).join(", ")}.`);
+  }
+
   const clientUrls = urlListValue("CLIENT_URL", nodeEnv === "production" ? "" : DEFAULT_CLIENT_URL);
   const rateLimitWindowMs = numberValue("RATE_LIMIT_WINDOW_MS", 15 * 60 * 1000);
   const rateLimitMax = numberValue("RATE_LIMIT_MAX", 100);
 
   return {
     nodeEnv,
-    port: numberValue("PORT", 3000),
+    port: integerValue("PORT", 3000, { min: 1, max: 65_535 }),
+    trustProxy: trustProxyValue(nodeEnv),
+    staticDir: process.env.STATIC_DIR ?? "dist",
+    shortUrlBase: process.env.SHORT_URL_BASE ?? clientUrls[0],
     clientUrl: clientUrls[0],
     clientUrls,
     accessTokenSecret: requiredSecret("JWT_SECRET", MIN_JWT_SECRET_LENGTH),
