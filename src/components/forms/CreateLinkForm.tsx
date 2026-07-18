@@ -5,10 +5,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isValidHttpUrl } from "@/lib/utils";
-
-const ALIAS_PATTERN = /^[A-Za-z0-9_-]{3,64}$/;
-const RESERVED_ALIASES = new Set(["admin", "api", "docs", "health", "login", "register", "settings"]);
+import { isValidCustomAlias, isValidHttpUrl } from "@/lib/utils";
 
 interface CreateLinkFormProps {
   compact?: boolean;
@@ -33,7 +30,7 @@ export function CreateLinkForm({ compact = false, onCreated }: CreateLinkFormPro
       return;
     }
 
-    if (alias && (!ALIAS_PATTERN.test(alias) || RESERVED_ALIASES.has(alias.toLowerCase()))) {
+    if (alias && !isValidCustomAlias(alias)) {
       setError("Use 3-64 letters, numbers, underscores, or hyphens, and avoid reserved aliases.");
       return;
     }

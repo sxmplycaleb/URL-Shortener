@@ -11,7 +11,7 @@ export async function updateProfile(userId, { name, email }) {
       userId,
       { name, email },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       },
     );
@@ -52,7 +52,7 @@ export async function updateSettings(userId, { notificationsEnabled }) {
     userId,
     { "accountSettings.notificationsEnabled": notificationsEnabled },
     {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     },
   );
