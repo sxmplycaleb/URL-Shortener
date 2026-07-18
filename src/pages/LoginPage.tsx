@@ -1,10 +1,14 @@
 import { Link2 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { AuthForm } from "@/components/forms/AuthForm";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { consumeAuthRedirectMessage } from "@/services/authStorage";
 
 export function LoginPage() {
+  const [redirectMessage] = useState(() => consumeAuthRedirectMessage());
+
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10" id="main-content">
       <div className="mb-6 flex w-full max-w-md items-center justify-between">
@@ -16,7 +20,7 @@ export function LoginPage() {
         </Link>
         <ThemeToggle />
       </div>
-      <AuthForm mode="login" />
+      <AuthForm mode="login" initialMessage={redirectMessage ?? undefined} />
     </main>
   );
 }

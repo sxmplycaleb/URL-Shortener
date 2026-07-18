@@ -13,6 +13,7 @@ import { saveAuthSession } from "@/services/authStorage";
 
 interface AuthFormProps {
   mode: "login" | "register";
+  initialMessage?: string | undefined;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,13 +27,13 @@ interface AuthFormErrors {
   form?: string;
 }
 
-export function AuthForm({ mode }: AuthFormProps) {
+export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = location.state as { message?: string } | null;
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<AuthFormErrors>({});
-  const [success, setSuccess] = useState(locationState?.message ?? "");
+  const [success, setSuccess] = useState(initialMessage ?? locationState?.message ?? "");
   const errorId = useId();
   const successId = useId();
   const isRegister = mode === "register";

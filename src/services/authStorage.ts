@@ -1,6 +1,7 @@
 import type { AuthResponse } from "@/services/auth";
 
 const AUTH_SESSION_KEY = "shortly.auth";
+const AUTH_REDIRECT_MESSAGE_KEY = "shortly.auth.redirectMessage";
 
 export interface StoredAuthSession {
   accessToken: string;
@@ -26,6 +27,16 @@ export function getAuthSession(): StoredAuthSession | null {
   }
 }
 
-export function clearAuthSession() {
+export function clearAuthSession(redirectMessage?: string) {
   window.sessionStorage.removeItem(AUTH_SESSION_KEY);
+
+  if (redirectMessage) {
+    window.sessionStorage.setItem(AUTH_REDIRECT_MESSAGE_KEY, redirectMessage);
+  }
+}
+
+export function consumeAuthRedirectMessage() {
+  const message = window.sessionStorage.getItem(AUTH_REDIRECT_MESSAGE_KEY);
+  window.sessionStorage.removeItem(AUTH_REDIRECT_MESSAGE_KEY);
+  return message;
 }

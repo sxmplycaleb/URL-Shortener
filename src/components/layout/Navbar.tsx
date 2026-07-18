@@ -27,7 +27,7 @@ export function Navbar({ user, onMenuClick, onLogout }: NavbarProps) {
           </span>
           Shortly
         </Link>
-        <nav className="hidden items-center gap-2 md:flex" aria-label="Main navigation">
+        <nav className="hidden items-center gap-2 lg:flex" aria-label="Main navigation">
           {navItems.map((item) => (
             <NavLink
               key={item.href}
@@ -44,16 +44,16 @@ export function Navbar({ user, onMenuClick, onLogout }: NavbarProps) {
           <ThemeToggle />
           {user ? (
             <>
-              <div className="hidden min-w-0 text-right sm:block">
+              <div className="hidden min-w-0 text-right lg:block">
                 <p className="truncate text-sm font-medium">{user.name}</p>
                 <p className="truncate text-xs text-muted-foreground">{user.email}</p>
               </div>
-              <Button aria-label="Log out" className="hidden sm:inline-flex" size="icon" variant="ghost" onClick={onLogout}>
+              <Button aria-label="Log out" className="hidden lg:inline-flex" size="icon" variant="ghost" onClick={onLogout}>
                 <LogOut className="h-5 w-5" />
               </Button>
             </>
           ) : null}
-          <Button aria-label="Open navigation menu" className="md:hidden" size="icon" variant="ghost" onClick={onMenuClick}>
+          <Button aria-label="Open navigation menu" className="lg:hidden" size="icon" variant="ghost" onClick={onMenuClick}>
             <Menu className="h-5 w-5" />
           </Button>
         </div>

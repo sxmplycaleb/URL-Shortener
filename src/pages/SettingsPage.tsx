@@ -150,7 +150,7 @@ export function SettingsPage() {
   }
 
   function endSession(message = "Your session expired. Please log in again.") {
-    clearAuthSession();
+    clearAuthSession(message);
     navigate("/login", { replace: true, state: { message } });
   }
 
@@ -295,7 +295,7 @@ export function SettingsPage() {
             Manage your account preferences, security details, notifications, and account actions.
           </p>
         </div>
-        <div className="flex items-center gap-3 rounded-md border bg-card p-3">
+        <div className="flex min-w-0 items-center gap-3 rounded-md border bg-card p-3 sm:max-w-xs">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-accent text-sm font-bold text-accent-foreground">
             {initials || "U"}
           </span>

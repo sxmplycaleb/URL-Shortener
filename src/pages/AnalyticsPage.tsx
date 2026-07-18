@@ -35,8 +35,9 @@ export function AnalyticsPage() {
   const [error, setError] = useState("");
 
   const endSession = useCallback(() => {
-    clearAuthSession();
-    navigate("/login", { replace: true, state: { message: "Your session expired. Please log in again." } });
+    const message = "Your session expired. Please log in again.";
+    clearAuthSession(message);
+    navigate("/login", { replace: true, state: { message } });
   }, [navigate]);
 
   useEffect(() => {
