@@ -23,7 +23,11 @@ const [{ connectDatabase, disconnectDatabase }, { createApp }, { default: Click 
     import('../../backend/models/User.js'),
   ]);
 
-const mongoServer = await MongoMemoryServer.create();
+const mongoServer = await MongoMemoryServer.create({
+  instance: {
+    launchTimeout: 60_000,
+  },
+});
 
 await connectDatabase({
   uri: mongoServer.getUri(),

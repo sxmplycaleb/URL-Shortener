@@ -62,6 +62,15 @@ export async function createUrlViaApi(
   return ((await response.json()) as UrlResponse).url;
 }
 
+export async function createRedirectClick(request: APIRequestContext, shortUrl: string, userAgent?: string) {
+  const response = await request.get(shortUrl, {
+    headers: userAgent ? { 'User-Agent': userAgent } : undefined,
+    maxRedirects: 0,
+  });
+
+  expect(response.status()).toBe(302);
+}
+
 export async function listUrlsViaApi(request: APIRequestContext, accessToken: string) {
   const response = await request.get('/api/urls', {
     headers: {

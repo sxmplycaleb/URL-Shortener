@@ -9,6 +9,22 @@ export interface TestUser {
   password: string;
 }
 
+interface AuthResponse {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    isVerified: boolean;
+    accountSettings?: {
+      notificationsEnabled: boolean;
+    };
+    createdAt: string;
+    updatedAt: string;
+  };
+  accessToken: string;
+}
+
 export function uniqueUser(prefix = 'auth'): TestUser {
   const id = `${Date.now()}-${crypto.randomUUID()}`;
 
@@ -31,6 +47,37 @@ export async function createUser(request: APIRequestContext, user = uniqueUser()
   expect(response.ok()).toBeTruthy();
 
   return user;
+}
+
+export async function loginForSession(request: APIRequestContext, user: Pick<TestUser, 'email' | 'password'>) {
+  const response = await request.post('/api/auth/login', {
+    data: {
+      email: user.email,
+      password: user.password,
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()) as AuthResponse;
+}
+
+export async function establishAuthenticatedSession(
+  page: Page,
+  request: APIRequestContext,
+  user: Pick<TestUser, 'email' | 'password'>,
+) {
+  const session = await loginForSession(request, user);
+
+  await page.goto('/');
+  await page.evaluate(
+    ({ key, sessionValue }) => window.sessionStorage.setItem(key, JSON.stringify(sessionValue)),
+    {
+      key: AUTH_SESSION_KEY,
+      sessionValue: session,
+    },
+  );
+
+  return session;
 }
 
 export async function fillRegistrationForm(page: Page, user: TestUser) {
