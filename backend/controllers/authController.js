@@ -1,14 +1,19 @@
 import { loginUser, logoutUser, refreshAuth, registerUser } from "../services/authService.js";
+import { getEnv } from "../config/env.js";
 
-export const REFRESH_COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: "strict",
-  secure: process.env.NODE_ENV === "production",
-  path: "/api/auth",
-};
+export function getRefreshCookieOptions() {
+  const { authCookieSameSite, authCookieSecure } = getEnv();
+
+  return {
+    httpOnly: true,
+    sameSite: authCookieSameSite,
+    secure: authCookieSecure,
+    path: "/api/auth",
+  };
+}
 
 function sendAuthResponse(response, statusCode, payload) {
-  response.cookie("refreshToken", payload.refreshToken, REFRESH_COOKIE_OPTIONS);
+  response.cookie("refreshToken", payload.refreshToken, getRefreshCookieOptions());
   response.status(statusCode).json({
     user: payload.user,
     accessToken: payload.accessToken,
@@ -32,6 +37,6 @@ export async function refresh(request, response) {
 
 export async function logout(request, response) {
   await logoutUser(request.validatedBody.refreshToken);
-  response.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
+  response.clearCookie("refreshToken", getRefreshCookieOptions());
   response.status(204).send();
 }

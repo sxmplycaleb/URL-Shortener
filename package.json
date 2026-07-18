@@ -7,11 +7,15 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -p tsconfig.app.json --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
+    "start": "node backend/server.js",
     "server": "node backend/server.js",
     "lint": "eslint .",
     "test": "vitest run",
     "seed": "node backend/seed/seed.js",
     "format": "prettier --write ."
+  },
+  "engines": {
+    "node": "22.x"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
