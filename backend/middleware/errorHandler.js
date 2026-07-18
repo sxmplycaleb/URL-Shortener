@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import { logError } from "../utils/logger.js";
 import AppError from "../utils/AppError.js";
 
 function normalizeError(error) {
@@ -26,14 +27,19 @@ export function notFoundHandler(request, _response, next) {
   next(new AppError(`API route not found: ${request.method} ${request.originalUrl}`, 404));
 }
 
-export function errorHandler(error, _request, response, _next) {
+export function errorHandler(error, request, response, _next) {
   void _next;
 
   const normalizedError = normalizeError(error);
   const statusCode = normalizedError.statusCode ?? 500;
 
   if (statusCode >= 500) {
-    console.error(error);
+    logError(error, {
+      event: "http.unhandled_error",
+      method: request.method,
+      path: request.path,
+      statusCode,
+    });
   }
 
   response.status(statusCode).json({
