@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type KeyboardEvent, type MouseEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Route, Routes, useLocation } from "react-router-dom";
 
@@ -17,11 +17,35 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((module) => 
 export function App() {
   const location = useLocation();
 
+  function focusMainContent(event: MouseEvent<HTMLAnchorElement>) {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+
+    event.preventDefault();
+    main.focus();
+    main.scrollIntoView();
+    window.history.replaceState(null, "", "#main-content");
+  }
+
+  function focusMainContentFromKeyboard(event: KeyboardEvent<HTMLAnchorElement>) {
+    if (event.key !== "Enter") return;
+
+    const main = document.getElementById("main-content");
+    if (!main) return;
+
+    event.preventDefault();
+    main.focus();
+    main.scrollIntoView();
+    window.history.replaceState(null, "", "#main-content");
+  }
+
   return (
     <TooltipProvider>
       <a
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
         href="#main-content"
+        onClick={focusMainContent}
+        onKeyDown={focusMainContentFromKeyboard}
       >
         Skip to content
       </a>

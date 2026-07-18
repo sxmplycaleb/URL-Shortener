@@ -1,6 +1,7 @@
-import { clearAuthSession, getAuthSession, saveAuthSession, type StoredAuthSession } from "@/services/authStorage";
+import { getAuthSession, saveAuthSession, type StoredAuthSession } from "@/services/authStorage";
 
 const API_BASE_URL = import.meta.env["VITE_API_URL"] ?? "";
+const API_TIMEOUT_MS = 10_000;
 
 export interface ApiErrorBody {
   error?: {
@@ -22,6 +23,10 @@ export class ApiError extends Error {
 }
 
 async function parseResponse<TResponse>(response: Response): Promise<TResponse> {
+  if (response.status === 204) {
+    return undefined as TResponse;
+  }
+
   const data = (await response.json().catch(() => null)) as ApiErrorBody | TResponse | null;
 
   if (!response.ok) {
@@ -32,14 +37,38 @@ async function parseResponse<TResponse>(response: Response): Promise<TResponse> 
     throw new ApiError(message, response.status, details);
   }
 
+  if (data === null) {
+    throw new ApiError("Invalid response from server.", response.status);
+  }
+
   return data as TResponse;
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError("The request timed out. Please try again.", 0);
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 export async function apiRequest<TResponse, TBody extends object>(
   path: string,
   body: TBody,
 ): Promise<TResponse> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -58,13 +87,12 @@ interface AuthenticatedRequestOptions {
 }
 
 async function refreshSession(): Promise<StoredAuthSession | null> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/api/auth/refresh`, {
     method: "POST",
     credentials: "include",
   });
 
   if (!response.ok) {
-    clearAuthSession();
     return null;
   }
 
@@ -90,7 +118,7 @@ async function sendAuthenticatedRequest(
     init.body = JSON.stringify(body);
   }
 
-  return fetch(`${API_BASE_URL}${path}`, init);
+  return fetchWithTimeout(`${API_BASE_URL}${path}`, init);
 }
 
 export async function authenticatedApiRequest<TResponse>(
@@ -106,10 +134,6 @@ export async function authenticatedApiRequest<TResponse>(
     if (nextAccessToken) {
       response = await sendAuthenticatedRequest(path, { method, body, accessToken: nextAccessToken });
     }
-  }
-
-  if (response.status === 204) {
-    return undefined as TResponse;
   }
 
   return parseResponse<TResponse>(response);

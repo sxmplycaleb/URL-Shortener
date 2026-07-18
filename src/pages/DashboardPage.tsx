@@ -86,8 +86,9 @@ export function DashboardPage() {
   const activeCount = useMemo(() => urls.filter((url) => url.isActive).length, [urls]);
 
   const endSession = useCallback(() => {
-    clearAuthSession();
-    navigate("/login", { replace: true, state: { message: "Your session expired. Please log in again." } });
+    const message = "Your session expired. Please log in again.";
+    clearAuthSession(message);
+    navigate("/login", { replace: true, state: { message } });
   }, [navigate]);
 
   const loadUrls = useCallback(
@@ -305,7 +306,7 @@ export function DashboardPage() {
           {listError ? <Alert className="mb-4">{listError}</Alert> : null}
           {urls.length ? (
             <>
-              <div className="hidden md:block">
+              <div className="hidden lg:block">
                 <Table>
                   <caption className="sr-only">Shortened URLs</caption>
                   <thead>
@@ -370,7 +371,7 @@ export function DashboardPage() {
                   </tbody>
                 </Table>
               </div>
-              <div className="grid gap-3 md:hidden">
+              <div className="grid gap-3 lg:hidden">
                 {urls.map((url) => {
                   const shortUrl = getShortUrl(url.shortCode);
 

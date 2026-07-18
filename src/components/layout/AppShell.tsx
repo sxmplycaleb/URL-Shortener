@@ -11,6 +11,7 @@ export function AppShell() {
   const session = getAuthSession();
   const location = useLocation();
   const navigate = useNavigate();
+  const locationState = location.state as { message?: string } | null;
   const openMobileNav = useCallback(() => setMobileOpen(true), []);
   const closeMobileNav = useCallback(() => setMobileOpen(false), []);
 
@@ -26,7 +27,13 @@ export function AppShell() {
   }, [navigate]);
 
   if (!session) {
-    return <Navigate replace state={{ from: location.pathname, message: "Please log in to continue." }} to="/login" />;
+    return (
+      <Navigate
+        replace
+        state={{ from: location.pathname, message: locationState?.message ?? "Please log in to continue." }}
+        to="/login"
+      />
+    );
   }
 
   return (
@@ -34,7 +41,7 @@ export function AppShell() {
       <Navbar user={session.user} onLogout={handleLogout} onMenuClick={openMobileNav} />
       <div className="mx-auto flex w-full max-w-7xl">
         <Sidebar open={mobileOpen} user={session.user} onClose={closeMobileNav} onLogout={handleLogout} />
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8" id="main-content">
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8" id="main-content" tabIndex={-1}>
           <Outlet />
         </main>
       </div>
