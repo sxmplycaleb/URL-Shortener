@@ -1,4 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import cookieParser from "cookie-parser";
+import compression from "compression";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
@@ -13,11 +17,36 @@ import authRoutes from "./routes/authRoutes.js";
 import redirectRoutes from "./routes/redirectRoutes.js";
 import urlRoutes from "./routes/urlRoutes.js";
 
+const SPA_ROUTES = ["/", "/login", "/register", "/dashboard", "/analytics", "/settings"];
+
+function resolveStaticDir(staticDir) {
+  return path.isAbsolute(staticDir) ? staticDir : path.resolve(process.cwd(), staticDir);
+}
+
+function sendHealth(response) {
+  response.json({ status: "ok" });
+}
+
+function sendReadiness(response) {
+  const ready = mongoose.connection.readyState === 1;
+  response.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "unavailable",
+    database: ready ? "connected" : "disconnected",
+  });
+}
+
 export function createApp() {
-  const { clientUrls } = getEnv();
+  const { clientUrls, nodeEnv, staticDir, trustProxy } = getEnv();
+  const staticAssetDir = resolveStaticDir(staticDir);
+  const indexFile = path.join(staticAssetDir, "index.html");
+  const serveStaticAssets = fs.existsSync(indexFile);
   const app = express();
 
-  app.set("trust proxy", 1);
+  if (nodeEnv === "production" && !serveStaticAssets) {
+    throw new Error(`Production static assets were not found at ${indexFile}. Run npm run build before starting.`);
+  }
+
+  app.set("trust proxy", trustProxy);
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -32,6 +61,7 @@ export function createApp() {
       referrerPolicy: { policy: "no-referrer" },
     }),
   );
+  app.use(compression());
   app.use(
     cors({
       origin(origin, callback) {
@@ -43,17 +73,8 @@ export function createApp() {
   app.use(express.json({ limit: "20kb" }));
   app.use(cookieParser());
 
-  app.get("/api/health", (_request, response) => {
-    response.json({ status: "ok" });
-  });
-
-  app.get("/api/ready", (_request, response) => {
-    const ready = mongoose.connection.readyState === 1;
-    response.status(ready ? 200 : 503).json({
-      status: ready ? "ready" : "unavailable",
-      database: ready ? "connected" : "disconnected",
-    });
-  });
+  app.get(["/health", "/api/health"], (_request, response) => sendHealth(response));
+  app.get(["/ready", "/api/ready"], (_request, response) => sendReadiness(response));
 
   app.use("/api", createApiRateLimiter());
   app.use(["/api/auth", "/api/account", "/api/urls", "/api/analytics"], (_request, response, next) => {
@@ -65,6 +86,21 @@ export function createApp() {
   app.use("/api/urls", urlRoutes);
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api", notFoundHandler);
+
+  if (serveStaticAssets) {
+    app.use(
+      express.static(staticAssetDir, {
+        index: false,
+        maxAge: nodeEnv === "production" ? "1y" : 0,
+        immutable: nodeEnv === "production",
+      }),
+    );
+
+    app.get(SPA_ROUTES, (_request, response) => {
+      response.sendFile(indexFile);
+    });
+  }
+
   app.use("/", redirectRoutes);
   app.use(notFoundHandler);
   app.use(errorHandler);

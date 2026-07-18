@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import { getEnv } from "../config/env.js";
 import Click from "../models/Click.js";
 import URLModel from "../models/URL.js";
 import AppError from "../utils/AppError.js";
@@ -29,8 +30,8 @@ function statusForUrl(url) {
 }
 
 function shortUrlForCode(shortCode) {
-  const base = process.env.SHORT_URL_BASE || process.env.CLIENT_URL || "http://localhost:5000";
-  return `${base.replace(/\/$/, "")}/${shortCode}`;
+  const { shortUrlBase } = getEnv();
+  return `${shortUrlBase.replace(/\/$/, "")}/${shortCode}`;
 }
 
 function toPercent(count, total) {

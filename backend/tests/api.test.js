@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
 import { MongoMemoryServer } from "mongodb-memory-server";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -211,6 +215,48 @@ describe("backend API", () => {
       status: "ready",
       database: "connected",
     });
+  });
+
+  it("exposes top-level health and readiness endpoints for platform checks", async () => {
+    const healthResponse = await request(app).get("/health");
+    const readyResponse = await request(app).get("/ready");
+
+    expect(healthResponse.status).toBe(200);
+    expect(healthResponse.body).toEqual({ status: "ok" });
+    expect(readyResponse.status).toBe(200);
+    expect(readyResponse.body.database).toBe("connected");
+  });
+
+  it("serves production SPA routes from built static assets before short-code redirects", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalStaticDir = process.env.STATIC_DIR;
+    const originalClientUrl = process.env.CLIENT_URL;
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "url-shortener-dist-"));
+    const indexHtml = "<!doctype html><html><body><div id=\"root\">Production app</div></body></html>";
+
+    fs.writeFileSync(path.join(tempDir, "index.html"), indexHtml);
+    process.env.NODE_ENV = "production";
+    process.env.STATIC_DIR = tempDir;
+    process.env.CLIENT_URL = "https://shortly.example.com";
+
+    try {
+      const appModule = await import("../app.js");
+      const productionApp = appModule.createApp();
+
+      const response = await request(productionApp).get("/dashboard");
+
+      expect(response.status).toBe(200);
+      expect(response.text).toBe(indexHtml);
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalStaticDir === undefined) {
+        delete process.env.STATIC_DIR;
+      } else {
+        process.env.STATIC_DIR = originalStaticDir;
+      }
+      process.env.CLIENT_URL = originalClientUrl;
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it("requires an explicit client URL in production", () => {
