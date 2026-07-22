@@ -1,5 +1,6 @@
 import { lazy, Suspense, type KeyboardEvent, type MouseEvent } from "react";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Route, Routes, useLocation } from "react-router-dom";
 
@@ -74,6 +75,7 @@ export function App() {
         </motion.div>
       </AnimatePresence>
       <Analytics />
+      <SpeedInsights />
     </TooltipProvider>
   );
 }
