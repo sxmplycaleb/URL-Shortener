@@ -1,7 +1,7 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 export const AUTH_SESSION_KEY = 'shortly.auth';
-export const TEST_PASSWORD = 'TestPass123';
+export const TEST_PASSWORD = 'TestPass123!';
 
 export interface TestUser {
   name: string;

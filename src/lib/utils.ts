@@ -10,13 +10,88 @@ export function formatNumber(value: number) {
 }
 
 export const MIN_PASSWORD_LENGTH = 8;
+export const MAX_PASSWORD_LENGTH = 128;
+export const MIN_NAME_LENGTH = 2;
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 const ALIAS_PATTERN = /^[A-Za-z0-9_-]{3,64}$/;
 const RESERVED_ALIASES = new Set(["admin", "api", "docs", "health", "login", "register", "settings"]);
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  "10minutemail.com",
+  "guerrillamail.com",
+  "mailinator.com",
+  "tempmail.com",
+  "throwawaymail.com",
+  "yopmail.com",
+]);
 
 export function isValidEmail(value: string) {
-  return EMAIL_PATTERN.test(value);
+  const email = value.trim().toLowerCase();
+  const [, domain = ""] = email.split("@");
+
+  return (
+    EMAIL_PATTERN.test(email) &&
+    email.length <= 254 &&
+    !email.includes("..") &&
+    !domain.startsWith("-") &&
+    !domain.endsWith("-") &&
+    !DISPOSABLE_EMAIL_DOMAINS.has(domain)
+  );
+}
+
+export function validateEmail(value: string) {
+  const email = value.trim();
+  const [, domain = ""] = email.toLowerCase().split("@");
+
+  if (!email) {
+    return "Email is required.";
+  }
+
+  if (!EMAIL_PATTERN.test(email) || email.includes("..") || domain.startsWith("-") || domain.endsWith("-")) {
+    return "Enter a valid email address.";
+  }
+
+  if (email.length > 254) {
+    return "Email cannot exceed 254 characters.";
+  }
+
+  if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
+    return "Use a permanent email address.";
+  }
+
+  return "";
+}
+
+export function validatePassword(value: string) {
+  if (!value) {
+    return "Password is required.";
+  }
+
+  if (value.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+
+  if (value.length > MAX_PASSWORD_LENGTH) {
+    return `Password cannot exceed ${MAX_PASSWORD_LENGTH} characters.`;
+  }
+
+  if (!/[A-Z]/.test(value)) {
+    return "Password must include at least one uppercase letter.";
+  }
+
+  if (!/[a-z]/.test(value)) {
+    return "Password must include at least one lowercase letter.";
+  }
+
+  if (!/\d/.test(value)) {
+    return "Password must include at least one number.";
+  }
+
+  if (!/[^A-Za-z0-9]/.test(value)) {
+    return "Password must include at least one special character.";
+  }
+
+  return "";
 }
 
 export function isValidHttpUrl(value: string) {

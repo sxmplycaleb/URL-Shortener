@@ -24,7 +24,7 @@ async function registerAndLogin(email = "api@example.com") {
   const response = await request(app).post("/api/auth/register").send({
     name: "API User",
     email,
-    password: "Password123",
+    password: "Password123!",
   });
 
   expect(response.status).toBe(201);
@@ -72,7 +72,7 @@ describe("backend API", () => {
     const response = await request(app).post("/api/auth/register").send({
       name: "New User",
       email: "new@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     expect(response.status).toBe(201);
@@ -86,16 +86,31 @@ describe("backend API", () => {
     expect(tokens[0].tokenHash).toHaveLength(64);
   });
 
+  it("rejects invalid registration payloads with a consistent error response", async () => {
+    const response = await request(app).post("/api/auth/register").send({
+      name: "A",
+      email: "person@mailinator.com",
+      password: "password",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        message: expect.any(String),
+      },
+    });
+  });
+
   it("logs in users with valid credentials", async () => {
     await User.create({
       name: "Login User",
       email: "login@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     const response = await request(app).post("/api/auth/login").send({
       email: "login@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     expect(response.status).toBe(200);
@@ -110,7 +125,7 @@ describe("backend API", () => {
     const registerResponse = await agent.post("/api/auth/register").send({
       name: "Refresh User",
       email: "refresh@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
     const originalCookie = registerResponse.headers["set-cookie"];
 
@@ -225,7 +240,7 @@ describe("backend API", () => {
     await User.create({
       name: "Reset User",
       email: "reset@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     const forgotResponse = await request(app).post("/api/auth/forgot-password").send({
@@ -240,7 +255,7 @@ describe("backend API", () => {
     const token = resetUrl.searchParams.get("token");
     const resetResponse = await request(app).post("/api/auth/reset-password").send({
       token,
-      password: "NewPassword123",
+      password: "NewPassword123!",
     });
 
     expect(resetResponse.status).toBe(200);
@@ -248,15 +263,15 @@ describe("backend API", () => {
 
     const oldLogin = await request(app).post("/api/auth/login").send({
       email: "reset@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
     const newLogin = await request(app).post("/api/auth/login").send({
       email: "reset@example.com",
-      password: "NewPassword123",
+      password: "NewPassword123!",
     });
     const reuse = await request(app).post("/api/auth/reset-password").send({
       token,
-      password: "AnotherPassword123",
+      password: "AnotherPassword123!",
     });
 
     expect(oldLogin.status).toBe(401);
@@ -404,22 +419,22 @@ describe("backend API", () => {
       .put("/api/account/me/password")
       .set("Authorization", `Bearer ${auth.accessToken}`)
       .send({
-        currentPassword: "Password123",
-        newPassword: "NewPassword123",
+        currentPassword: "Password123!",
+        newPassword: "NewPassword123!",
       });
 
     expect(passwordResponse.status).toBe(200);
 
     const loginResponse = await request(app).post("/api/auth/login").send({
       email: "settings-updated@example.com",
-      password: "NewPassword123",
+      password: "NewPassword123!",
     });
 
     expect(loginResponse.status).toBe(200);
 
     const oldPasswordResponse = await request(app).post("/api/auth/login").send({
       email: "settings-updated@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     expect(oldPasswordResponse.status).toBe(401);
@@ -440,7 +455,7 @@ describe("backend API", () => {
     const registerResponse = await agent.post("/api/auth/register").send({
       name: "Delete User",
       email: "delete-account@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     expect(registerResponse.status).toBe(201);

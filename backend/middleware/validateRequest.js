@@ -3,7 +3,10 @@ import {
   MAX_ALIAS_LENGTH,
   MAX_EMAIL_LENGTH,
   MAX_NAME_LENGTH,
+  MAX_PASSWORD_LENGTH,
   MAX_TOKEN_LENGTH,
+  MIN_NAME_LENGTH,
+  MIN_PASSWORD_LENGTH,
   MIN_SHORT_CODE_LENGTH,
   isCustomAlias,
   isHttpUrl,
@@ -25,6 +28,20 @@ function requiredString(body, field) {
   }
 
   return value.trim();
+}
+
+function assertStrongPassword(password, field = "password") {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new AppError(`${field} must be at least ${MIN_PASSWORD_LENGTH} characters.`, 400);
+  }
+
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    throw new AppError(`${field} cannot exceed ${MAX_PASSWORD_LENGTH} characters.`, 400);
+  }
+
+  if (!isStrongEnoughPassword(password)) {
+    throw new AppError(`${field} must include uppercase, lowercase, number, and special characters.`, 400);
+  }
 }
 
 function optionalDate(value, field) {
@@ -67,17 +84,19 @@ export function validateRegister(request, _response, next) {
       throw new AppError(`name cannot exceed ${MAX_NAME_LENGTH} characters.`, 400);
     }
 
+    if (name.length < MIN_NAME_LENGTH) {
+      throw new AppError(`name must be at least ${MIN_NAME_LENGTH} characters.`, 400);
+    }
+
     if (!isValidEmail(email)) {
-      throw new AppError("email must be a valid email address.", 400);
+      throw new AppError("email must be a valid permanent email address.", 400);
     }
 
     if (email.length > MAX_EMAIL_LENGTH) {
       throw new AppError(`email cannot exceed ${MAX_EMAIL_LENGTH} characters.`, 400);
     }
 
-    if (!isStrongEnoughPassword(password)) {
-      throw new AppError("password must include uppercase, lowercase, and numeric characters.", 400);
-    }
+    assertStrongPassword(password);
 
     request.validatedBody = { name, email, password };
     next();
@@ -93,7 +112,7 @@ export function validateLogin(request, _response, next) {
     const email = requiredString(request.body, "email").toLowerCase();
 
     if (!isValidEmail(email)) {
-      throw new AppError("email must be a valid email address.", 400);
+      throw new AppError("email must be a valid permanent email address.", 400);
     }
 
     request.validatedBody = {
@@ -132,7 +151,7 @@ export function validateForgotPassword(request, _response, next) {
     const email = requiredString(request.body, "email").toLowerCase();
 
     if (!isValidEmail(email)) {
-      throw new AppError("email must be a valid email address.", 400);
+      throw new AppError("email must be a valid permanent email address.", 400);
     }
 
     if (email.length > MAX_EMAIL_LENGTH) {
@@ -157,9 +176,7 @@ export function validateResetPassword(request, _response, next) {
       throw new AppError(`token cannot exceed ${MAX_TOKEN_LENGTH} characters.`, 400);
     }
 
-    if (!isStrongEnoughPassword(password)) {
-      throw new AppError("password must include uppercase, lowercase, and numeric characters.", 400);
-    }
+    assertStrongPassword(password);
 
     request.validatedBody = { token, password };
     next();
@@ -242,7 +259,11 @@ export function validateUpdateProfile(request, _response, next) {
     const email = requiredString(request.body, "email").toLowerCase();
 
     if (!isValidEmail(email)) {
-      throw new AppError("email must be a valid email address.", 400);
+      throw new AppError("email must be a valid permanent email address.", 400);
+    }
+
+    if (name.length < MIN_NAME_LENGTH) {
+      throw new AppError(`name must be at least ${MIN_NAME_LENGTH} characters.`, 400);
     }
 
     if (name.length > MAX_NAME_LENGTH) {
@@ -267,9 +288,7 @@ export function validateUpdatePassword(request, _response, next) {
     const currentPassword = requiredString(request.body, "currentPassword");
     const newPassword = requiredString(request.body, "newPassword");
 
-    if (!isStrongEnoughPassword(newPassword)) {
-      throw new AppError("newPassword must include uppercase, lowercase, and numeric characters.", 400);
-    }
+    assertStrongPassword(newPassword, "newPassword");
 
     request.validatedBody = { currentPassword, newPassword };
     next();

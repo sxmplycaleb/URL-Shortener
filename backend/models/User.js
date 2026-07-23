@@ -4,6 +4,8 @@ import { comparePassword as comparePasswordHash, hashPassword as hashPasswordVal
 import {
   MAX_EMAIL_LENGTH,
   MAX_NAME_LENGTH,
+  MAX_PASSWORD_LENGTH,
+  MIN_NAME_LENGTH,
   MIN_PASSWORD_LENGTH,
   USER_ROLES,
   isStrongEnoughPassword,
@@ -18,7 +20,7 @@ const userSchema = new Schema(
       type: String,
       required: [true, "Name is required."],
       trim: true,
-      minlength: [2, "Name must be at least 2 characters."],
+      minlength: [MIN_NAME_LENGTH, `Name must be at least ${MIN_NAME_LENGTH} characters.`],
       maxlength: [MAX_NAME_LENGTH, `Name cannot exceed ${MAX_NAME_LENGTH} characters.`],
     },
     email: {
@@ -36,12 +38,13 @@ const userSchema = new Schema(
       type: String,
       required: [true, "Password is required."],
       minlength: [MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`],
+      maxlength: [MAX_PASSWORD_LENGTH, `Password cannot exceed ${MAX_PASSWORD_LENGTH} characters.`],
       select: false,
       validate: {
         validator(value) {
           return this.isModified("password") ? isStrongEnoughPassword(value) : true;
         },
-        message: "Password must include uppercase, lowercase, and numeric characters.",
+        message: "Password must include uppercase, lowercase, number, and special characters.",
       },
     },
     role: {

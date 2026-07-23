@@ -1,5 +1,5 @@
-import { FormEvent, useId, useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { ChangeEvent, FormEvent, useId, useState } from "react";
+import { CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { Alert } from "@/components/ui/alert";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isValidEmail, MIN_PASSWORD_LENGTH } from "@/lib/utils";
+import { MAX_PASSWORD_LENGTH, MIN_NAME_LENGTH, MIN_PASSWORD_LENGTH, validateEmail, validatePassword } from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
 import { loginUser, registerUser } from "@/services/auth";
 import { saveAuthSession } from "@/services/authStorage";
@@ -25,85 +25,155 @@ interface AuthFormErrors {
   form?: string;
 }
 
+interface AuthFormValues {
+  name: string;
+  email: string;
+  password: string;
+  confirm: string;
+}
+
+interface AuthToast {
+  tone: "success" | "error";
+  message: string;
+}
+
+const initialValues: AuthFormValues = {
+  name: "",
+  email: "",
+  password: "",
+  confirm: "",
+};
+const SUCCESS_TOAST_DURATION_MS = 600;
+
+function waitForToast() {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, SUCCESS_TOAST_DURATION_MS);
+  });
+}
+
 export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = location.state as { message?: string } | null;
   const [loading, setLoading] = useState(false);
+  const [values, setValues] = useState<AuthFormValues>(initialValues);
   const [errors, setErrors] = useState<AuthFormErrors>({});
   const [success, setSuccess] = useState(initialMessage ?? locationState?.message ?? "");
+  const [toast, setToast] = useState<AuthToast | null>(
+    initialMessage ?? locationState?.message ? { tone: "success", message: initialMessage ?? locationState?.message ?? "" } : null,
+  );
   const errorId = useId();
   const successId = useId();
   const isRegister = mode === "register";
 
-  function validate(values: { name: string; email: string; password: string; confirm: string }) {
+  function validate(nextValues: AuthFormValues) {
     const nextErrors: AuthFormErrors = {};
+    const trimmedName = nextValues.name.trim();
+    const trimmedEmail = nextValues.email.trim();
 
-    if (isRegister && !values.name) {
+    if (isRegister && !trimmedName) {
       nextErrors.name = "Name is required.";
+    } else if (isRegister && trimmedName.length < MIN_NAME_LENGTH) {
+      nextErrors.name = `Name must be at least ${MIN_NAME_LENGTH} characters.`;
     }
 
-    if (!values.email) {
-      nextErrors.email = "Email is required.";
-    } else if (!isValidEmail(values.email)) {
-      nextErrors.email = "Enter a valid email address.";
+    const emailError = validateEmail(trimmedEmail);
+    if (emailError) {
+      nextErrors.email = emailError;
     }
 
-    if (!values.password) {
+    if (!nextValues.password) {
       nextErrors.password = "Password is required.";
-    } else if (values.password.length < MIN_PASSWORD_LENGTH) {
-      nextErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
-    } else if (isRegister && !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(values.password)) {
-      nextErrors.password = "Password must include uppercase, lowercase, and numeric characters.";
+    } else if (isRegister) {
+      const passwordError = validatePassword(nextValues.password);
+      if (passwordError) {
+        nextErrors.password = passwordError;
+      }
     }
 
-    if (isRegister && !values.confirm) {
+    if (isRegister && !nextValues.confirm) {
       nextErrors.confirm = "Confirm your password.";
-    } else if (isRegister && values.password !== values.confirm) {
+    } else if (isRegister && nextValues.password !== nextValues.confirm) {
       nextErrors.confirm = "Passwords do not match.";
     }
 
     return nextErrors;
   }
 
+  function handleChange(field: keyof AuthFormValues) {
+    return (event: ChangeEvent<HTMLInputElement>) => {
+      const nextValues = { ...values, [field]: event.target.value };
+
+      setValues(nextValues);
+
+      if (success) {
+        setSuccess("");
+      }
+
+      if (errors[field] || errors.form) {
+        const nextErrors = validate(nextValues);
+        setErrors(nextErrors);
+      }
+    };
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loading) return;
 
-    const form = new FormData(event.currentTarget);
-    const name = String(form.get("name") ?? "").trim();
-    const email = String(form.get("email") ?? "").trim();
-    const password = String(form.get("password") ?? "");
-    const confirm = String(form.get("confirm") ?? "");
-    const validationErrors = validate({ name, email, password, confirm });
+    const trimmedValues = {
+      name: values.name.trim(),
+      email: values.email.trim(),
+      password: values.password.trim(),
+      confirm: values.confirm.trim(),
+    };
+    const validationErrors = validate(trimmedValues);
 
     if (Object.keys(validationErrors).length > 0) {
       setSuccess("");
       setErrors(validationErrors);
+      setToast({ tone: "error", message: "Please correct the highlighted fields." });
       return;
     }
 
+    setValues(trimmedValues);
     setErrors({});
     setSuccess("");
+    setToast(null);
     setLoading(true);
 
     try {
       if (isRegister) {
-        const authSession = await registerUser({ name, email, password });
+        const authSession = await registerUser({
+          name: trimmedValues.name,
+          email: trimmedValues.email,
+          password: trimmedValues.password,
+        });
         saveAuthSession(authSession);
+        setToast({ tone: "success", message: "Account created successfully." });
+        await waitForToast();
         navigate("/dashboard");
         return;
       }
 
-      const authSession = await loginUser({ email, password });
+      const authSession = await loginUser({
+        email: trimmedValues.email,
+        password: trimmedValues.password,
+      });
       saveAuthSession(authSession);
+      setToast({ tone: "success", message: "Logged in successfully." });
+      await waitForToast();
       navigate("/dashboard");
     } catch (error) {
-      setErrors({ form: getApiErrorMessage(error, "Unable to reach the authentication service. Please try again.") });
+      const message = getApiErrorMessage(error, "Unable to reach the authentication service. Please try again.");
+      setErrors({ form: message });
+      setToast({ tone: "error", message });
     } finally {
       setLoading(false);
     }
   }
+
+  const fieldClassName = "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive";
 
   return (
     <Card className="w-full max-w-md shadow-soft">
@@ -114,6 +184,21 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {toast ? (
+          <div
+            className={`fixed right-4 top-4 z-50 flex max-w-sm items-center gap-2 rounded-md border bg-background px-4 py-3 text-sm shadow-lg ${
+              toast.tone === "success" ? "border-success/40 text-foreground" : "border-destructive/40 text-destructive"
+            }`}
+            role={toast.tone === "error" ? "alert" : "status"}
+          >
+            {toast.tone === "success" ? (
+              <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
+            ) : (
+              <TriangleAlert className="h-4 w-4" aria-hidden="true" />
+            )}
+            {toast.message}
+          </div>
+        ) : null}
         <form className="space-y-4" aria-describedby={errors.form ? errorId : success ? successId : undefined} noValidate onSubmit={handleSubmit}>
           {errors.form ? <Alert id={errorId}>{errors.form}</Alert> : null}
           {success ? (
@@ -130,11 +215,14 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
               <Input
                 id="name"
                 name="name"
+                value={values.name}
                 placeholder="Ada Lovelace"
                 autoComplete="name"
+                className={fieldClassName}
                 aria-describedby={errors.name ? "name-error" : undefined}
                 aria-invalid={errors.name ? "true" : undefined}
                 disabled={loading}
+                onChange={handleChange("name")}
                 required
               />
               {errors.name ? (
@@ -150,12 +238,15 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
               id="email"
               name="email"
               type="email"
+              value={values.email}
               placeholder="you@example.com"
               autoComplete="email"
+              className={fieldClassName}
               aria-describedby={errors.email ? "email-error" : undefined}
               aria-invalid={errors.email ? "true" : undefined}
               disabled={loading}
               inputMode="email"
+              onChange={handleChange("email")}
               required
             />
             {errors.email ? (
@@ -170,11 +261,15 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
               id="password"
               name="password"
               type="password"
+              value={values.password}
               autoComplete={isRegister ? "new-password" : "current-password"}
+              className={fieldClassName}
               aria-describedby={errors.password ? "password-error" : undefined}
               aria-invalid={errors.password ? "true" : undefined}
               disabled={loading}
+              maxLength={isRegister ? MAX_PASSWORD_LENGTH : undefined}
               minLength={MIN_PASSWORD_LENGTH}
+              onChange={handleChange("password")}
               required
             />
             {errors.password ? (
@@ -190,11 +285,15 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
                 id="confirm"
                 name="confirm"
                 type="password"
+                value={values.confirm}
                 autoComplete="new-password"
+                className={fieldClassName}
                 aria-describedby={errors.confirm ? "confirm-error" : undefined}
                 aria-invalid={errors.confirm ? "true" : undefined}
                 disabled={loading}
+                maxLength={MAX_PASSWORD_LENGTH}
                 minLength={MIN_PASSWORD_LENGTH}
+                onChange={handleChange("confirm")}
                 required
               />
               {errors.confirm ? (

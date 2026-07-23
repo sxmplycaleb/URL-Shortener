@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MIN_PASSWORD_LENGTH } from "@/lib/utils";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, validatePassword } from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
 import { resetPassword } from "@/services/auth";
 
@@ -25,17 +25,12 @@ export function ResetPasswordPage() {
     if (loading || !token) return;
 
     const form = new FormData(event.currentTarget);
-    const password = String(form.get("password") ?? "");
-    const confirm = String(form.get("confirm") ?? "");
+    const password = String(form.get("password") ?? "").trim();
+    const confirm = String(form.get("confirm") ?? "").trim();
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-      setSuccess("");
-      return;
-    }
-
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-      setError("Password must include uppercase, lowercase, and numeric characters.");
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       setSuccess("");
       return;
     }
@@ -88,11 +83,29 @@ export function ResetPasswordPage() {
               ) : null}
               <div className="space-y-2">
                 <Label htmlFor="password">New password</Label>
-                <Input id="password" name="password" type="password" autoComplete="new-password" disabled={loading || !token || Boolean(success)} minLength={MIN_PASSWORD_LENGTH} required />
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  disabled={loading || !token || Boolean(success)}
+                  maxLength={MAX_PASSWORD_LENGTH}
+                  minLength={MIN_PASSWORD_LENGTH}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm">Confirm password</Label>
-                <Input id="confirm" name="confirm" type="password" autoComplete="new-password" disabled={loading || !token || Boolean(success)} minLength={MIN_PASSWORD_LENGTH} required />
+                <Input
+                  id="confirm"
+                  name="confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  disabled={loading || !token || Boolean(success)}
+                  maxLength={MAX_PASSWORD_LENGTH}
+                  minLength={MIN_PASSWORD_LENGTH}
+                  required
+                />
               </div>
               <Button className="w-full" disabled={loading || !token || Boolean(success)} type="submit">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
