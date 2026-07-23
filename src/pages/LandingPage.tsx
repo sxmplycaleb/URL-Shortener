@@ -150,10 +150,6 @@ export function LandingPage() {
       <main id="main-content">
         <section className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-24">
           <div className="flex flex-col justify-center">
-            <p className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
-              Modern link management
-            </p>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">Shortly</h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
               Create short, memorable links, manage them from a clean dashboard, and understand every click with practical analytics.
