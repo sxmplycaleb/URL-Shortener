@@ -1,4 +1,11 @@
-import { loginUser, logoutUser, refreshAuth, registerUser } from "../services/authService.js";
+import {
+  loginUser,
+  logoutUser,
+  refreshAuth,
+  registerUser,
+  requestPasswordReset,
+  resetPassword,
+} from "../services/authService.js";
 import { getEnv } from "../config/env.js";
 
 export function getRefreshCookieOptions() {
@@ -39,4 +46,14 @@ export async function logout(request, response) {
   await logoutUser(request.validatedBody.refreshToken);
   response.clearCookie("refreshToken", getRefreshCookieOptions());
   response.status(204).send();
+}
+
+export async function forgotPassword(request, response) {
+  const payload = await requestPasswordReset(request.validatedBody);
+  response.json(payload);
+}
+
+export async function resetForgottenPassword(request, response) {
+  const payload = await resetPassword(request.validatedBody);
+  response.json(payload);
 }

@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 
-import { getEnv } from "../config/env.js";
 import Click from "../models/Click.js";
 import URLModel from "../models/URL.js";
 import AppError from "../utils/AppError.js";
+import { buildShortUrl } from "../utils/shortUrl.js";
 
 function formatDateLabel(date) {
   return new Intl.DateTimeFormat("en", {
@@ -27,11 +27,6 @@ function statusForUrl(url) {
   }
 
   return "active";
-}
-
-function shortUrlForCode(shortCode) {
-  const { shortUrlBase } = getEnv();
-  return `${shortUrlBase.replace(/\/$/, "")}/${shortCode}`;
 }
 
 function toPercent(count, total) {
@@ -240,7 +235,7 @@ export async function getDashboardAnalytics(userId) {
     locations: buildLocationAnalytics(clicks),
     links: urls.map((url) => ({
       id: url._id.toString(),
-      shortUrl: shortUrlForCode(url.shortCode),
+      shortUrl: buildShortUrl(url.shortCode),
       originalUrl: url.originalUrl,
       totalClicks: url.clickCount,
       createdAt: url.createdAt,

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import URLModel from "../models/URL.js";
 import { generateShortCode } from "../utils/shortCode.js";
+import { buildShortUrl } from "../utils/shortUrl.js";
 import AppError from "../utils/AppError.js";
 
 const MAX_SHORT_CODE_ATTEMPTS = 8;
@@ -15,6 +16,7 @@ function toUrlResource(url) {
     id: url._id.toString(),
     originalUrl: url.originalUrl,
     shortCode: url.shortCode,
+    shortUrl: buildShortUrl(url.shortCode),
     customAlias: url.customAlias,
     clickCount: url.clickCount,
     expiresAt: url.expiresAt,
@@ -171,8 +173,16 @@ export async function deleteUrl(userId, urlId) {
 export async function findRedirectUrl(shortCode) {
   const url = await URLModel.findOne({ shortCode });
 
-  if (!url || !url.isActive || url.isExpired()) {
-    throw new AppError("Short URL not found or expired.", 404);
+  if (!url) {
+    throw new AppError("Link not found.", 404);
+  }
+
+  if (!url.isActive) {
+    throw new AppError("Link disabled.", 410);
+  }
+
+  if (url.isExpired()) {
+    throw new AppError("Link expired.", 410);
   }
 
   return url;

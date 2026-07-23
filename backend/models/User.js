@@ -67,6 +67,14 @@ const userSchema = new Schema(
         default: true,
       },
     },
+    passwordResetTokenHash: {
+      type: String,
+      select: false,
+    },
+    passwordResetExpiresAt: {
+      type: Date,
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -82,6 +90,7 @@ const userSchema = new Schema(
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ role: 1 });
 userSchema.index({ createdAt: -1 });
+userSchema.index({ passwordResetTokenHash: 1 }, { sparse: true });
 
 userSchema.pre("save", async function hashPassword() {
   if (!this.isModified("password")) {

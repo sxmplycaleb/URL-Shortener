@@ -4,6 +4,7 @@ export interface ShortenedUrl {
   id: string;
   originalUrl: string;
   shortCode: string;
+  shortUrl: string;
   customAlias?: string;
   clickCount: number;
   expiresAt?: string;

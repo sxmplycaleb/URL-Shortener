@@ -30,21 +30,6 @@ interface Notice {
   message: string;
 }
 
-function getShortUrl(shortCode: string) {
-  const apiBase = String(import.meta.env["VITE_API_URL"] ?? "");
-  const shortUrlBase = String(import.meta.env["VITE_SHORT_URL_BASE"] ?? "");
-
-  if (shortUrlBase) {
-    return `${shortUrlBase.replace(/\/$/, "")}/${encodeURIComponent(shortCode)}`;
-  }
-
-  if (apiBase) {
-    return `${new URL(apiBase).origin}/${encodeURIComponent(shortCode)}`;
-  }
-
-  return `${window.location.origin}/${encodeURIComponent(shortCode)}`;
-}
-
 const dateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
   day: "numeric",
@@ -165,7 +150,7 @@ export function DashboardPage() {
       });
       setUrls((current) => [response.url, ...current.filter((url) => url.id !== response.url.id)]);
       formElement.reset();
-      setNotice({ tone: "success", message: `Created ${getShortUrl(response.url.shortCode)}` });
+      setNotice({ tone: "success", message: `Created ${response.url.shortUrl}` });
     } catch (error) {
       if (isAuthorizationError(error)) {
         endSession();
@@ -182,7 +167,7 @@ export function DashboardPage() {
     async (url: ShortenedUrl) => {
       if (deletingId || !accessToken) return;
 
-      const confirmed = window.confirm(`Delete ${getShortUrl(url.shortCode)}?`);
+      const confirmed = window.confirm(`Delete ${url.shortUrl}?`);
       if (!confirmed) return;
 
       setDeletingId(url.id);
@@ -314,7 +299,7 @@ export function DashboardPage() {
                   </thead>
                   <tbody>
                     {urls.map((url) => {
-                      const shortUrl = getShortUrl(url.shortCode);
+                      const shortUrl = url.shortUrl;
 
                       return (
                         <tr className="border-b last:border-0" key={url.id}>
@@ -341,7 +326,7 @@ export function DashboardPage() {
               </div>
               <div className="grid gap-3 lg:hidden">
                 {urls.map((url) => {
-                  const shortUrl = getShortUrl(url.shortCode);
+                  const shortUrl = url.shortUrl;
 
                   return (
                     <Card className="p-4" key={url.id}>

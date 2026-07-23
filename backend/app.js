@@ -18,7 +18,7 @@ import authRoutes from "./routes/authRoutes.js";
 import redirectRoutes from "./routes/redirectRoutes.js";
 import urlRoutes from "./routes/urlRoutes.js";
 
-const SPA_ROUTES = ["/", "/login", "/register", "/dashboard", "/analytics", "/settings"];
+const SPA_ROUTES = ["/", "/login", "/forgot-password", "/register", "/reset-password", "/dashboard", "/analytics", "/settings"];
 
 function resolveStaticDir(staticDir) {
   return path.isAbsolute(staticDir) ? staticDir : path.resolve(process.cwd(), staticDir);
