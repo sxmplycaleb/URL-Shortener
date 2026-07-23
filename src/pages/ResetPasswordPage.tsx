@@ -5,8 +5,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, validatePassword } from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
 import { resetPassword } from "@/services/auth";
@@ -15,6 +15,8 @@ export function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get("token") ?? "", [searchParams]);
   const [loading, setLoading] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState(token ? "" : "Password reset token is missing.");
   const [success, setSuccess] = useState("");
   const errorId = useId();
@@ -24,18 +26,18 @@ export function ResetPasswordPage() {
     event.preventDefault();
     if (loading || !token) return;
 
-    const form = new FormData(event.currentTarget);
-    const password = String(form.get("password") ?? "").trim();
-    const confirm = String(form.get("confirm") ?? "").trim();
+    const form = event.currentTarget;
+    const nextPassword = password.trim();
+    const nextConfirm = confirm.trim();
 
-    const passwordError = validatePassword(password);
+    const passwordError = validatePassword(nextPassword);
     if (passwordError) {
       setError(passwordError);
       setSuccess("");
       return;
     }
 
-    if (password !== confirm) {
+    if (nextPassword !== nextConfirm) {
       setError("Passwords do not match.");
       setSuccess("");
       return;
@@ -46,9 +48,11 @@ export function ResetPasswordPage() {
     setSuccess("");
 
     try {
-      const response = await resetPassword({ token, password });
+      const response = await resetPassword({ token, password: nextPassword });
       setSuccess(response.message);
-      event.currentTarget.reset();
+      setPassword("");
+      setConfirm("");
+      form.reset();
     } catch (error) {
       setError(getApiErrorMessage(error, "Unable to reset your password. Please request a new link."));
     } finally {
@@ -83,27 +87,30 @@ export function ResetPasswordPage() {
               ) : null}
               <div className="space-y-2">
                 <Label htmlFor="password">New password</Label>
-                <Input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
+                  value={password}
                   autoComplete="new-password"
                   disabled={loading || !token || Boolean(success)}
                   maxLength={MAX_PASSWORD_LENGTH}
                   minLength={MIN_PASSWORD_LENGTH}
+                  showRequirements
+                  onChange={(event) => setPassword(event.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm">Confirm password</Label>
-                <Input
+                <PasswordInput
                   id="confirm"
                   name="confirm"
-                  type="password"
+                  value={confirm}
                   autoComplete="new-password"
                   disabled={loading || !token || Boolean(success)}
                   maxLength={MAX_PASSWORD_LENGTH}
                   minLength={MIN_PASSWORD_LENGTH}
+                  onChange={(event) => setConfirm(event.target.value)}
                   required
                 />
               </div>

@@ -62,6 +62,22 @@ export function validateEmail(value: string) {
   return "";
 }
 
+export interface PasswordRequirement {
+  key: string;
+  label: string;
+  met: boolean;
+}
+
+export function getPasswordRequirements(value: string): PasswordRequirement[] {
+  return [
+    { key: "length", label: "Minimum 8 characters", met: value.length >= MIN_PASSWORD_LENGTH },
+    { key: "uppercase", label: "Uppercase", met: /[A-Z]/.test(value) },
+    { key: "lowercase", label: "Lowercase", met: /[a-z]/.test(value) },
+    { key: "number", label: "Number", met: /\d/.test(value) },
+    { key: "special", label: "Special character", met: /[^A-Za-z0-9]/.test(value) },
+  ];
+}
+
 export function validatePassword(value: string) {
   if (!value) {
     return "Password is required.";
