@@ -43,7 +43,9 @@ describe("backend API", () => {
     process.env.JWT_REFRESH_EXPIRES_IN = "7d";
     process.env.RATE_LIMIT_MAX = "1000";
     process.env.AUTH_RATE_LIMIT_MAX = "1000";
+    process.env.PASSWORD_RATE_LIMIT_MAX = "1000";
     process.env.CLIENT_URL = "http://localhost:5173";
+    process.env.SHORT_URL_BASE = "https://short.ly";
 
     const appModule = await import("../app.js");
     app = appModule.createApp();
@@ -144,6 +146,7 @@ describe("backend API", () => {
 
     expect(createResponse.status).toBe(201);
     expect(createResponse.body.url.shortCode).toBe("article1");
+    expect(createResponse.body.url.shortUrl).toBe("https://short.ly/article1");
 
     const listResponse = await request(app).get("/api/urls").set("Authorization", `Bearer ${auth.accessToken}`);
 
@@ -184,6 +187,81 @@ describe("backend API", () => {
     expect(clicks).toHaveLength(1);
     expect(clicks[0].browser).toBe("Chrome");
     expect(clicks[0].referrer).toBe("https://referrer.example");
+  });
+
+  it("renders friendly pages for missing, disabled, and expired short URLs without tracking clicks", async () => {
+    const auth = await registerAndLogin("redirect-states@example.com");
+    const disabledResponse = await request(app)
+      .post("/api/urls")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        originalUrl: "https://example.com/disabled",
+        customAlias: "disabled",
+      });
+    const expiredUrl = await URLModel.create({
+      originalUrl: "https://example.com/expired",
+      shortCode: "expired",
+      user: auth.user.id,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    await URLModel.updateOne({ _id: disabledResponse.body.url.id }, { isActive: false });
+    await URLModel.updateOne({ _id: expiredUrl._id }, { expiresAt: new Date(Date.now() - 60_000) }, { runValidators: false });
+
+    const missing = await request(app).get("/missing-link");
+    const disabled = await request(app).get("/disabled");
+    const expired = await request(app).get("/expired");
+
+    expect(missing.status).toBe(404);
+    expect(missing.text).toContain("Link not found");
+    expect(disabled.status).toBe(410);
+    expect(disabled.text).toContain("Link disabled");
+    expect(expired.status).toBe(410);
+    expect(expired.text).toContain("Link expired");
+    await expect(Click.find({})).resolves.toHaveLength(0);
+  });
+
+  it("supports the forgot password request and reset flow", async () => {
+    await User.create({
+      name: "Reset User",
+      email: "reset@example.com",
+      password: "Password123",
+    });
+
+    const forgotResponse = await request(app).post("/api/auth/forgot-password").send({
+      email: "reset@example.com",
+    });
+
+    expect(forgotResponse.status).toBe(200);
+    expect(forgotResponse.body.message).toContain("If an account exists");
+    expect(forgotResponse.body.resetUrl).toEqual(expect.stringContaining("/reset-password?token="));
+
+    const resetUrl = new URL(forgotResponse.body.resetUrl);
+    const token = resetUrl.searchParams.get("token");
+    const resetResponse = await request(app).post("/api/auth/reset-password").send({
+      token,
+      password: "NewPassword123",
+    });
+
+    expect(resetResponse.status).toBe(200);
+    expect(resetResponse.body.message).toContain("password has been reset");
+
+    const oldLogin = await request(app).post("/api/auth/login").send({
+      email: "reset@example.com",
+      password: "Password123",
+    });
+    const newLogin = await request(app).post("/api/auth/login").send({
+      email: "reset@example.com",
+      password: "NewPassword123",
+    });
+    const reuse = await request(app).post("/api/auth/reset-password").send({
+      token,
+      password: "AnotherPassword123",
+    });
+
+    expect(oldLogin.status).toBe(401);
+    expect(newLogin.status).toBe(200);
+    expect(reuse.status).toBe(400);
   });
 
   it("returns analytics for the authenticated URL owner", async () => {
@@ -232,6 +310,7 @@ describe("backend API", () => {
     const originalNodeEnv = process.env.NODE_ENV;
     const originalStaticDir = process.env.STATIC_DIR;
     const originalClientUrl = process.env.CLIENT_URL;
+    const originalShortUrlBase = process.env.SHORT_URL_BASE;
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "url-shortener-dist-"));
     const indexHtml = "<!doctype html><html><body><div id=\"root\">Production app</div></body></html>";
 
@@ -239,6 +318,7 @@ describe("backend API", () => {
     process.env.NODE_ENV = "production";
     process.env.STATIC_DIR = tempDir;
     process.env.CLIENT_URL = "https://shortly.example.com";
+    process.env.SHORT_URL_BASE = "https://s.example.com";
 
     try {
       const appModule = await import("../app.js");
@@ -255,7 +335,16 @@ describe("backend API", () => {
       } else {
         process.env.STATIC_DIR = originalStaticDir;
       }
-      process.env.CLIENT_URL = originalClientUrl;
+      if (originalClientUrl === undefined) {
+        delete process.env.CLIENT_URL;
+      } else {
+        process.env.CLIENT_URL = originalClientUrl;
+      }
+      if (originalShortUrlBase === undefined) {
+        delete process.env.SHORT_URL_BASE;
+      } else {
+        process.env.SHORT_URL_BASE = originalShortUrlBase;
+      }
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -274,6 +363,24 @@ describe("backend API", () => {
       delete process.env.CLIENT_URL;
     } else {
       process.env.CLIENT_URL = originalClientUrl;
+    }
+  });
+
+  it("requires the short URL base to use https in production", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalShortUrlBase = process.env.SHORT_URL_BASE;
+
+    process.env.NODE_ENV = "production";
+    process.env.CLIENT_URL = "https://shortly.example.com";
+    process.env.SHORT_URL_BASE = "http://short.ly";
+
+    expect(() => getEnv()).toThrow("SHORT_URL_BASE must use https in production.");
+
+    process.env.NODE_ENV = originalNodeEnv;
+    if (originalShortUrlBase === undefined) {
+      delete process.env.SHORT_URL_BASE;
+    } else {
+      process.env.SHORT_URL_BASE = originalShortUrlBase;
     }
   });
 

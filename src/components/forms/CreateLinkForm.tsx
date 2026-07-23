@@ -5,6 +5,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { buildConfiguredShortUrl } from "@/lib/shortUrls";
 import { isValidCustomAlias, isValidHttpUrl } from "@/lib/utils";
 
 interface CreateLinkFormProps {
@@ -41,7 +42,7 @@ export function CreateLinkForm({ compact = false, onCreated }: CreateLinkFormPro
     timerRef.current = window.setTimeout(() => {
       setLoading(false);
       const shortCode = alias || "fresh-link";
-      onCreated?.(`https://sho.rt/${shortCode.toLowerCase()}`);
+      onCreated?.(buildConfiguredShortUrl(shortCode.toLowerCase()));
     }, 900);
   }
 

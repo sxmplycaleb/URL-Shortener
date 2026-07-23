@@ -142,6 +142,36 @@ function urlListValue(name, fallback) {
   return values;
 }
 
+function absoluteUrlValue(name, fallback, nodeEnv, { requireHttpsInProduction = false } = {}) {
+  const value = (process.env[name] ?? fallback).trim();
+
+  if (!value) {
+    throw new Error(`${name} must be configured.`);
+  }
+
+  let parsedUrl;
+
+  try {
+    parsedUrl = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid http or https URL.`);
+  }
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new Error(`${name} must be a valid http or https URL.`);
+  }
+
+  if (requireHttpsInProduction && nodeEnv === "production" && parsedUrl.protocol !== "https:") {
+    throw new Error(`${name} must use https in production.`);
+  }
+
+  parsedUrl.pathname = parsedUrl.pathname.replace(/\/+$/, "");
+  parsedUrl.search = "";
+  parsedUrl.hash = "";
+
+  return parsedUrl.toString().replace(/\/$/, "");
+}
+
 export function getEnv() {
   const nodeEnv = process.env.NODE_ENV ?? "development";
 
@@ -159,12 +189,16 @@ export function getEnv() {
     throw new Error("AUTH_COOKIE_SECURE must be true when AUTH_COOKIE_SAME_SITE is none.");
   }
 
+  const shortUrlBase = absoluteUrlValue("SHORT_URL_BASE", clientUrls[0], nodeEnv, {
+    requireHttpsInProduction: true,
+  });
+
   return {
     nodeEnv,
     port: integerValue("PORT", 3000, { min: 1, max: 65_535 }),
     trustProxy: trustProxyValue(nodeEnv),
     staticDir: process.env.STATIC_DIR ?? "dist",
-    shortUrlBase: process.env.SHORT_URL_BASE ?? clientUrls[0],
+    shortUrlBase,
     clientUrl: clientUrls[0],
     clientUrls,
     accessTokenSecret: requiredSecret("JWT_SECRET", MIN_JWT_SECRET_LENGTH),

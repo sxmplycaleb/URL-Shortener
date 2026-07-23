@@ -125,6 +125,49 @@ export function validateRefreshOrLogout(request, _response, next) {
   }
 }
 
+export function validateForgotPassword(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    const email = requiredString(request.body, "email").toLowerCase();
+
+    if (!isValidEmail(email)) {
+      throw new AppError("email must be a valid email address.", 400);
+    }
+
+    if (email.length > MAX_EMAIL_LENGTH) {
+      throw new AppError(`email cannot exceed ${MAX_EMAIL_LENGTH} characters.`, 400);
+    }
+
+    request.validatedBody = { email };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateResetPassword(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    const token = requiredString(request.body, "token");
+    const password = requiredString(request.body, "password");
+
+    if (token.length > MAX_TOKEN_LENGTH) {
+      throw new AppError(`token cannot exceed ${MAX_TOKEN_LENGTH} characters.`, 400);
+    }
+
+    if (!isStrongEnoughPassword(password)) {
+      throw new AppError("password must include uppercase, lowercase, and numeric characters.", 400);
+    }
+
+    request.validatedBody = { token, password };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
 export function validateCreateUrl(request, _response, next) {
   try {
     assertObject(request.body);
