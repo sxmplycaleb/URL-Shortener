@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { MAX_PASSWORD_LENGTH, MIN_NAME_LENGTH, MIN_PASSWORD_LENGTH, validateEmail, validatePassword } from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
-import { loginUser, registerUser } from "@/services/auth";
+import { loginUser, loginWithGoogle, registerUser } from "@/services/auth";
 import { saveAuthSession } from "@/services/authStorage";
+import { getGoogleIdToken } from "@/services/firebase";
+import { getGoogleAuthErrorMessage } from "@/services/googleAuthErrors";
 
 interface AuthFormProps {
   mode: "login" | "register";
@@ -57,6 +59,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const location = useLocation();
   const locationState = location.state as { message?: string } | null;
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [values, setValues] = useState<AuthFormValues>(initialValues);
   const [errors, setErrors] = useState<AuthFormErrors>({});
   const [success, setSuccess] = useState(initialMessage ?? locationState?.message ?? "");
@@ -66,6 +69,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const errorId = useId();
   const successId = useId();
   const isRegister = mode === "register";
+  const authenticating = loading || googleLoading;
 
   function validate(nextValues: AuthFormValues) {
     const nextErrors: AuthFormErrors = {};
@@ -120,7 +124,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (loading) return;
+    if (authenticating) return;
 
     const trimmedValues = {
       name: values.name.trim(),
@@ -174,6 +178,33 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     }
   }
 
+  async function handleGoogleSignIn() {
+    if (authenticating) return;
+
+    setErrors({});
+    setSuccess("");
+    setToast(null);
+    setGoogleLoading(true);
+
+    try {
+      const idToken = await getGoogleIdToken();
+      const authSession = await loginWithGoogle({ idToken });
+      saveAuthSession(authSession);
+      setToast({
+        tone: "success",
+        message: isRegister ? "Google account connected. Welcome to Shortly." : "Logged in with Google.",
+      });
+      await waitForToast();
+      navigate("/dashboard");
+    } catch (error) {
+      const message = getGoogleAuthErrorMessage(error);
+      setErrors({ form: message });
+      setToast({ tone: "error", message });
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
+
   const fieldClassName = "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive";
 
   return (
@@ -200,7 +231,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
             {toast.message}
           </div>
         ) : null}
-        <form className="space-y-4" aria-describedby={errors.form ? errorId : success ? successId : undefined} noValidate onSubmit={handleSubmit}>
+        <div className="space-y-4" aria-describedby={errors.form ? errorId : success ? successId : undefined}>
           {errors.form ? <Alert id={errorId}>{errors.form}</Alert> : null}
           {success ? (
             <Alert className="border-success/30 bg-success/10" id={successId}>
@@ -210,6 +241,24 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
               </span>
             </Alert>
           ) : null}
+          <Button
+            className="w-full border-input bg-background text-foreground hover:bg-muted"
+            disabled={authenticating}
+            type="button"
+            variant="outline"
+            aria-label={isRegister ? "Continue registering with Google" : "Continue logging in with Google"}
+            onClick={() => void handleGoogleSignIn()}
+          >
+            {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <GoogleIcon />}
+            Continue with Google
+          </Button>
+          <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-muted-foreground" aria-hidden="true">
+            <span className="h-px flex-1 bg-border" />
+            OR
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </div>
+        <form className="mt-4 space-y-4" aria-describedby={errors.form ? errorId : success ? successId : undefined} noValidate onSubmit={handleSubmit}>
           {isRegister ? (
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
@@ -217,12 +266,12 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
                 id="name"
                 name="name"
                 value={values.name}
-                placeholder="Ada Lovelace"
+                placeholder="Caleb Ongau"
                 autoComplete="name"
                 className={fieldClassName}
                 aria-describedby={errors.name ? "name-error" : undefined}
                 aria-invalid={errors.name ? "true" : undefined}
-                disabled={loading}
+                disabled={authenticating}
                 onChange={handleChange("name")}
                 required
               />
@@ -245,7 +294,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
               className={fieldClassName}
               aria-describedby={errors.email ? "email-error" : undefined}
               aria-invalid={errors.email ? "true" : undefined}
-              disabled={loading}
+              disabled={authenticating}
               inputMode="email"
               onChange={handleChange("email")}
               required
@@ -267,7 +316,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
                 className={fieldClassName}
                 aria-describedby={errors.password ? "password-error" : undefined}
                 aria-invalid={errors.password ? "true" : undefined}
-                disabled={loading}
+                disabled={authenticating}
                 maxLength={MAX_PASSWORD_LENGTH}
                 minLength={MIN_PASSWORD_LENGTH}
                 showRequirements
@@ -284,7 +333,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
                 className={fieldClassName}
                 aria-describedby={errors.password ? "password-error" : undefined}
                 aria-invalid={errors.password ? "true" : undefined}
-                disabled={loading}
+                disabled={authenticating}
                 minLength={MIN_PASSWORD_LENGTH}
                 onChange={handleChange("password")}
                 required
@@ -307,7 +356,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
                 className={fieldClassName}
                 aria-describedby={errors.confirm ? "confirm-error" : undefined}
                 aria-invalid={errors.confirm ? "true" : undefined}
-                disabled={loading}
+                disabled={authenticating}
                 maxLength={MAX_PASSWORD_LENGTH}
                 minLength={MIN_PASSWORD_LENGTH}
                 onChange={handleChange("confirm")}
@@ -326,7 +375,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
               </Link>
             </div>
           )}
-          <Button className="w-full" disabled={loading} type="submit">
+          <Button className="w-full" disabled={authenticating} type="submit">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {isRegister ? "Create account" : "Log in"}
           </Button>
@@ -339,5 +388,28 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M21.6 12.23c0-.78-.07-1.53-.2-2.23H12v4.22h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.32 2.98-7.52Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 22c2.7 0 4.96-.9 6.62-2.44l-3.24-2.51c-.9.6-2.04.95-3.38.95-2.6 0-4.8-1.76-5.58-4.12H3.07v2.59A9.99 9.99 0 0 0 12 22Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M6.42 13.88a6.01 6.01 0 0 1 0-3.76V7.53H3.07a9.99 9.99 0 0 0 0 8.94l3.35-2.59Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 6c1.47 0 2.8.51 3.84 1.5l2.86-2.86A9.6 9.6 0 0 0 12 2a9.99 9.99 0 0 0-8.93 5.53l3.35 2.59C7.2 7.76 9.4 6 12 6Z"
+      />
+    </svg>
   );
 }

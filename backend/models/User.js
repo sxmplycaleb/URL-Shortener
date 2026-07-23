@@ -36,16 +36,38 @@ const userSchema = new Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required."],
+      required: [
+        function passwordRequired() {
+          return this.provider !== "google";
+        },
+        "Password is required.",
+      ],
       minlength: [MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`],
       maxlength: [MAX_PASSWORD_LENGTH, `Password cannot exceed ${MAX_PASSWORD_LENGTH} characters.`],
       select: false,
       validate: {
         validator(value) {
+          if (!value) {
+            return true;
+          }
+
           return this.isModified("password") ? isStrongEnoughPassword(value) : true;
         },
         message: "Password must include uppercase, lowercase, number, and special characters.",
       },
+    },
+    googleId: {
+      type: String,
+      trim: true,
+      maxlength: [128, "Google account identifier cannot exceed 128 characters."],
+    },
+    provider: {
+      type: String,
+      enum: {
+        values: ["email", "google"],
+        message: "Provider must be either email or google.",
+      },
+      default: "email",
     },
     role: {
       type: String,
@@ -63,6 +85,16 @@ const userSchema = new Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    googleLinkedAt: {
+      type: Date,
+    },
+    lastLogin: {
+      type: Date,
     },
     accountSettings: {
       notificationsEnabled: {
@@ -91,6 +123,7 @@ const userSchema = new Schema(
 );
 
 userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 userSchema.index({ role: 1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ passwordResetTokenHash: 1 }, { sparse: true });

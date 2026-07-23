@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { MongoMemoryServer } from "mongodb-memory-server";
 import request from "supertest";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { connectDatabase, disconnectDatabase } from "../config/database.js";
 import { getEnv } from "../config/env.js";
@@ -12,6 +12,14 @@ import Click from "../models/Click.js";
 import RefreshToken from "../models/RefreshToken.js";
 import URLModel from "../models/URL.js";
 import User from "../models/User.js";
+
+const { verifyGoogleIdTokenMock } = vi.hoisted(() => ({
+  verifyGoogleIdTokenMock: vi.fn(),
+}));
+
+vi.mock("../services/firebaseAdmin.js", () => ({
+  verifyGoogleIdToken: verifyGoogleIdTokenMock,
+}));
 
 let app;
 let mongoServer;
@@ -46,6 +54,9 @@ describe("backend API", () => {
     process.env.PASSWORD_RATE_LIMIT_MAX = "1000";
     process.env.CLIENT_URL = "http://localhost:5173";
     process.env.SHORT_URL_BASE = "https://short.ly";
+    process.env.FIREBASE_PROJECT_ID = "url-shortener-test";
+    process.env.FIREBASE_CLIENT_EMAIL = "firebase-admin@example.iam.gserviceaccount.com";
+    process.env.FIREBASE_PRIVATE_KEY = "test-private-key";
 
     const appModule = await import("../app.js");
     app = appModule.createApp();
@@ -61,6 +72,7 @@ describe("backend API", () => {
 
   beforeEach(async () => {
     await Promise.all([Click.deleteMany({}), URLModel.deleteMany({}), RefreshToken.deleteMany({}), User.deleteMany({})]);
+    verifyGoogleIdTokenMock.mockReset();
   });
 
   afterAll(async () => {
@@ -117,6 +129,108 @@ describe("backend API", () => {
     expect(response.body.user.email).toBe("login@example.com");
     expect(response.body.accessToken).toEqual(expect.any(String));
     expect(response.body.refreshToken).toBeUndefined();
+  });
+
+  it("creates a Google user and returns the normal auth session", async () => {
+    verifyGoogleIdTokenMock.mockResolvedValue({
+      uid: "google-new-user",
+      email: "google-new@example.com",
+      email_verified: true,
+      name: "Google New",
+      picture: "https://lh3.googleusercontent.com/avatar.png",
+    });
+
+    const response = await request(app).post("/api/auth/google").send({
+      idToken: "valid-google-token",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.accessToken).toEqual(expect.any(String));
+    expect(response.body.expiresIn).toBe("15m");
+    expect(response.body.refreshToken).toBeUndefined();
+    expect(response.body.user).toMatchObject({
+      name: "Google New",
+      email: "google-new@example.com",
+      provider: "google",
+      avatar: "https://lh3.googleusercontent.com/avatar.png",
+      emailVerified: true,
+      authProviders: {
+        email: false,
+        google: true,
+      },
+    });
+    expect(response.headers["set-cookie"]?.join(";")).toContain("refreshToken=");
+
+    const user = await User.findOne({ email: "google-new@example.com" });
+    expect(user.googleId).toBe("google-new-user");
+    expect(user.lastLogin).toBeInstanceOf(Date);
+  });
+
+  it("links Google to an existing verified email account and updates last login", async () => {
+    await User.create({
+      name: "Existing Email",
+      email: "existing-google@example.com",
+      password: "Password123!",
+    });
+    verifyGoogleIdTokenMock.mockResolvedValue({
+      uid: "google-existing-user",
+      email: "existing-google@example.com",
+      email_verified: true,
+      name: "Existing Google",
+      picture: "https://lh3.googleusercontent.com/existing.png",
+    });
+
+    const response = await request(app).post("/api/auth/google").send({
+      idToken: "valid-existing-token",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user).toMatchObject({
+      email: "existing-google@example.com",
+      provider: "email",
+      avatar: "https://lh3.googleusercontent.com/existing.png",
+      authProviders: {
+        email: true,
+        google: true,
+      },
+    });
+    expect(response.body.user.authProviders.googleLinkedAt).toEqual(expect.any(String));
+
+    const user = await User.findOne({ email: "existing-google@example.com" });
+    expect(user.googleId).toBe("google-existing-user");
+    expect(user.lastLogin).toBeInstanceOf(Date);
+  });
+
+  it("rejects invalid Google tokens", async () => {
+    verifyGoogleIdTokenMock.mockRejectedValue({ code: "auth/argument-error" });
+
+    const response = await request(app).post("/api/auth/google").send({
+      idToken: "invalid-google-token",
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.message).toBe("Google sign-in could not be verified. Please try again.");
+  });
+
+  it("rejects expired Google tokens with a friendly error", async () => {
+    verifyGoogleIdTokenMock.mockRejectedValue({ code: "auth/id-token-expired" });
+
+    const response = await request(app).post("/api/auth/google").send({
+      idToken: "expired-google-token",
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.message).toBe("Google sign-in expired. Please try again.");
+  });
+
+  it("rejects malformed Google auth requests", async () => {
+    const response = await request(app).post("/api/auth/google").send({
+      token: "wrong-field",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.message).toBe("idToken is required.");
+    expect(verifyGoogleIdTokenMock).not.toHaveBeenCalled();
   });
 
   it("rotates refresh tokens and rejects reuse", async () => {

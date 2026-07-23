@@ -1,13 +1,17 @@
 import { Link2 } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 import { AuthForm } from "@/components/forms/AuthForm";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
-import { consumeAuthRedirectMessage } from "@/services/authStorage";
+import { consumeAuthRedirectMessage, getAuthSession } from "@/services/authStorage";
 
 export function LoginPage() {
   const [redirectMessage] = useState(() => consumeAuthRedirectMessage());
+
+  if (getAuthSession()) {
+    return <Navigate replace to="/dashboard" />;
+  }
 
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10" id="main-content">
