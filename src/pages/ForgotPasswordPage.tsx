@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isValidEmail } from "@/lib/utils";
+import { validateEmail } from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
 import { requestPasswordReset } from "@/services/auth";
 
@@ -26,14 +26,9 @@ export function ForgotPasswordPage() {
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
 
-    if (!email) {
-      setError("Email is required.");
-      setSuccess("");
-      return;
-    }
-
-    if (!isValidEmail(email)) {
-      setError("Enter a valid email address.");
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
       setSuccess("");
       return;
     }

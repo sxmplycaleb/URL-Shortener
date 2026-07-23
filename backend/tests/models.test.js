@@ -41,19 +41,19 @@ describe("database models", () => {
     const user = await User.create({
       name: "Test User",
       email: "TEST@Example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     expect(user.email).toBe("test@example.com");
-    expect(user.password).not.toBe("Password123");
-    await expect(user.comparePassword("Password123")).resolves.toBe(true);
+    expect(user.password).not.toBe("Password123!");
+    await expect(user.comparePassword("Password123!")).resolves.toBe(true);
     await expect(user.comparePassword("WrongPass123")).resolves.toBe(false);
 
     await expect(
       User.create({
         name: "Invalid User",
         email: "not-an-email",
-        password: "Password123",
+        password: "Password123!",
       }),
     ).rejects.toThrow(/valid email/);
 
@@ -63,21 +63,21 @@ describe("database models", () => {
         email: "weak@example.com",
         password: "password",
       }),
-    ).rejects.toThrow(/uppercase, lowercase, and numeric/);
+    ).rejects.toThrow(/uppercase, lowercase, number, and special characters/);
   });
 
   it("enforces unique user emails and unique URL codes", async () => {
     const user = await User.create({
       name: "Unique User",
       email: "unique@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     await expect(
       User.create({
         name: "Duplicate User",
         email: "unique@example.com",
-        password: "Password123",
+        password: "Password123!",
       }),
     ).rejects.toMatchObject({ code: 11000 });
 
@@ -100,7 +100,7 @@ describe("database models", () => {
     const user = await User.create({
       name: "URL Owner",
       email: "owner@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     const url = await URLModel.create({
@@ -138,7 +138,7 @@ describe("database models", () => {
     const user = await User.create({
       name: "Analytics User",
       email: "analytics@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
     const url = await URLModel.create({
       originalUrl: "https://example.com/analytics",
@@ -168,7 +168,7 @@ describe("database models", () => {
     const user = await User.create({
       name: "Token User",
       email: "token@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     const token = await RefreshToken.create({
@@ -210,7 +210,7 @@ describe("database models", () => {
     const user = await User.create({
       name: "CRUD User",
       email: "crud@example.com",
-      password: "Password123",
+      password: "Password123!",
     });
 
     const created = await URLModel.create({

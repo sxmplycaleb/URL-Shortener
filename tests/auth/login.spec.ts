@@ -3,6 +3,26 @@ import { expect, test } from '@playwright/test';
 import { createUser, expectAuthenticatedSession, expectDashboard, fillLoginForm, uniqueUser } from '../helpers/auth';
 
 test.describe('login', () => {
+  test('validates credentials before sending a login request', async ({ page }) => {
+    await page.goto('/login');
+
+    const email = page.getByLabel('Email');
+    const password = page.getByLabel('Password', { exact: true });
+
+    await email.fill('not-an-email');
+    await password.fill('');
+    await page.getByRole('button', { name: 'Log in' }).click();
+
+    await expect(page.getByText('Enter a valid email address.')).toBeVisible();
+    await expect(page.getByText('Password is required.')).toBeVisible();
+
+    await email.fill('user@example.com');
+    await password.fill('anything');
+
+    await expect(page.getByText('Enter a valid email address.')).toBeHidden();
+    await expect(page.getByText('Password is required.')).toBeHidden();
+  });
+
   test('authenticates an existing account and allows protected route access', async ({ page, request }) => {
     const user = await createUser(request, uniqueUser('login'));
 
