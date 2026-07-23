@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { BarChart3, ChartNoAxesColumnIncreasing, Link2, Menu, ShieldCheck, Sparkles, Tags, X, Zap } from "lucide-react";
+import { BarChart3, ChartNoAxesColumnIncreasing, Link2, Menu, ShieldCheck, Tags, X, Zap } from "lucide-react";
 
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Footer } from "@/components/layout/Footer";
