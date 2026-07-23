@@ -66,6 +66,43 @@ describe("database models", () => {
     ).rejects.toThrow(/uppercase, lowercase, number, and special characters/);
   });
 
+  it("supports Google-only users without passwords and enforces unique Google IDs", async () => {
+    const user = await User.create({
+      name: "Google User",
+      email: "google-model@example.com",
+      provider: "google",
+      googleId: "google-model-id",
+      avatar: "https://lh3.googleusercontent.com/model.png",
+      emailVerified: true,
+      isVerified: true,
+      googleLinkedAt: new Date(),
+      lastLogin: new Date(),
+    });
+
+    expect(user.provider).toBe("google");
+    expect(user.password).toBeUndefined();
+    expect(user.googleId).toBe("google-model-id");
+    expect(user.emailVerified).toBe(true);
+
+    await expect(
+      User.create({
+        name: "Duplicate Google",
+        email: "google-model-duplicate@example.com",
+        provider: "google",
+        googleId: "google-model-id",
+      }),
+    ).rejects.toMatchObject({ code: 11000 });
+  });
+
+  it("requires passwords for email users", async () => {
+    await expect(
+      User.create({
+        name: "Passwordless Email",
+        email: "passwordless@example.com",
+      }),
+    ).rejects.toThrow(/Password is required/);
+  });
+
   it("enforces unique user emails and unique URL codes", async () => {
     const user = await User.create({
       name: "Unique User",

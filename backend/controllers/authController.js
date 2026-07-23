@@ -1,5 +1,6 @@
 import {
   loginUser,
+  loginWithGoogle,
   logoutUser,
   refreshAuth,
   registerUser,
@@ -20,10 +21,13 @@ export function getRefreshCookieOptions() {
 }
 
 function sendAuthResponse(response, statusCode, payload) {
+  const { accessTokenExpiresIn } = getEnv();
+
   response.cookie("refreshToken", payload.refreshToken, getRefreshCookieOptions());
   response.status(statusCode).json({
     user: payload.user,
     accessToken: payload.accessToken,
+    expiresIn: accessTokenExpiresIn,
   });
 }
 
@@ -34,6 +38,11 @@ export async function register(request, response) {
 
 export async function login(request, response) {
   const payload = await loginUser(request.validatedBody);
+  sendAuthResponse(response, 200, payload);
+}
+
+export async function googleLogin(request, response) {
+  const payload = await loginWithGoogle(request.validatedBody);
   sendAuthResponse(response, 200, payload);
 }
 

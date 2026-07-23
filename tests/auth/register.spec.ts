@@ -22,8 +22,8 @@ test.describe('registration', () => {
     await expect(page.getByText('Password must include at least one uppercase letter.')).toBeVisible();
     await expect(page.getByText('Passwords do not match.')).toBeVisible();
 
-    await name.fill('Ada Lovelace');
-    await email.fill('ada@example.com');
+    await name.fill('Caleb Ongau');
+    await email.fill('caleb@example.com');
     await password.fill('ValidPass123!');
     await confirmPassword.fill('ValidPass123!');
 

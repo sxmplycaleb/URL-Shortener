@@ -125,6 +125,23 @@ export function validateLogin(request, _response, next) {
   }
 }
 
+export function validateGoogleLogin(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    const idToken = requiredString(request.body, "idToken");
+
+    if (idToken.length > MAX_TOKEN_LENGTH) {
+      throw new AppError(`idToken cannot exceed ${MAX_TOKEN_LENGTH} characters.`, 400);
+    }
+
+    request.validatedBody = { idToken };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
 export function validateRefreshOrLogout(request, _response, next) {
   try {
     const refreshToken = request.body?.refreshToken ?? request.cookies?.refreshToken;
