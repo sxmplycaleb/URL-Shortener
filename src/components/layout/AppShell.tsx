@@ -5,6 +5,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { logoutUser } from "@/services/auth";
 import { clearAuthSession, getAuthSession } from "@/services/authStorage";
+import { signOutOfFirebase } from "@/services/firebase";
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -17,6 +18,7 @@ export function AppShell() {
 
   const handleLogout = useCallback(async () => {
     try {
+      await signOutOfFirebase();
       await logoutUser();
     } catch {
       // Local session cleanup is still required if the server session is already gone.

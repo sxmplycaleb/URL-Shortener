@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
-import { Check, Loader2, LogOut, Moon, ShieldCheck, Sun, Trash2, User } from "lucide-react";
+import { Check, Loader2, LogOut, Mail, Moon, ShieldCheck, Sun, Trash2, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Alert } from "@/components/ui/alert";
@@ -15,6 +15,7 @@ import { deleteAccount, updateAccountSettings, updatePassword, updateProfile } f
 import { getApiErrorMessage, isAuthorizationError } from "@/services/api";
 import { logoutUser } from "@/services/auth";
 import { clearAuthSession, getAuthSession, saveAuthSession } from "@/services/authStorage";
+import { signOutOfFirebase } from "@/services/firebase";
 
 type NoticeTone = "success" | "error";
 type ThemeChoice = "light" | "dark";
@@ -90,6 +91,9 @@ export function SettingsPage() {
         .toUpperCase(),
     [profile.name],
   );
+  const googleLinkedAt = user?.authProviders?.googleLinkedAt
+    ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(user.authProviders.googleLinkedAt))
+    : undefined;
 
   function validateProfile() {
     const nextErrors: ProfileErrors = {};
@@ -216,6 +220,7 @@ export function SettingsPage() {
 
   async function handleLogout() {
     try {
+      await signOutOfFirebase();
       await logoutUser();
     } catch {
       // The browser session should still be cleared if the server token is gone.
@@ -358,6 +363,56 @@ export function SettingsPage() {
                 Update profile
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+              Authentication
+            </CardTitle>
+            <CardDescription>Review the sign-in methods linked to your account.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3 rounded-md border p-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-muted">
+                <Mail className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">Email</p>
+                <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
+              </div>
+              {user?.authProviders?.email ? <Check className="h-5 w-5 text-success" aria-label="Email sign-in enabled" /> : null}
+            </div>
+
+            {user?.authProviders?.google ? (
+              <div className="flex items-center gap-3 rounded-md border p-4">
+                {user.avatar ? (
+                  <img className="h-10 w-10 shrink-0 rounded-md object-cover" src={user.avatar} alt="" referrerPolicy="no-referrer" />
+                ) : (
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-muted">
+                    <GoogleIcon />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">Google account linked</p>
+                  <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
+                  {googleLinkedAt ? <p className="text-xs text-muted-foreground">Linked {googleLinkedAt}</p> : null}
+                </div>
+                <Check className="h-5 w-5 text-success" aria-label="Google sign-in enabled" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 rounded-md border p-4 text-muted-foreground">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-muted">
+                  <GoogleIcon />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">Google</p>
+                  <p className="text-sm">No Google account linked.</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -516,5 +571,28 @@ function ThemeOption({
         <span className="mt-1 block text-sm text-muted-foreground">{description}</span>
       </span>
     </button>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M21.6 12.23c0-.78-.07-1.53-.2-2.23H12v4.22h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.32 2.98-7.52Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 22c2.7 0 4.96-.9 6.62-2.44l-3.24-2.51c-.9.6-2.04.95-3.38.95-2.6 0-4.8-1.76-5.58-4.12H3.07v2.59A9.99 9.99 0 0 0 12 22Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M6.42 13.88a6.01 6.01 0 0 1 0-3.76V7.53H3.07a9.99 9.99 0 0 0 0 8.94l3.35-2.59Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 6c1.47 0 2.8.51 3.84 1.5l2.86-2.86A9.6 9.6 0 0 0 12 2a9.99 9.99 0 0 0-8.93 5.53l3.35 2.59C7.2 7.76 9.4 6 12 6Z"
+      />
+    </svg>
   );
 }

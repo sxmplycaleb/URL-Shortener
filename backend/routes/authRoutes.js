@@ -1,9 +1,10 @@
 import { Router } from "express";
 
-import { forgotPassword, login, logout, refresh, register, resetForgottenPassword } from "../controllers/authController.js";
+import { forgotPassword, googleLogin, login, logout, refresh, register, resetForgottenPassword } from "../controllers/authController.js";
 import { createAuthRateLimiter, createPasswordRateLimiter } from "../middleware/rateLimit.js";
 import {
   validateForgotPassword,
+  validateGoogleLogin,
   validateLogin,
   validateRefreshOrLogout,
   validateRegister,
@@ -17,6 +18,7 @@ const passwordRateLimiter = createPasswordRateLimiter();
 
 router.post("/register", authRateLimiter, validateRegister, asyncHandler(register));
 router.post("/login", authRateLimiter, validateLogin, asyncHandler(login));
+router.post("/google", authRateLimiter, validateGoogleLogin, asyncHandler(googleLogin));
 router.post("/refresh", authRateLimiter, validateRefreshOrLogout, asyncHandler(refresh));
 router.post("/logout", validateRefreshOrLogout, asyncHandler(logout));
 router.post("/forgot-password", passwordRateLimiter, validateForgotPassword, asyncHandler(forgotPassword));

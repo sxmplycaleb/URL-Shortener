@@ -6,6 +6,15 @@ export interface AuthUser {
   email: string;
   role: string;
   isVerified: boolean;
+  emailVerified: boolean;
+  provider: "email" | "google";
+  avatar?: string;
+  lastLogin?: string;
+  authProviders?: {
+    email: boolean;
+    google: boolean;
+    googleLinkedAt?: string;
+  };
   accountSettings?: {
     notificationsEnabled: boolean;
   };
@@ -16,6 +25,7 @@ export interface AuthUser {
 export interface AuthResponse {
   user: AuthUser;
   accessToken: string;
+  expiresIn: string;
 }
 
 export interface RegisterRequest {
@@ -27,6 +37,10 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface GoogleLoginRequest {
+  idToken: string;
 }
 
 export interface ForgotPasswordResponse {
@@ -45,6 +59,10 @@ export function registerUser(body: RegisterRequest) {
 
 export function loginUser(body: LoginRequest) {
   return apiRequest<AuthResponse, LoginRequest>("/api/auth/login", body);
+}
+
+export function loginWithGoogle(body: GoogleLoginRequest) {
+  return apiRequest<AuthResponse, GoogleLoginRequest>("/api/auth/google", body);
 }
 
 export function logoutUser() {

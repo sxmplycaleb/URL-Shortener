@@ -7,6 +7,7 @@ const MIN_HASH_SALT_LENGTH = 16;
 const DEFAULT_CLIENT_URL = "http://localhost:5173";
 const VALID_NODE_ENVS = new Set(["development", "production", "test"]);
 const VALID_COOKIE_SAME_SITE_VALUES = new Set(["strict", "lax", "none"]);
+const FIREBASE_PRIVATE_KEY_PLACEHOLDER = "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n";
 
 function required(name) {
   const value = process.env[name];
@@ -116,6 +117,20 @@ function requiredSecret(name, minimumLength) {
   return value;
 }
 
+function requiredFirebaseValue(name) {
+  const value = required(name).trim();
+
+  if (value === "" || value === FIREBASE_PRIVATE_KEY_PLACEHOLDER) {
+    throw new Error(`${name} must be configured for Google authentication.`);
+  }
+
+  return value;
+}
+
+function firebasePrivateKeyValue() {
+  return requiredFirebaseValue("FIREBASE_PRIVATE_KEY").replace(/\\n/g, "\n");
+}
+
 function urlListValue(name, fallback) {
   const rawValue = process.env[name] ?? fallback;
   const values = rawValue
@@ -219,5 +234,8 @@ export function getEnv() {
     redirectRateLimitMax: numberValue("REDIRECT_RATE_LIMIT_MAX", rateLimitMax),
     passwordRateLimitWindowMs: numberValue("PASSWORD_RATE_LIMIT_WINDOW_MS", rateLimitWindowMs),
     passwordRateLimitMax: numberValue("PASSWORD_RATE_LIMIT_MAX", rateLimitMax),
+    firebaseProjectId: requiredFirebaseValue("FIREBASE_PROJECT_ID"),
+    firebaseClientEmail: requiredFirebaseValue("FIREBASE_CLIENT_EMAIL"),
+    firebasePrivateKey: firebasePrivateKeyValue(),
   };
 }
