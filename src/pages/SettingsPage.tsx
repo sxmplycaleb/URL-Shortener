@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/hooks/useTheme";
-import { cn, isValidEmail, MIN_PASSWORD_LENGTH } from "@/lib/utils";
+import { cn, isValidEmail, validatePassword as validateStrongPassword } from "@/lib/utils";
 import { deleteAccount, updateAccountSettings, updatePassword, updateProfile } from "@/services/account";
 import { getApiErrorMessage, isAuthorizationError } from "@/services/api";
 import { logoutUser } from "@/services/auth";
@@ -119,8 +120,11 @@ export function SettingsPage() {
 
     if (!passwords.newPassword) {
       nextErrors.newPassword = "New password is required.";
-    } else if (passwords.newPassword.length < MIN_PASSWORD_LENGTH) {
-      nextErrors.newPassword = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
+    } else {
+      const passwordError = validateStrongPassword(passwords.newPassword);
+      if (passwordError) {
+        nextErrors.newPassword = passwordError;
+      }
     }
 
     if (!passwords.confirmPassword) {
@@ -370,11 +374,10 @@ export function SettingsPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="settings-current-password">Current password</Label>
-                  <Input
+                  <PasswordInput
                     id="settings-current-password"
                     value={passwords.currentPassword}
                     autoComplete="current-password"
-                    type="password"
                     aria-describedby={passwordErrors.currentPassword ? "settings-current-password-error" : undefined}
                     aria-invalid={passwordErrors.currentPassword ? "true" : undefined}
                     disabled={savingPassword}
@@ -384,27 +387,26 @@ export function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="settings-new-password">New password</Label>
-                  <Input
+                  <PasswordInput
                     id="settings-new-password"
                     value={passwords.newPassword}
                     autoComplete="new-password"
                     minLength={8}
-                    type="password"
                     aria-describedby={passwordErrors.newPassword ? "settings-new-password-error" : undefined}
                     aria-invalid={passwordErrors.newPassword ? "true" : undefined}
                     disabled={savingPassword}
+                    showRequirements
                     onChange={(event) => setPasswords((current) => ({ ...current, newPassword: event.target.value }))}
                   />
                   <FieldError id="settings-new-password-error">{passwordErrors.newPassword}</FieldError>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="settings-confirm-password">Confirm password</Label>
-                  <Input
+                  <PasswordInput
                     id="settings-confirm-password"
                     value={passwords.confirmPassword}
                     autoComplete="new-password"
                     minLength={8}
-                    type="password"
                     aria-describedby={passwordErrors.confirmPassword ? "settings-confirm-password-error" : undefined}
                     aria-invalid={passwordErrors.confirmPassword ? "true" : undefined}
                     disabled={savingPassword}

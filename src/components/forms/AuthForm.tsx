@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { MAX_PASSWORD_LENGTH, MIN_NAME_LENGTH, MIN_PASSWORD_LENGTH, validateEmail, validatePassword } from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
 import { loginUser, registerUser } from "@/services/auth";
@@ -257,21 +258,38 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              value={values.password}
-              autoComplete={isRegister ? "new-password" : "current-password"}
-              className={fieldClassName}
-              aria-describedby={errors.password ? "password-error" : undefined}
-              aria-invalid={errors.password ? "true" : undefined}
-              disabled={loading}
-              maxLength={isRegister ? MAX_PASSWORD_LENGTH : undefined}
-              minLength={MIN_PASSWORD_LENGTH}
-              onChange={handleChange("password")}
-              required
-            />
+            {isRegister ? (
+              <PasswordInput
+                id="password"
+                name="password"
+                value={values.password}
+                autoComplete="new-password"
+                className={fieldClassName}
+                aria-describedby={errors.password ? "password-error" : undefined}
+                aria-invalid={errors.password ? "true" : undefined}
+                disabled={loading}
+                maxLength={MAX_PASSWORD_LENGTH}
+                minLength={MIN_PASSWORD_LENGTH}
+                showRequirements
+                onChange={handleChange("password")}
+                required
+              />
+            ) : (
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={values.password}
+                autoComplete="current-password"
+                className={fieldClassName}
+                aria-describedby={errors.password ? "password-error" : undefined}
+                aria-invalid={errors.password ? "true" : undefined}
+                disabled={loading}
+                minLength={MIN_PASSWORD_LENGTH}
+                onChange={handleChange("password")}
+                required
+              />
+            )}
             {errors.password ? (
               <p className="text-sm text-destructive" id="password-error">
                 {errors.password}
@@ -281,10 +299,9 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
           {isRegister ? (
             <div className="space-y-2">
               <Label htmlFor="confirm">Confirm password</Label>
-              <Input
+              <PasswordInput
                 id="confirm"
                 name="confirm"
-                type="password"
                 value={values.confirm}
                 autoComplete="new-password"
                 className={fieldClassName}
