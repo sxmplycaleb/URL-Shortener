@@ -1,3 +1,5 @@
+import { performance } from "node:perf_hooks";
+
 import { findUserForApiKey, recordApiUsage } from "../services/apiKeyService.js";
 import AppError from "../utils/AppError.js";
 

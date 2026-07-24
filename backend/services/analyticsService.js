@@ -81,63 +81,6 @@ function buildClickActivity(clicks, days) {
   return activity;
 }
 
-function buildDeviceAnalytics(clicks) {
-  const labels = ["Desktop", "Mobile", "Tablet"];
-  const totals = new Map(labels.map((label) => [label, 0]));
-
-  for (const click of clicks) {
-    const rawDevice = String(click.device || "Desktop").toLowerCase();
-    const label = rawDevice.includes("mobile") ? "Mobile" : rawDevice.includes("tablet") ? "Tablet" : "Desktop";
-    totals.set(label, (totals.get(label) ?? 0) + 1);
-  }
-
-  return labels.map((name) => ({
-    name,
-    value: toPercent(totals.get(name) ?? 0, clicks.length),
-  }));
-}
-
-function buildBrowserAnalytics(clicks) {
-  const totals = new Map();
-
-  for (const click of clicks) {
-    const browser = click.browser || "Unknown";
-    totals.set(browser, (totals.get(browser) ?? 0) + 1);
-  }
-
-  return Array.from(totals.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, clicksCount]) => ({
-      name,
-      clicks: clicksCount,
-      share: toPercent(clicksCount, clicks.length),
-    }));
-}
-
-function buildLocationAnalytics(clicks) {
-  const totals = new Map();
-
-  for (const click of clicks) {
-    const place = click.city || "Unknown";
-    const country = click.country || "Unknown";
-    const key = `${place}|${country}`;
-    totals.set(key, {
-      place,
-      country,
-      clicks: (totals.get(key)?.clicks ?? 0) + 1,
-    });
-  }
-
-  return Array.from(totals.values())
-    .sort((a, b) => b.clicks - a.clicks)
-    .slice(0, 5)
-    .map((item) => ({
-      ...item,
-      share: toPercent(item.clicks, clicks.length),
-    }));
-}
-
 function buildCountBreakdown(items, total, nameKey = "name", limit = 8) {
   return items.slice(0, limit).map((item) => ({
     name: item._id || "Unknown",
