@@ -132,6 +132,8 @@ describe("backend API", () => {
   });
 
   it("creates a Google user and returns the normal auth session", async () => {
+    const firebaseIdToken = "a".repeat(1500);
+
     verifyGoogleIdTokenMock.mockResolvedValue({
       uid: "google-new-user",
       email: "google-new@example.com",
@@ -141,7 +143,7 @@ describe("backend API", () => {
     });
 
     const response = await request(app).post("/api/auth/google").send({
-      idToken: "valid-google-token",
+      idToken: firebaseIdToken,
     });
 
     expect(response.status).toBe(200);
@@ -164,6 +166,7 @@ describe("backend API", () => {
     const user = await User.findOne({ email: "google-new@example.com" });
     expect(user.googleId).toBe("google-new-user");
     expect(user.lastLogin).toBeInstanceOf(Date);
+    expect(verifyGoogleIdTokenMock).toHaveBeenCalledWith(firebaseIdToken);
   });
 
   it("links Google to an existing verified email account and updates last login", async () => {

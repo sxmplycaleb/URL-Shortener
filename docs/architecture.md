@@ -158,6 +158,28 @@ Indexes:
 - Index on `actor_user_id, created_at DESC`.
 - Index on `action, created_at DESC`.
 
+### `otps`
+
+Stores one-time passcodes for authentication-adjacent flows. Raw OTP values are never stored.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| `id` | ObjectId | Primary key | MongoDB document identifier. |
+| `userId` | ObjectId | Nullable, ref `users` | User associated with the OTP when known. |
+| `email` | String | Nullable, lowercase | Email delivery or verification target. |
+| `phone` | String | Nullable | E.164 phone target for SMS or WhatsApp. |
+| `purpose` | String | Not null | `LOGIN`, `REGISTER`, `RESET_PASSWORD`, `CHANGE_EMAIL`, `CHANGE_PHONE`. |
+| `hashedOtp` | String | Not null, select false | SHA-256 hash using the application hash salt. |
+| `expiresAt` | Date | Not null | Defaults to 5 minutes after issue. |
+| `attempts` | Number | Not null, max 5 | Failed verification attempts. |
+| `used` | Boolean | Not null | Set when verified, exhausted, or superseded. |
+| `createdAt` | Date | Not null | Issue timestamp. |
+
+Indexes:
+
+- TTL index on `expiresAt`.
+- Compound lookup indexes on `email/purpose/used`, `phone/purpose/used`, and `userId/purpose/used`.
+
 ## 4. API Endpoints
 
 All API endpoints return JSON unless otherwise noted.
@@ -322,6 +344,75 @@ Invalidates the current session.
 #### `GET /api/auth/me`
 
 Returns the current authenticated user.
+
+#### `POST /api/auth/otp/request`
+
+Issues an OTP for a future authentication flow and delivers it with Resend email or Twilio Verify SMS/WhatsApp. Existing unused OTPs for the same user/contact/purpose are marked used before the new code is stored.
+
+Request:
+
+```json
+{
+  "email": "user@example.com",
+  "phone": "+15551234567",
+  "purpose": "LOGIN",
+  "channel": "email"
+}
+```
+
+Only one of `email` or `phone` is required. `purpose` must be one of `LOGIN`, `REGISTER`, `RESET_PASSWORD`, `CHANGE_EMAIL`, or `CHANGE_PHONE`; `channel` must be `email`, `sms`, or `whatsapp`.
+
+Response `202 Accepted`:
+
+```json
+{
+  "otpId": "object-id",
+  "expiresAt": "2026-07-24T12:05:00.000Z",
+  "channel": "email",
+  "delivery": {
+    "provider": "resend",
+    "delivered": true
+  }
+}
+```
+
+Errors:
+
+- `400 Bad Request`: Missing or invalid contact, purpose, or channel.
+- `429 Too Many Requests`: Resend cooldown or OTP generation rate limit exceeded.
+- `502 Bad Gateway`: Provider delivery failed.
+
+#### `POST /api/auth/otp/verify`
+
+Verifies an OTP without creating a login session. Session creation remains owned by the existing auth flows until OTP login/register UI is introduced.
+
+Request:
+
+```json
+{
+  "email": "user@example.com",
+  "purpose": "LOGIN",
+  "otp": "123456"
+}
+```
+
+Response `200 OK`:
+
+```json
+{
+  "verified": true,
+  "otpId": "object-id",
+  "userId": null,
+  "email": "user@example.com",
+  "phone": null,
+  "purpose": "LOGIN"
+}
+```
+
+Errors:
+
+- `400 Bad Request`: Invalid, expired, reused, or malformed OTP.
+- `429 Too Many Requests`: Verification rate limit or 5-attempt cap exceeded.
 
 ### Redirect Route
 

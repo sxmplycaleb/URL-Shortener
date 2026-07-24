@@ -1,11 +1,23 @@
 import { Router } from "express";
 
-import { forgotPassword, googleLogin, login, logout, refresh, register, resetForgottenPassword } from "../controllers/authController.js";
+import {
+  forgotPassword,
+  googleLogin,
+  login,
+  logout,
+  refresh,
+  register,
+  requestOtp,
+  resetForgottenPassword,
+  verifyOtp,
+} from "../controllers/authController.js";
 import { createAuthRateLimiter, createPasswordRateLimiter } from "../middleware/rateLimit.js";
 import {
   validateForgotPassword,
   validateGoogleLogin,
   validateLogin,
+  validateOtpRequest,
+  validateOtpVerification,
   validateRefreshOrLogout,
   validateRegister,
   validateResetPassword,
@@ -23,5 +35,7 @@ router.post("/refresh", authRateLimiter, validateRefreshOrLogout, asyncHandler(r
 router.post("/logout", validateRefreshOrLogout, asyncHandler(logout));
 router.post("/forgot-password", passwordRateLimiter, validateForgotPassword, asyncHandler(forgotPassword));
 router.post("/reset-password", passwordRateLimiter, validateResetPassword, asyncHandler(resetForgottenPassword));
+router.post("/otp/request", authRateLimiter, validateOtpRequest, asyncHandler(requestOtp));
+router.post("/otp/verify", authRateLimiter, validateOtpVerification, asyncHandler(verifyOtp));
 
 export default router;
