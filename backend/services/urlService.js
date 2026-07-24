@@ -18,9 +18,16 @@ function toUrlResource(url) {
     shortCode: url.shortCode,
     shortUrl: buildShortUrl(url.shortCode),
     customAlias: url.customAlias,
+    title: url.title ?? "",
     clickCount: url.clickCount,
     expiresAt: url.expiresAt,
     isActive: url.isActive,
+    isFavorite: url.isFavorite,
+    isArchived: url.isArchived,
+    hasQrCode: url.hasQrCode,
+    shareCount: url.shareCount,
+    lastClickedAt: url.lastClickedAt,
+    tags: url.tags ?? [],
     createdAt: url.createdAt,
     updatedAt: url.updatedAt,
   };
@@ -59,6 +66,7 @@ async function findOneAndUpdateWithGeneratedShortCode(filter, updates) {
 export async function createUrl(userId, payload) {
   const baseDocument = {
     originalUrl: payload.originalUrl,
+    title: payload.title,
     user: userId,
     expiresAt: payload.expiresAt ? new Date(payload.expiresAt) : undefined,
   };
@@ -122,12 +130,36 @@ export async function updateUrl(userId, urlId, payload) {
     updates.originalUrl = payload.originalUrl;
   }
 
+  if (payload.title !== undefined) {
+    updates.title = payload.title;
+  }
+
   if (payload.expiresAt !== undefined) {
     updates.expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : undefined;
   }
 
   if (payload.isActive !== undefined) {
     updates.isActive = payload.isActive;
+  }
+
+  if (payload.isFavorite !== undefined) {
+    updates.isFavorite = payload.isFavorite;
+  }
+
+  if (payload.isArchived !== undefined) {
+    updates.isArchived = payload.isArchived;
+  }
+
+  if (payload.hasQrCode !== undefined) {
+    updates.hasQrCode = payload.hasQrCode;
+  }
+
+  if (payload.shareCount !== undefined) {
+    updates.shareCount = payload.shareCount;
+  }
+
+  if (payload.tags !== undefined) {
+    updates.tags = payload.tags;
   }
 
   if (payload.customAlias !== undefined) {

@@ -80,6 +80,45 @@ function optionalCustomAlias(body) {
   return customAlias;
 }
 
+function optionalTitle(body) {
+  if (body.title === undefined || body.title === null || body.title === "") {
+    return "";
+  }
+
+  if (typeof body.title !== "string") {
+    throw new AppError("title must be a string.", 400);
+  }
+
+  const title = body.title.trim();
+
+  if (title.length > 140) {
+    throw new AppError("title cannot exceed 140 characters.", 400);
+  }
+
+  return title;
+}
+
+function optionalTags(body) {
+  if (body.tags === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(body.tags)) {
+    throw new AppError("tags must be an array.", 400);
+  }
+
+  return body.tags
+    .map((tag) => {
+      if (typeof tag !== "string") {
+        throw new AppError("tags must contain strings.", 400);
+      }
+
+      return tag.trim();
+    })
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
 export function validateRegister(request, _response, next) {
   try {
     assertObject(request.body);
@@ -396,6 +435,7 @@ export function validateCreateUrl(request, _response, next) {
     request.validatedBody = {
       originalUrl,
       customAlias,
+      title: optionalTitle(request.body),
       expiresAt: optionalDate(request.body.expiresAt, "expiresAt"),
     };
     next();
@@ -425,6 +465,10 @@ export function validateUpdateUrl(request, _response, next) {
       body.customAlias = customAlias ?? "";
     }
 
+    if (request.body.title !== undefined) {
+      body.title = optionalTitle(request.body);
+    }
+
     if (request.body.expiresAt !== undefined) {
       body.expiresAt = optionalDate(request.body.expiresAt, "expiresAt") ?? "";
     }
@@ -435,6 +479,43 @@ export function validateUpdateUrl(request, _response, next) {
       }
 
       body.isActive = request.body.isActive;
+    }
+
+    if (request.body.isFavorite !== undefined) {
+      if (typeof request.body.isFavorite !== "boolean") {
+        throw new AppError("isFavorite must be a boolean.", 400);
+      }
+
+      body.isFavorite = request.body.isFavorite;
+    }
+
+    if (request.body.isArchived !== undefined) {
+      if (typeof request.body.isArchived !== "boolean") {
+        throw new AppError("isArchived must be a boolean.", 400);
+      }
+
+      body.isArchived = request.body.isArchived;
+    }
+
+    if (request.body.hasQrCode !== undefined) {
+      if (typeof request.body.hasQrCode !== "boolean") {
+        throw new AppError("hasQrCode must be a boolean.", 400);
+      }
+
+      body.hasQrCode = request.body.hasQrCode;
+    }
+
+    if (request.body.shareCount !== undefined) {
+      if (!Number.isInteger(request.body.shareCount) || request.body.shareCount < 0) {
+        throw new AppError("shareCount must be a non-negative integer.", 400);
+      }
+
+      body.shareCount = request.body.shareCount;
+    }
+
+    const tags = optionalTags(request.body);
+    if (tags !== undefined) {
+      body.tags = tags;
     }
 
     if (Object.keys(body).length === 0) {

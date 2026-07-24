@@ -163,6 +163,21 @@ Dashboard layout presets are available from `/settings/dashboard`:
 
 The dashboard settings page also includes sidebar behavior controls and placeholders for future notification preferences, cloud sync, and account preferences.
 
+## Advanced URL Management
+
+The dashboard URL list supports fast management workflows for larger link libraries:
+
+- Search filters instantly with debouncing and persists across dashboard navigation. It matches original URLs, short URLs, custom aliases, titles, and tags, and highlights matched text.
+- Sorting options include newest, oldest, most clicks, least clicks, alphabetical A-Z, alphabetical Z-A, and recently updated. The selected sort is remembered in `localStorage`.
+- Filter chips can be combined for active, expired, favorites, archived, has QR code, most shared, date created, and date updated views. Reset clears search, sorting, and filters in one click.
+- Bulk selection includes select all, clear selection, copy, delete, archive, and restore. Bulk buttons stay disabled until at least one URL is selected.
+- Favorites use a star action, persist on the URL document, can be pinned first, and can be filtered with the Favorites chip.
+- Archive and restore keep URLs recoverable. Archive, restore, and delete flows use confirmation dialogs.
+- QR tools can generate a QR state for each URL, preview it, download PNG or SVG, copy the QR image markup, and regenerate from the current short URL.
+- The share menu supports copy link, WhatsApp, Facebook, X, LinkedIn, Telegram, email, and the native Web Share API when available. Share counts are persisted on the URL document.
+- URL rows and cards show click count, created date, updated date, last clicked, favorite/archive indicators, QR state, quick actions, responsive card/table layouts, and accessible labels/focus states.
+- Loading uses reusable skeleton blocks in `src/components/common/Skeleton.tsx` instead of a dashboard spinner.
+
 ## Sidebar and Profile Navigation
 
 Desktop navigation includes a collapsible sidebar. The collapse state is saved automatically, restored on reload, keeps icons visible, and shows tooltips for collapsed navigation items. Mobile navigation uses a slide-in drawer with a backdrop, Escape handling, focus trapping, outside-click close, automatic close after navigation, and a bottom-pinned logout action.

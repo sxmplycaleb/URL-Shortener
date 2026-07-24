@@ -112,13 +112,9 @@ export async function createUrlThroughUi(
 }
 
 export async function deleteFirstUrlThroughUi(page: Page) {
-  page.once('dialog', async (dialog) => {
-    expect(dialog.message()).toContain('Delete');
-    await dialog.accept();
-  });
-
   await page.getByRole('button', { name: 'Delete URL' }).first().click();
-  await expectToast(page, 'Short URL deleted.');
+  await page.getByRole('dialog', { name: 'Delete URLs?' }).getByRole('button', { name: 'Delete' }).click();
+  await expectToast(page, /Short URL deleted\.|URLs deleted\./);
 }
 
 export async function expectCreatedToast(page: Page) {
