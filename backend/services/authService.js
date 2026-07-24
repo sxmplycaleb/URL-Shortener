@@ -8,6 +8,7 @@ import { issueTokenPair, revokeRefreshToken, rotateRefreshToken } from "./tokenS
 import RefreshToken from "../models/RefreshToken.js";
 import { verifyGoogleIdToken } from "./firebaseAdmin.js";
 import OTP from "../models/OTP.js";
+import { BrevoEmailProvider } from "./otpProviders.js";
 
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -191,6 +192,16 @@ function buildPasswordResetUrl(token) {
   return url.toString();
 }
 
+function createEmailProvider() {
+  const config = getEnv();
+
+  return new BrevoEmailProvider({
+    apiKey: config.brevoApiKey,
+    senderName: config.brevoSenderName,
+    senderEmail: config.brevoSenderEmail,
+  });
+}
+
 export async function requestPasswordReset({ email }) {
   const user = await User.findOne({ email: email?.trim().toLowerCase() }).select(
     "+passwordResetTokenHash +passwordResetExpiresAt",
@@ -208,8 +219,11 @@ export async function requestPasswordReset({ email }) {
   user.passwordResetExpiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS);
   await user.save({ validateModifiedOnly: true });
 
+  const resetUrl = buildPasswordResetUrl(token);
+  await createEmailProvider().sendPasswordResetLink({ email: user.email, resetUrl });
+
   if (getEnv().nodeEnv !== "production") {
-    response.resetUrl = buildPasswordResetUrl(token);
+    response.resetUrl = resetUrl;
   }
 
   return response;

@@ -5,7 +5,7 @@ import OTP, { OTP_PURPOSES } from "../models/OTP.js";
 import AppError from "../utils/AppError.js";
 import { hashToken } from "../utils/hash.js";
 import { logger } from "../utils/logger.js";
-import { ResendEmailProvider, TwilioVerifyProvider } from "./otpProviders.js";
+import { BrevoEmailProvider, TwilioVerifyProvider } from "./otpProviders.js";
 
 const OTP_DIGITS = 6;
 const MAX_OTP_ATTEMPTS = 5;
@@ -281,9 +281,11 @@ export function createAuthenticationService() {
 
   return new AuthenticationService({
     config,
-    emailProvider: new ResendEmailProvider({
-      apiKey: config.resendApiKey,
-      from: config.resendFromEmail,
+    emailProvider: new BrevoEmailProvider({
+      apiKey: config.brevoApiKey,
+      senderName: config.brevoSenderName,
+      senderEmail: config.brevoSenderEmail,
+      expiresInMinutes: config.otpExpiryMinutes,
     }),
     phoneProvider: new TwilioVerifyProvider({
       accountSid: config.twilioAccountSid,
