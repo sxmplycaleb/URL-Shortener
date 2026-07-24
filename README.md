@@ -64,12 +64,15 @@ OTP support is available for future login, registration, password reset, email c
 Delivery providers:
 
 ```ini
-RESEND_API_KEY=
-RESEND_FROM_EMAIL=
+BREVO_API_KEY=
+BREVO_SENDER_NAME=
+BREVO_SENDER_EMAIL=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_VERIFY_SERVICE_SID=
 ```
+
+Email delivery uses Brevo Transactional Email. `BREVO_SENDER_EMAIL` must be a sender verified in Brevo, and `BREVO_SENDER_NAME` is the display name shown in auth emails.
 
 Runtime controls:
 
@@ -115,8 +118,9 @@ SHORT_URL_BASE=
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
-RESEND_API_KEY=
-RESEND_FROM_EMAIL=
+BREVO_API_KEY=
+BREVO_SENDER_NAME=
+BREVO_SENDER_EMAIL=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_VERIFY_SERVICE_SID=

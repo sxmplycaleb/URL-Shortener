@@ -347,7 +347,7 @@ Returns the current authenticated user.
 
 #### `POST /api/auth/otp/request`
 
-Issues an OTP for a future authentication flow and delivers it with Resend email or Twilio Verify SMS/WhatsApp. Existing unused OTPs for the same user/contact/purpose are marked used before the new code is stored.
+Issues an OTP for a future authentication flow and delivers it with Brevo transactional email or Twilio Verify SMS/WhatsApp. Existing unused OTPs for the same user/contact/purpose are marked used before the new code is stored.
 
 Request:
 
@@ -370,7 +370,7 @@ Response `202 Accepted`:
   "expiresAt": "2026-07-24T12:05:00.000Z",
   "channel": "email",
   "delivery": {
-    "provider": "resend",
+    "provider": "brevo",
     "delivered": true
   }
 }
@@ -379,7 +379,7 @@ Response `202 Accepted`:
 Errors:
 
 - `400 Bad Request`: Missing or invalid contact, purpose, or channel.
-- `429 Too Many Requests`: Resend cooldown or OTP generation rate limit exceeded.
+- `429 Too Many Requests`: OTP request cooldown or generation rate limit exceeded.
 - `502 Bad Gateway`: Provider delivery failed.
 
 #### `POST /api/auth/otp/verify`

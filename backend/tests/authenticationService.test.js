@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { connectDatabase, disconnectDatabase } from "../config/database.js";
 import OTP from "../models/OTP.js";
 import { AuthenticationService } from "../services/authenticationService.js";
+import { BrevoEmailProvider } from "../services/otpProviders.js";
 
 let mongoServer;
 let now;
@@ -22,7 +23,7 @@ function createService(overrides = {}) {
   return new AuthenticationService({
     otpModel: OTP,
     emailProvider: {
-      sendOtp: vi.fn().mockResolvedValue({ provider: "resend", delivered: true }),
+      sendOtp: vi.fn().mockResolvedValue({ provider: "brevo", delivered: true }),
     },
     phoneProvider: {
       sendOtp: vi.fn().mockResolvedValue({ provider: "twilio_verify", delivered: true }),
@@ -77,7 +78,7 @@ describe("AuthenticationService OTP foundation", () => {
       otp: "123456",
       channel: "email",
       delivery: {
-        provider: "resend",
+        provider: "brevo",
         delivered: true,
       },
     });
@@ -198,5 +199,68 @@ describe("AuthenticationService OTP foundation", () => {
     await expect(
       service.verifyOtp({ email: "verify-limited@example.com", purpose: "LOGIN", otp: "000000" }),
     ).rejects.toMatchObject({ statusCode: 429 });
+  });
+});
+
+describe("BrevoEmailProvider", () => {
+  it("sends OTP emails with the Brevo transactional email API", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue({ ok: true });
+    const provider = new BrevoEmailProvider({
+      apiKey: "brevo-api-key",
+      senderName: "Shortly",
+      senderEmail: "no-reply@example.com",
+      expiresInMinutes: 7,
+      fetchImplementation,
+    });
+
+    await expect(
+      provider.sendOtp({
+        email: "user@example.com",
+        otp: "123456",
+        purpose: "LOGIN",
+      }),
+    ).resolves.toEqual({ provider: "brevo", delivered: true });
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      "https://api.brevo.com/v3/smtp/email",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          "api-key": "brevo-api-key",
+          "Content-Type": "application/json",
+        },
+      }),
+    );
+
+    const [, requestOptions] = fetchImplementation.mock.calls[0];
+    expect(JSON.parse(requestOptions.body)).toMatchObject({
+      sender: { name: "Shortly", email: "no-reply@example.com" },
+      to: [{ email: "user@example.com" }],
+      subject: "Your Shortly login code",
+      textContent: expect.stringContaining("123456"),
+      tags: ["auth", "otp", "login"],
+    });
+  });
+
+  it("sends password reset links through Brevo", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue({ ok: true });
+    const provider = new BrevoEmailProvider({
+      apiKey: "brevo-api-key",
+      senderEmail: "no-reply@example.com",
+      fetchImplementation,
+    });
+
+    await provider.sendPasswordResetLink({
+      email: "reset@example.com",
+      resetUrl: "https://shortly.example.com/reset-password?token=abc",
+    });
+
+    const [, requestOptions] = fetchImplementation.mock.calls[0];
+    expect(JSON.parse(requestOptions.body)).toMatchObject({
+      to: [{ email: "reset@example.com" }],
+      subject: "Reset your Shortly password",
+      textContent: expect.stringContaining("https://shortly.example.com/reset-password?token=abc"),
+      tags: ["auth", "password-reset-link"],
+    });
   });
 });
