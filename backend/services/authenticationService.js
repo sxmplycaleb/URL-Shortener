@@ -6,11 +6,15 @@ import AppError from "../utils/AppError.js";
 import { hashToken } from "../utils/hash.js";
 import { logger } from "../utils/logger.js";
 import { normalizePhoneNumber } from "../utils/phone.js";
-import { BrevoEmailProvider, MetaWhatsAppProvider, PhoneOtpProvider, TwilioSmsProvider } from "./otpProviders.js";
+import { BrevoEmailProvider, PhoneOtpProvider, TwilioSmsProvider } from "./otpProviders.js";
+// TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+// import { MetaWhatsAppProvider } from "./otpProviders.js";
 
 const OTP_DIGITS = 6;
 const MAX_OTP_ATTEMPTS = 5;
-const VALID_CHANNELS = new Set(["email", "sms", "whatsapp"]);
+// TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+// const VALID_CHANNELS = new Set(["email", "sms", "whatsapp"]);
+const VALID_CHANNELS = new Set(["email", "sms"]);
 
 function normalizeEmail(email) {
   return typeof email === "string" && email.trim() ? email.trim().toLowerCase() : null;
@@ -161,8 +165,8 @@ export class AuthenticationService {
       throw new AppError("Email is required for email OTP delivery.", 400);
     }
 
-    if (["sms", "whatsapp"].includes(deliveryChannel) && !target.phone) {
-      throw new AppError("Phone is required for SMS or WhatsApp OTP delivery.", 400);
+    if (deliveryChannel === "sms" && !target.phone) {
+      throw new AppError("Phone is required for SMS OTP delivery.", 400);
     }
 
     await this.assertGenerationRateLimit({ userId, ...target, purpose });
@@ -296,13 +300,14 @@ export function createAuthenticationService() {
           authToken: config.twilioAuthToken,
           serviceSid: config.twilioVerifyServiceSid,
         }),
-        whatsapp: new MetaWhatsAppProvider({
-          accessToken: config.metaWhatsAppAccessToken,
-          phoneNumberId: config.metaWhatsAppPhoneNumberId,
-          templateName: config.metaWhatsAppTemplateName,
-          templateLanguage: config.metaWhatsAppTemplateLanguage,
-          apiVersion: config.metaWhatsAppApiVersion,
-        }),
+        // TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+        // whatsapp: new MetaWhatsAppProvider({
+        //   accessToken: config.metaWhatsAppAccessToken,
+        //   phoneNumberId: config.metaWhatsAppPhoneNumberId,
+        //   templateName: config.metaWhatsAppTemplateName,
+        //   templateLanguage: config.metaWhatsAppTemplateLanguage,
+        //   apiVersion: config.metaWhatsAppApiVersion,
+        // }),
       },
     }),
   });

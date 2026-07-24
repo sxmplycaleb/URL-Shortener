@@ -226,6 +226,7 @@ export class TwilioSmsProvider {
   }
 }
 
+// TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
 export class MetaWhatsAppProvider {
   constructor({
     accessToken,

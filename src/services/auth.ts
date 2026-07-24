@@ -58,7 +58,9 @@ export interface ResetPasswordRequest {
 }
 
 export type OtpPurpose = "LOGIN" | "REGISTER" | "RESET_PASSWORD";
-export type PhoneOtpChannel = "sms" | "whatsapp";
+// TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+// export type PhoneOtpChannel = "sms" | "whatsapp";
+export type PhoneOtpChannel = "sms";
 
 export interface OtpRequest {
   email: string;
@@ -75,7 +77,9 @@ export interface PhoneOtpRequest {
 export interface OtpRequestResponse {
   otpId: string;
   expiresAt: string;
-  channel: "email" | "sms" | "whatsapp";
+  // TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+  // channel: "email" | "sms" | "whatsapp";
+  channel: "email" | "sms";
   delivery: {
     provider: string;
     delivered: boolean;

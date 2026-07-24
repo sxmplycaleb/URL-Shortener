@@ -1,6 +1,6 @@
 # Shortly URL Shortener
 
-Shortly is a React/Vite and Express/MongoDB URL shortener with email/password authentication, email OTP, phone OTP with Twilio SMS and Meta WhatsApp Cloud API delivery, Google sign-in, refresh-token sessions, dashboards, analytics, and account settings.
+Shortly is a React/Vite and Express/MongoDB URL shortener with email/password authentication, email OTP, phone OTP with Twilio SMS delivery, Google sign-in, refresh-token sessions, dashboards, analytics, and account settings. WhatsApp OTP support is temporarily disabled pending Meta WhatsApp Cloud API integration.
 
 ## Local Setup
 
@@ -70,16 +70,18 @@ BREVO_SENDER_EMAIL=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_VERIFY_SERVICE_SID=
-META_WHATSAPP_ACCESS_TOKEN=
-META_WHATSAPP_PHONE_NUMBER_ID=
-META_WHATSAPP_TEMPLATE_NAME=
-META_WHATSAPP_TEMPLATE_LANGUAGE=en_US
-META_WHATSAPP_API_VERSION=v20.0
+# WhatsApp OTP is temporarily disabled pending Meta WhatsApp Cloud API integration.
+# TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+# META_WHATSAPP_ACCESS_TOKEN=
+# META_WHATSAPP_PHONE_NUMBER_ID=
+# META_WHATSAPP_TEMPLATE_NAME=
+# META_WHATSAPP_TEMPLATE_LANGUAGE=en_US
+# META_WHATSAPP_API_VERSION=v20.0
 ```
 
 Email delivery uses Brevo Transactional Email. `BREVO_SENDER_EMAIL` must be a sender verified in Brevo, and `BREVO_SENDER_NAME` is the display name shown in auth emails.
 
-Phone delivery uses Twilio Verify for SMS and Meta WhatsApp Cloud API for WhatsApp. Configure a Twilio Verify Service for SMS and set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_VERIFY_SERVICE_SID`. Configure a Meta WhatsApp message template with one body parameter for the OTP and set `META_WHATSAPP_ACCESS_TOKEN`, `META_WHATSAPP_PHONE_NUMBER_ID`, `META_WHATSAPP_TEMPLATE_NAME`, `META_WHATSAPP_TEMPLATE_LANGUAGE`, and `META_WHATSAPP_API_VERSION`. Phone numbers are normalized to E.164 before delivery. Verification always uses the locally stored hashed OTP.
+Phone delivery currently uses Twilio Verify for SMS only. Configure a Twilio Verify Service for SMS and set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_VERIFY_SERVICE_SID`. WhatsApp OTP is temporarily disabled; requests with `channel: "whatsapp"` return `WhatsApp OTP is temporarily unavailable.` Phone numbers are normalized to E.164 before delivery. Verification always uses the locally stored hashed OTP.
 
 Runtime controls:
 
@@ -110,7 +112,7 @@ Content-Type: application/json
 { "email": "user@example.com", "purpose": "LOGIN", "otp": "123456" }
 ```
 
-For SMS or WhatsApp, send an E.164 `phone` value and set `channel` to `sms` or `whatsapp`. Production responses never include the raw OTP.
+For SMS, send an E.164 `phone` value and set `channel` to `sms`. Production responses never include the raw OTP. WhatsApp OTP is temporarily disabled pending Meta WhatsApp Cloud API integration.
 
 Phone-specific endpoints are also available:
 
@@ -149,11 +151,13 @@ BREVO_SENDER_EMAIL=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_VERIFY_SERVICE_SID=
-META_WHATSAPP_ACCESS_TOKEN=
-META_WHATSAPP_PHONE_NUMBER_ID=
-META_WHATSAPP_TEMPLATE_NAME=
-META_WHATSAPP_TEMPLATE_LANGUAGE=
-META_WHATSAPP_API_VERSION=
+# WhatsApp OTP is temporarily disabled pending Meta WhatsApp Cloud API integration.
+# TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+# META_WHATSAPP_ACCESS_TOKEN=
+# META_WHATSAPP_PHONE_NUMBER_ID=
+# META_WHATSAPP_TEMPLATE_NAME=
+# META_WHATSAPP_TEMPLATE_LANGUAGE=
+# META_WHATSAPP_API_VERSION=
 ```
 
 Frontend:
