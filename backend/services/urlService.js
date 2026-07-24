@@ -4,6 +4,7 @@ import URLModel from "../models/URL.js";
 import { generateShortCode } from "../utils/shortCode.js";
 import { buildShortUrl } from "../utils/shortUrl.js";
 import AppError from "../utils/AppError.js";
+import { hashPassword } from "../utils/password.js";
 
 const MAX_SHORT_CODE_ATTEMPTS = 8;
 
@@ -19,8 +20,12 @@ function toUrlResource(url) {
     shortUrl: buildShortUrl(url.shortCode),
     customAlias: url.customAlias,
     title: url.title ?? "",
+    notes: url.notes ?? "",
     clickCount: url.clickCount,
     expiresAt: url.expiresAt,
+    activatesAt: url.activatesAt,
+    deactivatesAt: url.deactivatesAt,
+    isPasswordProtected: Boolean(url.passwordHash),
     isActive: url.isActive,
     isFavorite: url.isFavorite,
     isArchived: url.isArchived,
@@ -64,11 +69,16 @@ async function findOneAndUpdateWithGeneratedShortCode(filter, updates) {
 }
 
 export async function createUrl(userId, payload) {
+  const duplicateUrls = await findDuplicateUrls(userId, payload.originalUrl);
   const baseDocument = {
     originalUrl: payload.originalUrl,
     title: payload.title,
+    notes: payload.notes,
     user: userId,
     expiresAt: payload.expiresAt ? new Date(payload.expiresAt) : undefined,
+    activatesAt: payload.activatesAt ? new Date(payload.activatesAt) : undefined,
+    deactivatesAt: payload.deactivatesAt ? new Date(payload.deactivatesAt) : undefined,
+    passwordHash: payload.password ? await hashPassword(payload.password) : undefined,
   };
 
   if (payload.customAlias) {
@@ -78,7 +88,7 @@ export async function createUrl(userId, payload) {
         shortCode: payload.customAlias,
         customAlias: payload.customAlias,
       });
-      return toUrlResource(url);
+      return { url: toUrlResource(url), duplicates: duplicateUrls };
     } catch (error) {
       if (isDuplicateKey(error)) {
         throw new AppError("That custom alias is already in use.", 409);
@@ -94,7 +104,7 @@ export async function createUrl(userId, payload) {
         ...baseDocument,
         shortCode: generateShortCode(),
       });
-      return toUrlResource(url);
+      return { url: toUrlResource(url), duplicates: duplicateUrls };
     } catch (error) {
       if (!isDuplicateKey(error) || attempt === MAX_SHORT_CODE_ATTEMPTS) {
         throw error;
@@ -106,13 +116,13 @@ export async function createUrl(userId, payload) {
 }
 
 export async function listUrls(userId) {
-  const urls = await URLModel.find({ user: userId }).sort({ createdAt: -1 });
+  const urls = await URLModel.find({ user: userId }).select("+passwordHash").sort({ createdAt: -1 }).lean();
   return urls.map(toUrlResource);
 }
 
 export async function getUrlForUser(userId, urlId) {
   assertObjectId(urlId, "URL ID");
-  const url = await URLModel.findOne({ _id: urlId, user: userId });
+  const url = await URLModel.findOne({ _id: urlId, user: userId }).select("+passwordHash");
 
   if (!url) {
     throw new AppError("URL not found.", 404);
@@ -134,8 +144,24 @@ export async function updateUrl(userId, urlId, payload) {
     updates.title = payload.title;
   }
 
+  if (payload.notes !== undefined) {
+    updates.notes = payload.notes;
+  }
+
   if (payload.expiresAt !== undefined) {
     updates.expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : undefined;
+  }
+
+  if (payload.activatesAt !== undefined) {
+    updates.activatesAt = payload.activatesAt ? new Date(payload.activatesAt) : undefined;
+  }
+
+  if (payload.deactivatesAt !== undefined) {
+    updates.deactivatesAt = payload.deactivatesAt ? new Date(payload.deactivatesAt) : undefined;
+  }
+
+  if (payload.password !== undefined) {
+    updates.passwordHash = payload.password ? await hashPassword(payload.password) : undefined;
   }
 
   if (payload.isActive !== undefined) {
@@ -183,7 +209,8 @@ export async function updateUrl(userId, urlId, payload) {
       throw new AppError("URL not found.", 404);
     }
 
-    return toUrlResource(url);
+    const refreshedUrl = await URLModel.findById(url._id).select("+passwordHash");
+    return toUrlResource(refreshedUrl ?? url);
   } catch (error) {
     if (isDuplicateKey(error)) {
       throw new AppError("That custom alias is already in use.", 409);
@@ -203,7 +230,7 @@ export async function deleteUrl(userId, urlId) {
 }
 
 export async function findRedirectUrl(shortCode) {
-  const url = await URLModel.findOne({ shortCode });
+  const url = await URLModel.findOne({ shortCode }).select("+passwordHash");
 
   if (!url) {
     throw new AppError("Link not found.", 404);
@@ -213,9 +240,36 @@ export async function findRedirectUrl(shortCode) {
     throw new AppError("Link disabled.", 410);
   }
 
+  if (url.isScheduledInactive()) {
+    throw new AppError(url.activatesAt && url.activatesAt > new Date() ? "Link not active yet." : "Link disabled.", 410);
+  }
+
   if (url.isExpired()) {
     throw new AppError("Link expired.", 410);
   }
 
   return url;
+}
+
+export async function findDuplicateUrls(userId, originalUrl, excludeId) {
+  const filter = { user: userId, originalUrl };
+
+  if (excludeId) {
+    filter._id = { $ne: excludeId };
+  }
+
+  const urls = await URLModel.find(filter)
+    .select("_id shortCode originalUrl title clickCount createdAt")
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .lean();
+
+  return urls.map((url) => ({
+    id: url._id.toString(),
+    shortUrl: buildShortUrl(url.shortCode),
+    originalUrl: url.originalUrl,
+    title: url.title ?? "",
+    clickCount: url.clickCount,
+    createdAt: url.createdAt,
+  }));
 }

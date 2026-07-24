@@ -1,6 +1,8 @@
 import Click from "../models/Click.js";
 import URLModel from "../models/URL.js";
 import { findRedirectUrl } from "./urlService.js";
+import AppError from "../utils/AppError.js";
+import { comparePassword } from "../utils/password.js";
 
 function parseUserAgent(userAgent = "") {
   const lowerUserAgent = userAgent.toLowerCase();
@@ -32,8 +34,17 @@ function parseUserAgent(userAgent = "") {
   return { browser, operatingSystem, device };
 }
 
-export async function resolveRedirect(shortCode, request) {
+export async function resolveRedirect(shortCode, request, password) {
   const url = await findRedirectUrl(shortCode);
+
+  if (url.passwordHash) {
+    const unlocked = typeof password === "string" && (await comparePassword(password, url.passwordHash));
+
+    if (!unlocked) {
+      throw new AppError("Link password required.", 401);
+    }
+  }
+
   const userAgentData = parseUserAgent(request.get("user-agent"));
 
   await Click.create({

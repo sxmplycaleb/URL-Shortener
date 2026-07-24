@@ -61,7 +61,7 @@
   }
 
   body {
-    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    @apply min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased;
   }
 
   button,

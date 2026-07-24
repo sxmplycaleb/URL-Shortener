@@ -8,6 +8,8 @@ import dotenv from 'dotenv';
 // import path from 'path';
 dotenv.config();
 
+const clientUrl = (process.env.CLIENT_URL ?? 'http://127.0.0.1:5173').split(',')[0].trim();
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -26,7 +28,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
-    baseURL: process.env.CLIENT_URL ?? 'http://127.0.0.1:5173',
+    baseURL: clientUrl,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     headless: true,
@@ -90,8 +92,8 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: 'npm run dev',
-      url: process.env.CLIENT_URL ?? 'http://127.0.0.1:5173',
+      command: 'npm.cmd run dev',
+      url: clientUrl,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

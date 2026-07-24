@@ -7,8 +7,12 @@ export interface ShortenedUrl {
   shortUrl: string;
   customAlias?: string;
   title?: string;
+  notes?: string;
   clickCount: number;
   expiresAt?: string;
+  activatesAt?: string;
+  deactivatesAt?: string;
+  isPasswordProtected: boolean;
   isActive: boolean;
   isFavorite: boolean;
   isArchived: boolean;
@@ -24,13 +28,22 @@ export interface CreateShortenedUrlRequest {
   originalUrl: string;
   customAlias?: string;
   title?: string;
+  notes?: string;
+  expiresAt?: string;
+  activatesAt?: string;
+  deactivatesAt?: string;
+  password?: string;
 }
 
 export interface UpdateShortenedUrlRequest {
   originalUrl?: string;
   customAlias?: string;
   title?: string;
+  notes?: string;
   expiresAt?: string;
+  activatesAt?: string;
+  deactivatesAt?: string;
+  password?: string;
   isActive?: boolean;
   isFavorite?: boolean;
   isArchived?: boolean;
@@ -45,6 +58,16 @@ interface UrlListResponse {
 
 interface UrlResponse {
   url: ShortenedUrl;
+  duplicates?: DuplicateUrl[];
+}
+
+export interface DuplicateUrl {
+  id: string;
+  shortUrl: string;
+  originalUrl: string;
+  title: string;
+  clickCount: number;
+  createdAt: string;
 }
 
 export function listShortenedUrls(accessToken: string) {
@@ -72,4 +95,8 @@ export function updateShortenedUrl(accessToken: string, id: string, body: Update
     accessToken,
     body,
   });
+}
+
+export function getUrlExportUrl(format: "csv" | "excel" | "json") {
+  return `/api/urls/export?format=${encodeURIComponent(format)}`;
 }

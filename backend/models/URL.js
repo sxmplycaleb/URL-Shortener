@@ -71,6 +71,21 @@ const urlSchema = new Schema(
         message: "Expiration date must be in the future.",
       },
     },
+    activatesAt: {
+      type: Date,
+    },
+    deactivatesAt: {
+      type: Date,
+    },
+    passwordHash: {
+      type: String,
+      select: false,
+    },
+    notes: {
+      type: String,
+      trim: true,
+      maxlength: [1000, "Notes cannot exceed 1000 characters."],
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -109,9 +124,11 @@ urlSchema.index({ shortCode: 1 }, { unique: true });
 urlSchema.index({ customAlias: 1 }, { unique: true, sparse: true });
 urlSchema.index({ user: 1, createdAt: -1 });
 urlSchema.index({ user: 1, isFavorite: 1, isArchived: 1 });
+urlSchema.index({ user: 1, originalUrl: 1 });
+urlSchema.index({ user: 1, clickCount: -1 });
 urlSchema.index({ createdAt: -1 });
 urlSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, partialFilterExpression: { expiresAt: { $type: "date" } } });
-urlSchema.index({ isActive: 1, expiresAt: 1 });
+urlSchema.index({ isActive: 1, activatesAt: 1, deactivatesAt: 1, expiresAt: 1 });
 
 urlSchema.pre("validate", function assignShortCode() {
   if (!this.shortCode) {
@@ -121,6 +138,10 @@ urlSchema.pre("validate", function assignShortCode() {
 
 urlSchema.methods.isExpired = function isExpired(referenceDate = new Date()) {
   return Boolean(this.expiresAt && this.expiresAt <= referenceDate);
+};
+
+urlSchema.methods.isScheduledInactive = function isScheduledInactive(referenceDate = new Date()) {
+  return Boolean((this.activatesAt && this.activatesAt > referenceDate) || (this.deactivatesAt && this.deactivatesAt <= referenceDate));
 };
 
 urlSchema.methods.incrementClicks = function incrementClicks(session) {

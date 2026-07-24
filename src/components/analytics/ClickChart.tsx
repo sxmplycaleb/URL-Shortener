@@ -3,11 +3,11 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 
 import type { ClickActivityPoint } from "@/services/analyticsService";
 
-export function ClickChart({ data }: { data: ClickActivityPoint[] }) {
+export function ClickChart({ data, label = "Click activity line chart" }: { data: ClickActivityPoint[]; label?: string }) {
   const gradientId = `analytics-clicks-${useId().replace(/:/g, "")}`;
 
   return (
-    <figure className="h-80 w-full" aria-label="Click activity line chart">
+    <figure className="h-80 w-full" aria-label={label}>
       <ResponsiveContainer height="100%" width="100%">
         <AreaChart accessibilityLayer data={data} margin={{ bottom: 4, left: -14, right: 10, top: 12 }}>
           <defs>

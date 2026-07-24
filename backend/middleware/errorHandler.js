@@ -46,6 +46,8 @@ export function errorHandler(error, request, response, _next) {
     error: {
       message: normalizedError.message,
       details: normalizedError.details,
+      statusCode,
+      requestId: request.id,
     },
   });
 }

@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useId, useState } from "react";
-import { ArrowLeft, CheckCircle2, Loader2, Mail, Phone, TriangleAlert } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Mail, Phone } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { OTPInput } from "@/components/forms/OTPInput";
@@ -409,14 +409,12 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   }
 
   function renderToast() {
-    return toast ? (
+    return toast && toast.tone === "success" ? (
       <div
-        className={`fixed right-4 top-4 z-50 flex max-w-sm items-center gap-2 rounded-md border bg-background px-4 py-3 text-sm shadow-lg ${
-          toast.tone === "success" ? "border-success/40 text-foreground" : "border-destructive/40 text-destructive"
-        }`}
-        role={toast.tone === "error" ? "alert" : "status"}
+        className="fixed right-4 top-4 z-50 flex max-w-sm items-center gap-2 rounded-md border border-success/40 bg-background px-4 py-3 text-sm text-foreground shadow-lg"
+        role="status"
       >
-        {toast.tone === "success" ? <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" /> : <TriangleAlert className="h-4 w-4" aria-hidden="true" />}
+        <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
         {toast.message}
       </div>
     ) : null;

@@ -9,6 +9,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { connectDatabase, disconnectDatabase } from "../config/database.js";
 import { getEnv } from "../config/env.js";
 import Click from "../models/Click.js";
+import APIKey from "../models/APIKey.js";
+import APIUsage from "../models/APIUsage.js";
 import LoginHistory from "../models/LoginHistory.js";
 import RefreshToken from "../models/RefreshToken.js";
 import OTP from "../models/OTP.js";
@@ -33,6 +35,8 @@ async function syncModelIndexes() {
     User.syncIndexes(),
     URLModel.syncIndexes(),
     Click.syncIndexes(),
+    APIKey.syncIndexes(),
+    APIUsage.syncIndexes(),
     RefreshToken.syncIndexes(),
     OTP.syncIndexes(),
     LoginHistory.syncIndexes(),
@@ -98,6 +102,8 @@ describe("backend API", () => {
   beforeEach(async () => {
     await Promise.all([
       Click.deleteMany({}),
+      APIKey.deleteMany({}),
+      APIUsage.deleteMany({}),
       URLModel.deleteMany({}),
       RefreshToken.deleteMany({}),
       OTP.deleteMany({}),
@@ -142,6 +148,8 @@ describe("backend API", () => {
     expect(response.body).toEqual({
       error: {
         message: expect.any(String),
+        statusCode: 400,
+        requestId: expect.any(String),
       },
     });
   });
@@ -631,6 +639,68 @@ describe("backend API", () => {
     });
   });
 
+  it("supports launch-ready link controls, duplicate warnings, exports, and password unlocks", async () => {
+    const auth = await registerAndLogin("launch-links@example.com");
+    const activatesAt = new Date(Date.now() + 60_000).toISOString();
+    const deactivatesAt = new Date(Date.now() + 120_000).toISOString();
+
+    const createResponse = await request(app)
+      .post("/api/urls")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        originalUrl: "https://example.com/launch",
+        customAlias: "launch-ready",
+        title: "Launch campaign",
+        notes: "Internal rollout note",
+        activatesAt,
+        deactivatesAt,
+        password: "secret123",
+      });
+
+    expect(createResponse.status).toBe(201);
+    expect(createResponse.body.url).toMatchObject({
+      notes: "Internal rollout note",
+      isPasswordProtected: true,
+    });
+    expect(createResponse.body.url.activatesAt).toBeTruthy();
+
+    const duplicateResponse = await request(app)
+      .post("/api/urls")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        originalUrl: "https://example.com/launch",
+        customAlias: "launch-copy",
+      });
+
+    expect(duplicateResponse.status).toBe(201);
+    expect(duplicateResponse.body.duplicates).toContainEqual(
+      expect.objectContaining({ shortUrl: expect.stringContaining("/launch-ready") }),
+    );
+
+    await URLModel.updateOne({ _id: createResponse.body.url.id }, { activatesAt: new Date(Date.now() - 60_000) }, { runValidators: false });
+
+    const lockedResponse = await request(app).get("/launch-ready");
+    expect(lockedResponse.status).toBe(200);
+    expect(lockedResponse.text).toContain("Protected link");
+
+    const unlockedResponse = await request(app).post("/launch-ready").type("form").send({ password: "secret123" });
+    expect(unlockedResponse.status).toBe(302);
+    expect(unlockedResponse.headers.location).toBe("https://example.com/launch");
+
+    const csvExport = await request(app)
+      .get("/api/urls/export?format=csv")
+      .set("Authorization", `Bearer ${auth.accessToken}`);
+    const analyticsExport = await request(app)
+      .get("/api/analytics/export?format=json")
+      .set("Authorization", `Bearer ${auth.accessToken}`);
+
+    expect(csvExport.status).toBe(200);
+    expect(csvExport.headers["content-disposition"]).toContain("shortly-urls.csv");
+    expect(csvExport.text).toContain("Launch campaign");
+    expect(analyticsExport.status).toBe(200);
+    expect(analyticsExport.headers["content-disposition"]).toContain("shortly-analytics.json");
+  });
+
   it("redirects active short URLs and tracks clicks", async () => {
     const auth = await registerAndLogin("redirect@example.com");
     const createResponse = await request(app)
@@ -1075,5 +1145,54 @@ describe("backend API", () => {
       clicks: 1,
       share: 100,
     });
+    expect(dashboardResponse.body.analytics.operatingSystems).toEqual(expect.any(Array));
+    expect(dashboardResponse.body.analytics.referrers).toEqual(expect.any(Array));
+    expect(dashboardResponse.body.analytics.countries).toContainEqual({
+      name: "Kenya",
+      clicks: 1,
+      share: 100,
+    });
+    expect(dashboardResponse.body.analytics.activity.daily).toEqual(expect.any(Array));
+    expect(dashboardResponse.body.analytics.topUrls[0]).toMatchObject({ shortUrl: expect.stringContaining("/dash1") });
+    expect(dashboardResponse.body.analytics.insights).toEqual(expect.any(Array));
+  });
+
+  it("creates API keys, tracks public API usage, and exposes API placeholders", async () => {
+    const auth = await registerAndLogin("api-key-user@example.com");
+
+    const docsResponse = await request(app).get("/api/keys/docs");
+    expect(docsResponse.status).toBe(200);
+    expect(docsResponse.body.status).toBe("placeholder");
+
+    const createKeyResponse = await request(app)
+      .post("/api/keys")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({ name: "Automation key", scopes: ["urls:read", "urls:write"] });
+
+    expect(createKeyResponse.status).toBe(201);
+    expect(createKeyResponse.body.key).toMatch(/^sk_shortly_/);
+    expect(createKeyResponse.body.apiKey.prefix).toBe(createKeyResponse.body.key.slice(0, 18));
+
+    const publicCreateResponse = await request(app)
+      .post("/api/public/v1/urls")
+      .set("X-API-Key", createKeyResponse.body.key)
+      .send({ originalUrl: "https://example.com/public-api", customAlias: "publicapi" });
+
+    expect(publicCreateResponse.status).toBe(201);
+    expect(publicCreateResponse.body.url.shortUrl).toContain("/publicapi");
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const usageResponse = await request(app)
+      .get("/api/keys/usage")
+      .set("Authorization", `Bearer ${auth.accessToken}`);
+    expect(usageResponse.status).toBe(200);
+    expect(usageResponse.body.usage.totalRequests30d).toBeGreaterThanOrEqual(1);
+
+    const revokeResponse = await request(app)
+      .delete(`/api/keys/${createKeyResponse.body.apiKey.id}`)
+      .set("Authorization", `Bearer ${auth.accessToken}`);
+    expect(revokeResponse.status).toBe(200);
+    expect(revokeResponse.body.apiKey.revokedAt).toEqual(expect.any(String));
   });
 });

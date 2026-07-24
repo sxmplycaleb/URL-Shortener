@@ -19,8 +19,10 @@ import {
   Download,
   ExternalLink,
   GripVertical,
+  Info,
   Link2,
   Loader2,
+  Lock,
   Mail,
   MessageCircle,
   MoreHorizontal,
@@ -53,7 +55,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { useDashboardPreferences } from "@/hooks/useDashboardPreferences";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { cn, formatNumber, isValidCustomAlias, isValidHttpUrl } from "@/lib/utils";
-import { getApiErrorMessage, isAuthorizationError } from "@/services/api";
+import { authenticatedDownload, getApiErrorMessage, isAuthorizationError } from "@/services/api";
 import { clearAuthSession, getAuthSession } from "@/services/authStorage";
 import { DASHBOARD_WIDGET_LABELS, type DashboardWidgetId } from "@/services/dashboardPreferences";
 import {
@@ -61,6 +63,7 @@ import {
   deleteShortenedUrl,
   listShortenedUrls,
   updateShortenedUrl,
+  getUrlExportUrl,
   type ShortenedUrl,
 } from "@/services/urls";
 
@@ -68,11 +71,14 @@ interface FormErrors {
   originalUrl?: string;
   customAlias?: string;
   title?: string;
+  notes?: string;
+  password?: string;
   form?: string;
 }
 
 interface Notice {
-  tone: "success" | "error";
+  id: number;
+  tone: "success" | "info" | "warning" | "error";
   message: string;
 }
 
@@ -162,6 +168,8 @@ function normalizeUrl(url: ShortenedUrl): ShortenedUrl {
   return {
     ...url,
     title: url.title ?? "",
+    notes: url.notes ?? "",
+    isPasswordProtected: url.isPasswordProtected ?? false,
     isFavorite: url.isFavorite ?? false,
     isArchived: url.isArchived ?? false,
     hasQrCode: url.hasQrCode ?? false,
@@ -222,12 +230,13 @@ export function DashboardPage() {
   const [urls, setUrls] = useState<ShortenedUrl[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState("");
   const [creating, setCreating] = useState(false);
   const [workingIds, setWorkingIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [listError, setListError] = useState("");
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [notices, setNotices] = useState<Notice[]>([]);
   const [draggedWidget, setDraggedWidget] = useState<DashboardWidgetId | null>(null);
   const [search, setSearch] = useState(() => localStorage.getItem(SEARCH_STORAGE_KEY) ?? "");
   const [sort, setSort] = useState<SortKey>(() => (localStorage.getItem(SORT_STORAGE_KEY) as SortKey | null) ?? "newest");
@@ -293,7 +302,9 @@ export function DashboardPage() {
     navigate("/login", { replace: true, state: { message } });
   }, [navigate]);
 
-  const showNotice = useCallback((nextNotice: Notice) => setNotice(nextNotice), []);
+  const showNotice = useCallback((nextNotice: Omit<Notice, "id">) => {
+    setNotices((current) => [...current, { ...nextNotice, id: Date.now() + Math.random() }].slice(-4));
+  }, []);
 
   const loadUrls = useCallback(
     async ({ quiet = false }: { quiet?: boolean } = {}) => {
@@ -341,10 +352,10 @@ export function DashboardPage() {
   }, [pinFavorites]);
 
   useEffect(() => {
-    if (!notice) return undefined;
-    const timer = window.setTimeout(() => setNotice(null), 4000);
+    if (!notices.length) return undefined;
+    const timer = window.setTimeout(() => setNotices((current) => current.slice(1)), 4000);
     return () => window.clearTimeout(timer);
-  }, [notice]);
+  }, [notices]);
 
   useEffect(() => {
     if (initialLoading || !location.hash) return;
@@ -378,7 +389,7 @@ export function DashboardPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   });
 
-  function validateForm(originalUrl: string, customAlias: string, title: string) {
+  function validateForm(originalUrl: string, customAlias: string, title: string, notes: string, password: string) {
     const nextErrors: FormErrors = {};
 
     if (!originalUrl) nextErrors.originalUrl = "Long URL is required.";
@@ -387,6 +398,8 @@ export function DashboardPage() {
       nextErrors.customAlias = "Use 3-64 letters, numbers, underscores, or hyphens, and avoid reserved aliases.";
     }
     if (title.length > 140) nextErrors.title = "Title cannot exceed 140 characters.";
+    if (notes.length > 1000) nextErrors.notes = "Notes cannot exceed 1000 characters.";
+    if (password && password.length < 6) nextErrors.password = "Password must be at least 6 characters.";
 
     return nextErrors;
   }
@@ -400,7 +413,12 @@ export function DashboardPage() {
     const originalUrl = String(form.get("originalUrl") ?? "").trim();
     const customAlias = String(form.get("customAlias") ?? "").trim();
     const title = String(form.get("title") ?? "").trim();
-    const validationErrors = validateForm(originalUrl, customAlias, title);
+    const notes = String(form.get("notes") ?? "").trim();
+    const expiresAt = String(form.get("expiresAt") ?? "");
+    const activatesAt = String(form.get("activatesAt") ?? "");
+    const deactivatesAt = String(form.get("deactivatesAt") ?? "");
+    const password = String(form.get("password") ?? "");
+    const validationErrors = validateForm(originalUrl, customAlias, title, notes, password);
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -415,10 +433,19 @@ export function DashboardPage() {
         originalUrl,
         ...(customAlias ? { customAlias } : {}),
         ...(title ? { title } : {}),
+        ...(notes ? { notes } : {}),
+        ...(expiresAt ? { expiresAt } : {}),
+        ...(activatesAt ? { activatesAt } : {}),
+        ...(deactivatesAt ? { deactivatesAt } : {}),
+        ...(password ? { password } : {}),
       });
       setUrls((current) => [normalizeUrl(response.url), ...current.filter((url) => url.id !== response.url.id)]);
       formElement.reset();
       showNotice({ tone: "success", message: `Link created: ${response.url.shortUrl}` });
+      const duplicate = response.duplicates?.[0];
+      if (duplicate) {
+        showNotice({ tone: "warning", message: `Duplicate destination detected: ${duplicate.shortUrl}` });
+      }
     } catch (error) {
       if (isAuthorizationError(error)) {
         endSession();
@@ -599,6 +626,21 @@ export function DashboardPage() {
     setWidgetOrder(nextOrder);
   }
 
+  async function exportUrls(format: "csv" | "excel" | "json") {
+    if (!accessToken || exporting) return;
+
+    setExporting(format);
+    try {
+      const blob = await authenticatedDownload(getUrlExportUrl(format), accessToken);
+      downloadFile(`shortly-urls.${format === "excel" ? "xls" : format}`, blob);
+      showNotice({ tone: "success", message: `${format.toUpperCase()} export downloaded` });
+    } catch (error) {
+      showNotice({ tone: "error", message: getErrorMessage(error) });
+    } finally {
+      setExporting("");
+    }
+  }
+
   if (initialLoading) return <DashboardSkeleton />;
 
   return (
@@ -609,6 +651,12 @@ export function DashboardPage() {
           <p className="mt-1 text-muted-foreground">Create and manage your shortened URLs.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {(["csv", "excel", "json"] as const).map((format) => (
+            <Button disabled={Boolean(exporting)} key={format} variant="outline" onClick={() => void exportUrls(format)}>
+              <Download className="h-4 w-4" />
+              {format.toUpperCase()}
+            </Button>
+          ))}
           <Button variant="outline" onClick={() => navigate("/settings/dashboard")}>
             <SlidersHorizontal className="h-4 w-4" />
             Dashboard Settings
@@ -665,6 +713,35 @@ export function DashboardPage() {
                         {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                         Generate short URL
                       </Button>
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-3">
+                      <Field label="Scheduled activation" error={undefined} id="dashboard-activates-at">
+                        <Input id="dashboard-activates-at" name="activatesAt" type="datetime-local" disabled={creating} />
+                      </Field>
+                      <Field label="Scheduled deactivation" error={undefined} id="dashboard-deactivates-at">
+                        <Input id="dashboard-deactivates-at" name="deactivatesAt" type="datetime-local" disabled={creating} />
+                      </Field>
+                      <Field label="Expiration" error={undefined} id="dashboard-expires-at">
+                        <Input id="dashboard-expires-at" name="expiresAt" type="datetime-local" disabled={creating} />
+                      </Field>
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                      <Field label="Link notes" error={errors.notes} id="dashboard-notes">
+                        <textarea
+                          className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                          id="dashboard-notes"
+                          name="notes"
+                          placeholder="Internal campaign notes"
+                          maxLength={1000}
+                          disabled={creating}
+                        />
+                      </Field>
+                      <Field label="Password protection" error={errors.password} id="dashboard-password">
+                        <div className="relative">
+                          <Lock className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                          <Input className="pl-9" id="dashboard-password" name="password" type="password" placeholder="Optional password" minLength={6} maxLength={128} disabled={creating} />
+                        </div>
+                      </Field>
                     </div>
                   </form>
                 </CardContent>
@@ -749,16 +826,26 @@ export function DashboardPage() {
         onDownload={downloadQr}
       />
 
-      {notice ? (
-        <div
-          className={cn(
-            "fixed bottom-4 left-4 right-4 z-50 max-w-md rounded-lg border bg-card p-4 text-sm shadow-panel sm:left-auto",
-            notice.tone === "success" ? "border-success/30" : "border-destructive/30",
-          )}
-          role="status"
-          aria-live="polite"
-        >
-          {notice.message}
+      {notices.length ? (
+        <div className="fixed bottom-4 left-4 right-4 z-50 grid max-w-md gap-2 sm:left-auto" aria-live="polite">
+          {notices.map((notice) => (
+            <div
+              className={cn(
+                "rounded-lg border bg-card p-4 text-sm shadow-panel",
+                notice.tone === "success" && "border-success/30",
+                notice.tone === "info" && "border-primary/30",
+                notice.tone === "warning" && "border-warning/40",
+                notice.tone === "error" && "border-destructive/30",
+              )}
+              key={notice.id}
+              role={notice.tone === "error" ? "alert" : "status"}
+            >
+              <div className="flex items-start gap-2">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{notice.message}</span>
+              </div>
+            </div>
+          ))}
         </div>
       ) : null}
     </div>
@@ -1012,6 +1099,8 @@ function UrlIdentity({ query, url }: { query: string; url: ShortenedUrl }) {
         {url.isFavorite ? <Badge variant="warning">Favorite</Badge> : null}
         {url.isArchived ? <Badge variant="muted">Archived</Badge> : null}
         {isExpired(url) ? <Badge variant="destructive">Expired</Badge> : url.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="warning">Inactive</Badge>}
+        {url.activatesAt && new Date(url.activatesAt) > new Date() ? <Badge variant="warning">Scheduled</Badge> : null}
+        {url.isPasswordProtected ? <Badge variant="muted">Protected</Badge> : null}
         {url.hasQrCode ? <Badge variant="default">QR</Badge> : null}
       </div>
       <p className="max-w-lg truncate text-sm text-muted-foreground" title={url.originalUrl}>
@@ -1036,6 +1125,9 @@ function Dates({ url }: { url: ShortenedUrl }) {
     <div className="text-xs text-muted-foreground">
       <p>Created {formatDate(url.createdAt)}</p>
       <p>Updated {formatDate(url.updatedAt)}</p>
+      {url.activatesAt ? <p>Starts {formatDate(url.activatesAt)}</p> : null}
+      {url.deactivatesAt ? <p>Stops {formatDate(url.deactivatesAt)}</p> : null}
+      {url.expiresAt ? <p>Expires {formatDate(url.expiresAt)}</p> : null}
     </div>
   );
 }
