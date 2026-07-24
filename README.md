@@ -184,6 +184,39 @@ Desktop navigation includes a collapsible sidebar. The collapse state is saved a
 
 The header profile menu displays the signed-in user's avatar or initials, name, and email. It includes My Profile, Settings, Switch Account, and Logout. Switch Account signs out the current session and sends the user to Login while preserving the current destination for the next successful sign-in.
 
+## Footer, Legal Pages, and Contact
+
+The global footer uses a responsive SaaS layout with brand copy, product links, legal resources, contact details, official social icons, and a bottom bar showing copyright, the current year, app version, and "Made with love." Social links open in new tabs with accessible labels and hover motion. Contact details currently include phone and WhatsApp for `+254790321533`, plus placeholder email and future office location fields.
+
+Legal pages are available at:
+
+- `/privacy` - Privacy Policy.
+- `/terms` - Terms of Service.
+- `/cookies` - Cookie Policy.
+
+Each legal page includes a professional header, Last Updated date, table of contents, responsive typography, and future-ready sections for product, compliance, and support expansion.
+
+## Command Palette and Keyboard Shortcuts
+
+Authenticated pages include a global command palette opened with `Ctrl+K`. It supports instant search, fuzzy matching, highlighted result text, keyboard navigation with arrow keys, Enter activation, Escape close, and recently used command tracking in `localStorage`. Commands cover Dashboard, Analytics, Settings, Dashboard Settings, Create Link, Logout, and Recent Links.
+
+Dashboard keyboard shortcuts:
+
+- `Ctrl+K` opens the command palette.
+- `Escape` closes dialogs, menus, and palettes.
+- `Ctrl+A` selects all visible dashboard URLs.
+- `Delete` starts the delete flow for selected URLs.
+- `Ctrl+C` or `C` copies selected dashboard URLs.
+- `F` toggles favorites for selected URLs.
+- `A` archives selected URLs.
+- `?` opens the shortcuts reference.
+
+The Dashboard Settings page documents these shortcuts and includes placeholders for accessibility preferences, legal links, app/version information, and future notification channels.
+
+## Accessibility and Responsive UX
+
+Sprint 5 polish includes a floating Back to Top button, associated tooltip labels, visible focus rings, focus-trapped dialogs, screen-reader labels for icon controls, reduced-motion CSS support, responsive footer/legal layouts, larger touch targets, skeleton loading states, fade-in page transitions, and copy/action feedback for link copy, QR download, archiving, and favorites.
+
 ## Dashboard Counters and Number Formatting
 
 Dashboard statistic cards use `src/components/common/AnimatedCounter.tsx` and `src/hooks/useAnimatedCounter.ts` to animate from zero when a stat first becomes visible. Compact number formatting is centralized in `src/lib/numberFormatter.ts` and reused through `formatNumber`, producing values such as `999`, `1K`, `3.2K`, `125K`, and `5.8M`.

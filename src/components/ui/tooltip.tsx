@@ -6,10 +6,15 @@ export function TooltipProvider({ children }: { children: React.ReactNode }) {
 
 export function Tooltip({ label, children }: { label: string; children: React.ReactNode }) {
   const tooltipId = React.useId();
+  const trigger = React.isValidElement<{ "aria-describedby"?: string }>(children)
+    ? React.cloneElement(children, {
+        "aria-describedby": [children.props["aria-describedby"], tooltipId].filter(Boolean).join(" ") || tooltipId,
+      })
+    : children;
 
   return (
     <span className="group relative inline-flex">
-      {children}
+      {trigger}
       <span
         id={tooltipId}
         role="tooltip"

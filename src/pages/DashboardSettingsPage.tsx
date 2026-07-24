@@ -1,11 +1,14 @@
 import { useMemo, useState, type DragEvent } from "react";
-import { GripVertical, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Accessibility, Bell, FileText, GripVertical, Info, Keyboard, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useDashboardPreferences } from "@/hooks/useDashboardPreferences";
+import { APP_DESCRIPTION, APP_NAME, APP_VERSION } from "@/lib/brand";
+import { keyboardShortcuts } from "@/lib/keyboardShortcuts";
 import { cn } from "@/lib/utils";
 import {
   DASHBOARD_WIDGET_LABELS,
@@ -17,6 +20,12 @@ const presetOptions: Array<{ id: Exclude<DashboardPreset, "custom">; label: stri
   { id: "overview", label: "Overview" },
   { id: "analytics-focus", label: "Analytics Focus" },
   { id: "productivity", label: "Productivity" },
+];
+
+const legalLinks = [
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms of Service", href: "/terms" },
+  { label: "Cookie Policy", href: "/cookies" },
 ];
 
 export function DashboardSettingsPage() {
@@ -159,15 +168,84 @@ export function DashboardSettingsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {["Notification Preferences", "Cloud Sync", "Account Preferences"].map((title) => (
-          <Card key={title}>
-            <CardHeader>
-              <CardTitle className="text-base">{title}</CardTitle>
-              <CardDescription>Coming in a future dashboard personalization milestone.</CardDescription>
-            </CardHeader>
-          </Card>
-        ))}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Keyboard className="h-4 w-4" aria-hidden="true" />
+              Keyboard Shortcuts
+            </CardTitle>
+            <CardDescription>Available shortcuts for dashboard navigation and bulk link operations.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            {keyboardShortcuts.map((shortcut) => (
+              <div className="flex items-center justify-between gap-3 rounded-md border bg-background p-3" key={shortcut.keys}>
+                <span className="text-sm text-muted-foreground">{shortcut.description}</span>
+                <kbd className="rounded-md border bg-muted px-2 py-1 text-xs font-semibold">{shortcut.keys}</kbd>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Accessibility className="h-4 w-4" aria-hidden="true" />
+              Accessibility Preferences
+            </CardTitle>
+            <CardDescription>Future-ready controls for personal accessibility settings.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {["Reduce animation intensity", "Increase dashboard contrast", "Prefer larger touch targets"].map((label) => (
+              <label className="flex items-center justify-between gap-4 rounded-md border bg-background p-3" key={label}>
+                <span className="text-sm font-medium">{label}</span>
+                <Switch checked={false} aria-label={label} disabled />
+              </label>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" aria-hidden="true" />
+              Legal Links
+            </CardTitle>
+            <CardDescription>Review application policies and future compliance pages.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-3">
+            {legalLinks.map((link) => (
+              <Link className="rounded-md border bg-background p-3 text-sm font-medium transition-colors hover:bg-muted" key={link.href} to={link.href}>
+                {link.label}
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Info className="h-4 w-4" aria-hidden="true" />
+              About Application
+            </CardTitle>
+            <CardDescription>{APP_DESCRIPTION}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p><span className="font-medium text-foreground">Name:</span> {APP_NAME}</p>
+            <p><span className="font-medium text-foreground">Version:</span> v{APP_VERSION}</p>
+            <p><span className="font-medium text-foreground">Notifications:</span> Future workspace, link activity, and security notification settings placeholder.</p>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bell className="h-4 w-4" aria-hidden="true" />
+              Future Notification Settings
+            </CardTitle>
+            <CardDescription>Placeholders for email, SMS, WhatsApp, product updates, and security alert channels.</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     </div>
   );

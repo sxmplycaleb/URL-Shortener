@@ -35,7 +35,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { CopyButton } from "@/components/common/CopyButton";
 import { DashboardSkeleton } from "@/components/common/Skeleton";
@@ -216,6 +216,7 @@ function downloadFile(filename: string, blob: Blob) {
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const session = getAuthSession();
   const accessToken = session?.accessToken ?? "";
   const [urls, setUrls] = useState<ShortenedUrl[]>([]);
@@ -346,6 +347,12 @@ export function DashboardPage() {
   }, [notice]);
 
   useEffect(() => {
+    if (initialLoading || !location.hash) return;
+    const target = document.getElementById(location.hash.slice(1));
+    target?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [initialLoading, location.hash]);
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       const typing = target?.matches("input, textarea, select, [contenteditable=true]");
@@ -356,8 +363,14 @@ export function DashboardPage() {
       }
       if (!selectedUrls.length) return;
       if (event.key === "Delete") setConfirm({ type: "delete", urls: selectedUrls });
-      if (event.key.toLowerCase() === "c") void bulkCopy(selectedUrls);
-      if (event.key.toLowerCase() === "f") void bulkUpdate(selectedUrls, { isFavorite: !selectedUrls.every((url) => url.isFavorite) }, "Favorite updated.");
+      if ((event.ctrlKey || event.metaKey || !event.altKey) && event.key.toLowerCase() === "c") void bulkCopy(selectedUrls);
+      if (event.key.toLowerCase() === "f") {
+        void bulkUpdate(
+          selectedUrls,
+          { isFavorite: !selectedUrls.every((url) => url.isFavorite) },
+          selectedUrls.every((url) => url.isFavorite) ? "Favorite removed" : "Favorite added",
+        );
+      }
       if (event.key.toLowerCase() === "a") setConfirm({ type: "archive", urls: selectedUrls });
     }
 
@@ -405,7 +418,7 @@ export function DashboardPage() {
       });
       setUrls((current) => [normalizeUrl(response.url), ...current.filter((url) => url.id !== response.url.id)]);
       formElement.reset();
-      showNotice({ tone: "success", message: `Created ${response.url.shortUrl}` });
+      showNotice({ tone: "success", message: `Link created: ${response.url.shortUrl}` });
     } catch (error) {
       if (isAuthorizationError(error)) {
         endSession();
@@ -485,7 +498,7 @@ export function DashboardPage() {
   async function bulkCopy(items: ShortenedUrl[]) {
     if (!items.length) return;
     await copyText(items.map((url) => url.shortUrl).join("\n"));
-    showNotice({ tone: "success", message: items.length > 1 ? "Links copied." : "Copied!" });
+      showNotice({ tone: "success", message: items.length > 1 ? "Links copied" : "Link copied" });
   }
 
   async function handleShare(url: ShortenedUrl, channel: string) {
@@ -535,7 +548,7 @@ export function DashboardPage() {
   }
 
   async function generateQr(url: ShortenedUrl) {
-    if (!url.hasQrCode) await updateOne(url, { hasQrCode: true }, "QR generated.");
+    if (!url.hasQrCode) await updateOne(url, { hasQrCode: true }, "QR generated");
     setQrPreviewUrl(normalizeUrl({ ...url, hasQrCode: true }));
   }
 
@@ -559,13 +572,13 @@ export function DashboardPage() {
       const blob = await new Promise<Blob>((resolve) => canvas.toBlob((nextBlob) => resolve(nextBlob ?? new Blob()), "image/png"));
       downloadFile(`${url.shortCode}-qr.png`, blob);
     }
-    showNotice({ tone: "success", message: "QR downloaded!" });
+    showNotice({ tone: "success", message: "QR downloaded" });
   }
 
   async function copyQrImage(url: ShortenedUrl) {
     const svg = createQrSvg(url.shortUrl);
     await navigator.clipboard.writeText(svg);
-    showNotice({ tone: "success", message: "QR image copied." });
+    showNotice({ tone: "success", message: "QR copied" });
   }
 
   function toggleFilter(filter: FilterKey) {
@@ -627,7 +640,7 @@ export function DashboardPage() {
             ) : null}
 
             {widgetId === "create-link" ? (
-              <Card>
+              <Card id="create-link" className="scroll-mt-24">
                 <CardHeader>
                   <CardTitle>Create short URL</CardTitle>
                   <CardDescription>Paste a long URL and optionally reserve a readable alias.</CardDescription>
@@ -659,7 +672,7 @@ export function DashboardPage() {
             ) : null}
 
             {widgetId === "url-list" ? (
-              <Card>
+              <Card id="recent-links" className="scroll-mt-24">
                 <CardHeader className="gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <CardTitle>Your URLs</CardTitle>
@@ -706,7 +719,7 @@ export function DashboardPage() {
                     onRestore={(url) => setConfirm({ type: "restore", urls: [url] })}
                     onSelect={(url, selected) => setSelectedIds((current) => (selected ? [...new Set([...current, url.id])] : current.filter((id) => id !== url.id)))}
                     onShare={handleShare}
-                    onToggleFavorite={(url) => void updateOne(url, { isFavorite: !url.isFavorite }, url.isFavorite ? "Removed from favorites." : "Added to favorites.")}
+                    onToggleFavorite={(url) => void updateOne(url, { isFavorite: !url.isFavorite }, url.isFavorite ? "Favorite removed" : "Favorite added")}
                     openMenuId={openMenuId}
                     setOpenMenuId={setOpenMenuId}
                   />
@@ -723,8 +736,8 @@ export function DashboardPage() {
         onConfirm={() => {
           if (!confirm) return;
           if (confirm.type === "delete") void deleteUrls(confirm.urls);
-          if (confirm.type === "archive") void bulkUpdate(confirm.urls, { isArchived: true }, confirm.urls.length > 1 ? "URLs archived." : "Archived!");
-          if (confirm.type === "restore") void bulkUpdate(confirm.urls, { isArchived: false }, confirm.urls.length > 1 ? "URLs restored." : "Restored!");
+          if (confirm.type === "archive") void bulkUpdate(confirm.urls, { isArchived: true }, confirm.urls.length > 1 ? "URLs archived" : "URL archived");
+          if (confirm.type === "restore") void bulkUpdate(confirm.urls, { isArchived: false }, confirm.urls.length > 1 ? "URLs restored" : "URL restored");
           setConfirm(null);
         }}
       />
