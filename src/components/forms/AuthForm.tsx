@@ -186,7 +186,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
 
     try {
       const idToken = await getGoogleIdToken();
-      const authSession = await loginWithGoogle({ idToken });
+      const authSession = await loginWithGoogle({ idToken, rememberDevice: !isRegister && rememberDevice });
       await finishWithSession(authSession, isRegister ? "Google account connected. Welcome to Shortly." : "Logged in with Google.");
     } catch (error) {
       const message = getGoogleAuthErrorMessage(error);
@@ -228,7 +228,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     setToast(null);
 
     try {
-      const authSession = await loginUser({ email: trimmedEmail, password: values.password });
+      const authSession = await loginUser({ email: trimmedEmail, password: values.password, rememberDevice });
       await finishWithSession(authSession, "Logged in successfully.");
     } catch (error) {
       const message = getApiErrorMessage(error, "Unable to reach the authentication service. Please try again.");
@@ -656,6 +656,17 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
               Forgot password?
             </Link>
           </div>
+          <label className="flex items-start gap-2 text-sm text-muted-foreground" htmlFor={rememberId}>
+            <input
+              id={rememberId}
+              checked={rememberDevice}
+              className="mt-1 h-4 w-4 rounded border-input accent-primary"
+              disabled={loading}
+              type="checkbox"
+              onChange={(event) => setRememberDevice(event.target.checked)}
+            />
+            <span>Remember this device</span>
+          </label>
           <Button className="w-full" disabled={authenticating} type="submit">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             Log in

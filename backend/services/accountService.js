@@ -1,5 +1,7 @@
 import Click from "../models/Click.js";
+import LoginHistory from "../models/LoginHistory.js";
 import RefreshToken from "../models/RefreshToken.js";
+import TrustedDevice from "../models/TrustedDevice.js";
 import URLModel from "../models/URL.js";
 import User from "../models/User.js";
 import AppError from "../utils/AppError.js";
@@ -72,6 +74,8 @@ export async function deleteAccount(userId) {
     Click.deleteMany({ url: { $in: urlIds } }),
     URLModel.deleteMany({ user: userId }),
     RefreshToken.deleteMany({ user: userId }),
+    LoginHistory.deleteMany({ user: userId }),
+    TrustedDevice.deleteMany({ user: userId }),
     User.deleteOne({ _id: userId }),
   ]);
 }

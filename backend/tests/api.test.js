@@ -9,10 +9,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { connectDatabase, disconnectDatabase } from "../config/database.js";
 import { getEnv } from "../config/env.js";
 import Click from "../models/Click.js";
+import LoginHistory from "../models/LoginHistory.js";
 import RefreshToken from "../models/RefreshToken.js";
 import OTP from "../models/OTP.js";
+import TrustedDevice from "../models/TrustedDevice.js";
 import URLModel from "../models/URL.js";
 import User from "../models/User.js";
+import { parseUserAgent } from "../services/securityMetadata.js";
 
 const { verifyGoogleIdTokenMock } = vi.hoisted(() => ({
   verifyGoogleIdTokenMock: vi.fn(),
@@ -26,7 +29,15 @@ let app;
 let mongoServer;
 
 async function syncModelIndexes() {
-  await Promise.all([User.syncIndexes(), URLModel.syncIndexes(), Click.syncIndexes(), RefreshToken.syncIndexes(), OTP.syncIndexes()]);
+  await Promise.all([
+    User.syncIndexes(),
+    URLModel.syncIndexes(),
+    Click.syncIndexes(),
+    RefreshToken.syncIndexes(),
+    OTP.syncIndexes(),
+    LoginHistory.syncIndexes(),
+    TrustedDevice.syncIndexes(),
+  ]);
 }
 
 async function registerAndLogin(email = "api@example.com") {
@@ -84,7 +95,15 @@ describe("backend API", () => {
   }, 900_000);
 
   beforeEach(async () => {
-    await Promise.all([Click.deleteMany({}), URLModel.deleteMany({}), RefreshToken.deleteMany({}), OTP.deleteMany({}), User.deleteMany({})]);
+    await Promise.all([
+      Click.deleteMany({}),
+      URLModel.deleteMany({}),
+      RefreshToken.deleteMany({}),
+      OTP.deleteMany({}),
+      LoginHistory.deleteMany({}),
+      TrustedDevice.deleteMany({}),
+      User.deleteMany({}),
+    ]);
     verifyGoogleIdTokenMock.mockReset();
   });
 
@@ -269,6 +288,145 @@ describe("backend API", () => {
     const reuseResponse = await request(app).post("/api/auth/refresh").set("Cookie", originalCookie).send();
 
     expect(reuseResponse.status).toBe(401);
+  });
+
+  it("exposes and manages authenticated security center data", async () => {
+    const firstAgent = request.agent(app);
+    const secondAgent = request.agent(app);
+    const user = {
+      name: "Security User",
+      email: "security-center@example.com",
+      password: "Password123!",
+    };
+
+    const registerResponse = await firstAgent
+      .post("/api/auth/register")
+      .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0")
+      .set("CF-IPCountry", "US")
+      .send(user);
+    expect(registerResponse.status).toBe(201);
+
+    const failedLogin = await request(app).post("/api/auth/login").send({
+      email: user.email,
+      password: "WrongPassword123!",
+    });
+    expect(failedLogin.status).toBe(401);
+
+    const secondLogin = await secondAgent
+      .post("/api/auth/login")
+      .set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Firefox/121.0")
+      .send({
+        email: user.email,
+        password: user.password,
+        rememberDevice: true,
+      });
+    expect(secondLogin.status).toBe(200);
+
+    const securityResponse = await secondAgent.get("/api/security").set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
+
+    expect(securityResponse.status).toBe(200);
+    expect(securityResponse.body.sessions).toHaveLength(2);
+    expect(securityResponse.body.sessions).toContainEqual(
+      expect.objectContaining({
+        browser: "Firefox",
+        device: "Desktop",
+        operatingSystem: "macOS",
+        current: true,
+      }),
+    );
+    expect(securityResponse.body.sessions).toContainEqual(expect.objectContaining({ country: "US" }));
+    expect(securityResponse.body.loginHistory).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ status: "success", method: "email_password" }),
+        expect.objectContaining({ status: "failed", method: "email_password" }),
+      ]),
+    );
+    expect(securityResponse.body.trustedDevices).toHaveLength(1);
+
+    const currentSession = securityResponse.body.sessions.find((session) => session.current);
+    const otherSession = securityResponse.body.sessions.find((session) => !session.current);
+
+    const rejectCurrent = await secondAgent
+      .delete(`/api/security/sessions/${currentSession.id}`)
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`)
+      .send({});
+    expect(rejectCurrent.status).toBe(409);
+
+    const rejectWithoutCurrentCookie = await request(app)
+      .delete("/api/security/sessions/others")
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
+    expect(rejectWithoutCurrentCookie.status).toBe(401);
+    expect(rejectWithoutCurrentCookie.body.error.message).toBe("Current session could not be verified.");
+
+    const revokeOther = await secondAgent
+      .delete(`/api/security/sessions/${otherSession.id}`)
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`)
+      .send({});
+    expect(revokeOther.status).toBe(200);
+    expect(revokeOther.body.revokedCurrent).toBe(false);
+    await expect(RefreshToken.find({ user: secondLogin.body.user.id, revoked: false })).resolves.toHaveLength(1);
+
+    const settingsResponse = await secondAgent
+      .put("/api/security/settings")
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`)
+      .send({ emailOtpEnabled: false, smsOtpEnabled: true });
+    expect(settingsResponse.status).toBe(200);
+    expect(settingsResponse.body.user.accountSettings).toMatchObject({
+      emailOtpEnabled: false,
+      smsOtpEnabled: true,
+    });
+
+    const trustedDeviceId = securityResponse.body.trustedDevices[0].id;
+    const removeTrustedResponse = await secondAgent
+      .delete(`/api/security/trusted-devices/${trustedDeviceId}`)
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
+    expect(removeTrustedResponse.status).toBe(204);
+    await expect(TrustedDevice.find({ user: secondLogin.body.user.id })).resolves.toHaveLength(0);
+  });
+
+  it("prevents users from reading or mutating another user's security records", async () => {
+    const firstAgent = request.agent(app);
+    const secondAgent = request.agent(app);
+
+    const firstUser = await firstAgent.post("/api/auth/register").send({
+      name: "First Security User",
+      email: "first-security@example.com",
+      password: "Password123!",
+    });
+    const secondUser = await secondAgent.post("/api/auth/register").send({
+      name: "Second Security User",
+      email: "second-security@example.com",
+      password: "Password123!",
+    });
+    expect(firstUser.status).toBe(201);
+    expect(secondUser.status).toBe(201);
+
+    const firstSecurity = await firstAgent.get("/api/security").set("Authorization", `Bearer ${firstUser.body.accessToken}`);
+    const secondSecurity = await secondAgent.get("/api/security").set("Authorization", `Bearer ${secondUser.body.accessToken}`);
+    expect(firstSecurity.body.sessions).toHaveLength(1);
+    expect(secondSecurity.body.sessions).toHaveLength(1);
+    expect(firstSecurity.body.sessions[0].id).not.toBe(secondSecurity.body.sessions[0].id);
+
+    const crossUserRevoke = await secondAgent
+      .delete(`/api/security/sessions/${firstSecurity.body.sessions[0].id}`)
+      .set("Authorization", `Bearer ${secondUser.body.accessToken}`)
+      .send({});
+    expect(crossUserRevoke.status).toBe(404);
+
+    const firstSessionAfterAttempt = await RefreshToken.findById(firstSecurity.body.sessions[0].id);
+    expect(firstSessionAfterAttempt.revoked).toBe(false);
+  });
+
+  it("detects iOS browsers without misclassifying them as macOS", () => {
+    expect(
+      parseUserAgent(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/120.0 Mobile/15E148 Safari/604.1",
+      ),
+    ).toMatchObject({
+      browser: "Chrome",
+      device: "Mobile",
+      operatingSystem: "iOS",
+    });
   });
 
   it("protects authenticated URL routes", async () => {

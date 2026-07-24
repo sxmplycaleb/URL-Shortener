@@ -116,6 +116,14 @@ const userSchema = new Schema(
         type: Boolean,
         default: true,
       },
+      emailOtpEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      smsOtpEnabled: {
+        type: Boolean,
+        default: false,
+      },
     },
     passwordResetTokenHash: {
       type: String,
