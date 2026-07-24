@@ -14,6 +14,11 @@ import {
   isValidEmail,
 } from "../utils/validators.js";
 
+const OTP_PURPOSES = new Set(["LOGIN", "REGISTER", "RESET_PASSWORD", "CHANGE_EMAIL", "CHANGE_PHONE"]);
+const OTP_CHANNELS = new Set(["email", "sms", "whatsapp"]);
+const OTP_REGEX = /^\d{6}$/;
+const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
+
 function assertObject(value, label = "Request body") {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new AppError(`${label} must be an object.`, 400);
@@ -192,6 +197,116 @@ export function validateResetPassword(request, _response, next) {
     assertStrongPassword(password);
 
     request.validatedBody = { token, password };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+function optionalEmail(body) {
+  if (body.email === undefined || body.email === null || body.email === "") {
+    return null;
+  }
+
+  const email = requiredString(body, "email").toLowerCase();
+
+  if (!isValidEmail(email)) {
+    throw new AppError("email must be a valid permanent email address.", 400);
+  }
+
+  if (email.length > MAX_EMAIL_LENGTH) {
+    throw new AppError(`email cannot exceed ${MAX_EMAIL_LENGTH} characters.`, 400);
+  }
+
+  return email;
+}
+
+function optionalPhone(body) {
+  if (body.phone === undefined || body.phone === null || body.phone === "") {
+    return null;
+  }
+
+  const phone = requiredString(body, "phone");
+
+  if (!PHONE_REGEX.test(phone)) {
+    throw new AppError("phone must be a valid E.164 phone number.", 400);
+  }
+
+  return phone;
+}
+
+function requiredOtpPurpose(body) {
+  const purpose = requiredString(body, "purpose").toUpperCase();
+
+  if (!OTP_PURPOSES.has(purpose)) {
+    throw new AppError("purpose is invalid.", 400);
+  }
+
+  return purpose;
+}
+
+function optionalOtpChannel(body) {
+  if (body.channel === undefined || body.channel === null || body.channel === "") {
+    return undefined;
+  }
+
+  const channel = requiredString(body, "channel").toLowerCase();
+
+  if (!OTP_CHANNELS.has(channel)) {
+    throw new AppError("channel is invalid.", 400);
+  }
+
+  return channel;
+}
+
+export function validateOtpRequest(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    const email = optionalEmail(request.body);
+    const phone = optionalPhone(request.body);
+
+    if (!email && !phone) {
+      throw new AppError("email or phone is required.", 400);
+    }
+
+    request.validatedBody = {
+      userId: request.body.userId ?? null,
+      email,
+      phone,
+      purpose: requiredOtpPurpose(request.body),
+      channel: optionalOtpChannel(request.body),
+    };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateOtpVerification(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    const email = optionalEmail(request.body);
+    const phone = optionalPhone(request.body);
+
+    if (!email && !phone) {
+      throw new AppError("email or phone is required.", 400);
+    }
+
+    const otp = requiredString(request.body, "otp");
+
+    if (!OTP_REGEX.test(otp)) {
+      throw new AppError("otp must be a 6-digit code.", 400);
+    }
+
+    request.validatedBody = {
+      userId: request.body.userId ?? null,
+      email,
+      phone,
+      purpose: requiredOtpPurpose(request.body),
+      otp,
+    };
     next();
   } catch (error) {
     next(error);

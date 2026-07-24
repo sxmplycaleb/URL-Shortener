@@ -7,6 +7,7 @@ import {
   requestPasswordReset,
   resetPassword,
 } from "../services/authService.js";
+import { createAuthenticationService } from "../services/authenticationService.js";
 import { getEnv } from "../config/env.js";
 
 export function getRefreshCookieOptions() {
@@ -64,5 +65,24 @@ export async function forgotPassword(request, response) {
 
 export async function resetForgottenPassword(request, response) {
   const payload = await resetPassword(request.validatedBody);
+  response.json(payload);
+}
+
+export async function requestOtp(request, response) {
+  const authenticationService = createAuthenticationService();
+  const payload = await authenticationService.requestOtp({
+    ...request.validatedBody,
+    metadata: {
+      ip: request.ip,
+      userAgent: request.get("user-agent"),
+    },
+  });
+
+  response.status(202).json(payload);
+}
+
+export async function verifyOtp(request, response) {
+  const authenticationService = createAuthenticationService();
+  const payload = await authenticationService.verifyOtp(request.validatedBody);
   response.json(payload);
 }
