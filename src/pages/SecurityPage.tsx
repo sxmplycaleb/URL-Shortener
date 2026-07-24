@@ -484,7 +484,10 @@ export function SecurityPage() {
                     <Th>Status</Th>
                     <Th>Method</Th>
                     <Th>Device</Th>
+                    <Th>Browser</Th>
+                    <Th>OS</Th>
                     <Th>IP</Th>
+                    <Th>Country</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -496,7 +499,10 @@ export function SecurityPage() {
                       </Td>
                       <Td>{methodLabels[entry.method]}</Td>
                       <Td>{entry.device}</Td>
+                      <Td>{entry.browser}</Td>
+                      <Td>{entry.operatingSystem}</Td>
                       <Td>{entry.ipAddress}</Td>
+                      <Td>{entry.country ?? "Unknown"}</Td>
                     </tr>
                   ))}
                 </tbody>

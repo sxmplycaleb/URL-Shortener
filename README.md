@@ -92,6 +92,7 @@ OTP_GENERATION_RATE_LIMIT_WINDOW_MS=900000
 OTP_GENERATION_RATE_LIMIT_MAX=5
 OTP_VERIFICATION_RATE_LIMIT_WINDOW_MS=900000
 OTP_VERIFICATION_RATE_LIMIT_MAX=5
+ACCOUNT_LOCK_MAX_ATTEMPTS=5
 ACCOUNT_LOCK_DURATION_MS=900000
 REMEMBER_DEVICE_DURATION_MS=2592000000
 ```
@@ -131,6 +132,23 @@ Content-Type: application/json
 ```
 
 Supported phone purposes are `LOGIN`, `REGISTER`, and `RESET_PASSWORD`. Successful login verification returns the normal auth session. Successful password-reset verification returns a reset URL/token response matching email OTP reset.
+
+## Security Center
+
+Authenticated users can open the Security Center from Settings at `/settings/security`. It shows active refresh-token sessions, recent login history, remembered trusted devices, and sign-in protections. Selecting "Remember this device" on login stores a trusted device fingerprint for 30 days by default.
+
+Security API endpoints:
+
+```http
+GET /api/security/sessions
+DELETE /api/security/sessions/:id
+DELETE /api/security/sessions
+GET /api/security/trusted-devices
+DELETE /api/security/trusted-devices/:id
+GET /api/security/login-history
+```
+
+Session and history responses include browser, operating system, device type, masked IP address, country when available, and timestamps. Repeated failed password logins temporarily lock the account for `ACCOUNT_LOCK_DURATION_MS`. Successful sign-ins from a previously unseen device fingerprint trigger a Brevo new-device notification when Brevo credentials are configured.
 
 ## Required Authentication Variables
 

@@ -25,6 +25,7 @@ export interface LoginHistoryEntry {
   ipAddress: string;
   browser: string;
   operatingSystem: string;
+  country: string | null;
 }
 
 export interface TrustedDevice {
@@ -73,7 +74,7 @@ export function revokeSession(accessToken: string, sessionId: string, confirmCur
 }
 
 export function revokeOtherSessions(accessToken: string) {
-  return authenticatedApiRequest<{ revokedCount: number }>("/api/security/sessions/others", {
+  return authenticatedApiRequest<{ revokedCount: number }>("/api/security/sessions", {
     method: "DELETE",
     accessToken,
   });

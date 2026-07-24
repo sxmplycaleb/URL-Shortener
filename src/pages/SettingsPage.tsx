@@ -422,7 +422,7 @@ export function SettingsPage() {
               <ShieldCheck className="h-5 w-5" aria-hidden="true" />
               Account Security
             </CardTitle>
-            <CardDescription>Change your password using frontend validation.</CardDescription>
+            <CardDescription>Change your password or open the full Security Center.</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" noValidate onSubmit={handlePasswordSubmit}>
@@ -475,6 +475,10 @@ export function SettingsPage() {
                 Update password
               </Button>
             </form>
+            <Button className="mt-4" type="button" variant="outline" onClick={() => navigate("/settings/security")}>
+              <ShieldCheck className="h-4 w-4" />
+              Open Security Center
+            </Button>
           </CardContent>
         </Card>
 

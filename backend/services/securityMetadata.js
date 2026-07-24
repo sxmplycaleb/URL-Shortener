@@ -67,3 +67,24 @@ export function securityMetadataFromRequest(request) {
 export function trustedDeviceFingerprint({ userAgent = "", ipAddress = "" }) {
   return crypto.createHash("sha256").update(`${getEnv().hashSalt}:${userAgent}:${ipAddress}`).digest("hex");
 }
+
+export function maskIpAddress(ipAddress = "") {
+  const value = String(ipAddress);
+
+  if (!value || value === "Unknown") {
+    return "Unknown";
+  }
+
+  const ipv4Match = value.match(/(?:^|:)(\d{1,3}(?:\.\d{1,3}){3})$/);
+  const ipv4 = ipv4Match?.[1];
+
+  if (ipv4) {
+    return ipv4.replace(/\.\d{1,3}$/, ".0");
+  }
+
+  if (value.includes(":")) {
+    return `${value.split(":").slice(0, 4).join(":")}::`;
+  }
+
+  return value;
+}

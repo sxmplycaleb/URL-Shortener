@@ -9,7 +9,7 @@ import type { AuthUser } from "@/services/auth";
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/security", label: "Security", icon: ShieldCheck },
+  { href: "/settings/security", label: "Security", icon: ShieldCheck },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

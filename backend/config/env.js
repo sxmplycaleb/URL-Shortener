@@ -240,6 +240,7 @@ export function getEnv() {
     otpGenerationRateLimitMax: integerValue("OTP_GENERATION_RATE_LIMIT_MAX", 5, { min: 1 }),
     otpVerificationRateLimitWindowMs: numberValue("OTP_VERIFICATION_RATE_LIMIT_WINDOW_MS", 15 * 60 * 1000),
     otpVerificationRateLimitMax: integerValue("OTP_VERIFICATION_RATE_LIMIT_MAX", 5, { min: 1, max: 5 }),
+    accountLockMaxAttempts: integerValue("ACCOUNT_LOCK_MAX_ATTEMPTS", 5, { min: 1, max: 20 }),
     accountLockDurationMs: integerValue("ACCOUNT_LOCK_DURATION_MS", 15 * 60 * 1000, { min: 0 }),
     rememberDeviceDurationMs: integerValue("REMEMBER_DEVICE_DURATION_MS", 30 * 24 * 60 * 60 * 1000, { min: 0 }),
     brevoApiKey: process.env.BREVO_API_KEY ?? "",

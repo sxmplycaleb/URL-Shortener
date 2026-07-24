@@ -1,5 +1,8 @@
 import {
   getSecurityCenter,
+  getActiveSessions,
+  getLoginHistory,
+  getTrustedDevices,
   revokeOtherSessions,
   revokeSession,
   removeTrustedDevice,
@@ -14,6 +17,21 @@ function refreshTokenFromRequest(request) {
 export async function getSecurity(request, response) {
   const payload = await getSecurityCenter(request.user._id, refreshTokenFromRequest(request));
   response.json(payload);
+}
+
+export async function listSessions(request, response) {
+  const sessions = await getActiveSessions(request.user._id, refreshTokenFromRequest(request));
+  response.json({ sessions });
+}
+
+export async function listTrustedDevices(request, response) {
+  const trustedDevices = await getTrustedDevices(request.user._id);
+  response.json({ trustedDevices });
+}
+
+export async function listLoginHistory(request, response) {
+  const loginHistory = await getLoginHistory(request.user._id);
+  response.json({ loginHistory });
 }
 
 export async function removeSession(request, response) {
