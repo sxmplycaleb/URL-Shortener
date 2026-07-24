@@ -131,10 +131,6 @@ export function validateGoogleLogin(request, _response, next) {
 
     const idToken = requiredString(request.body, "idToken");
 
-    if (idToken.length > MAX_TOKEN_LENGTH) {
-      throw new AppError(`idToken cannot exceed ${MAX_TOKEN_LENGTH} characters.`, 400);
-    }
-
     request.validatedBody = { idToken };
     next();
   } catch (error) {
