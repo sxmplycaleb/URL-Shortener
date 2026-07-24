@@ -6,12 +6,25 @@ import URLModel from "../models/URL.js";
 import User from "../models/User.js";
 import AppError from "../utils/AppError.js";
 import { publicUserResource } from "./authService.js";
+import { createEmailValidationService } from "./emailValidationService.js";
 
 export async function updateProfile(userId, { name, email }) {
   try {
+    const currentUser = await User.findById(userId).select("email");
+
+    if (!currentUser) {
+      throw new AppError("Authenticated user no longer exists.", 401);
+    }
+
+    const normalizedEmail = email?.trim().toLowerCase();
+
+    if (normalizedEmail !== currentUser.email) {
+      await createEmailValidationService().validate(normalizedEmail);
+    }
+
     const user = await User.findByIdAndUpdate(
       userId,
-      { name, email },
+      { name, email: normalizedEmail },
       {
         returnDocument: "after",
         runValidators: true,
