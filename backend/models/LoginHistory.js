@@ -45,6 +45,17 @@ const loginHistorySchema = new Schema(
       trim: true,
       maxlength: [80, "Operating system cannot exceed 80 characters."],
     },
+    country: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: [80, "Country cannot exceed 80 characters."],
+    },
+    fingerprintHash: {
+      type: String,
+      trim: true,
+      maxlength: [64, "Fingerprint hash cannot exceed 64 characters."],
+    },
   },
   {
     timestamps: true,
@@ -52,6 +63,7 @@ const loginHistorySchema = new Schema(
 );
 
 loginHistorySchema.index({ user: 1, createdAt: -1 });
+loginHistorySchema.index({ user: 1, fingerprintHash: 1, status: 1 });
 loginHistorySchema.index({ createdAt: -1 });
 
 const LoginHistory = models.LoginHistory ?? model("LoginHistory", loginHistorySchema);

@@ -65,6 +65,7 @@ describe("backend API", () => {
     process.env.AUTH_RATE_LIMIT_MAX = "1000";
     process.env.PASSWORD_RATE_LIMIT_MAX = "1000";
     process.env.OTP_VERIFICATION_RATE_LIMIT_MAX = "5";
+    process.env.ACCOUNT_LOCK_MAX_ATTEMPTS = "5";
     process.env.BREVO_API_KEY = "";
     process.env.BREVO_SENDER_EMAIL = "";
     process.env.TWILIO_ACCOUNT_SID = "";
@@ -353,10 +354,28 @@ describe("backend API", () => {
     expect(rejectCurrent.status).toBe(409);
 
     const rejectWithoutCurrentCookie = await request(app)
-      .delete("/api/security/sessions/others")
+      .delete("/api/security/sessions")
       .set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
     expect(rejectWithoutCurrentCookie.status).toBe(401);
     expect(rejectWithoutCurrentCookie.body.error.message).toBe("Current session could not be verified.");
+
+    const sessionsResponse = await secondAgent
+      .get("/api/security/sessions")
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
+    const trustedDevicesResponse = await secondAgent
+      .get("/api/security/trusted-devices")
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
+    const loginHistoryResponse = await secondAgent
+      .get("/api/security/login-history")
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
+    expect(sessionsResponse.status).toBe(200);
+    expect(sessionsResponse.body.sessions).toHaveLength(2);
+    expect(trustedDevicesResponse.status).toBe(200);
+    expect(trustedDevicesResponse.body.trustedDevices).toHaveLength(1);
+    expect(loginHistoryResponse.status).toBe(200);
+    expect(loginHistoryResponse.body.loginHistory).toEqual(
+      expect.arrayContaining([expect.objectContaining({ browser: "Firefox", operatingSystem: "macOS" })]),
+    );
 
     const revokeOther = await secondAgent
       .delete(`/api/security/sessions/${otherSession.id}`)
@@ -382,6 +401,98 @@ describe("backend API", () => {
       .set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
     expect(removeTrustedResponse.status).toBe(204);
     await expect(TrustedDevice.find({ user: secondLogin.body.user.id })).resolves.toHaveLength(0);
+  });
+
+  it("locks an account temporarily after repeated failed password logins", async () => {
+    const originalMaxAttempts = process.env.ACCOUNT_LOCK_MAX_ATTEMPTS;
+    process.env.ACCOUNT_LOCK_MAX_ATTEMPTS = "3";
+
+    await User.create({
+      name: "Locked User",
+      email: "locked@example.com",
+      password: "Password123!",
+    });
+
+    try {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const response = await request(app).post("/api/auth/login").send({
+          email: "locked@example.com",
+          password: "WrongPassword123!",
+        });
+        expect(response.status).toBe(401);
+      }
+
+      const lockedResponse = await request(app).post("/api/auth/login").send({
+        email: "locked@example.com",
+        password: "Password123!",
+      });
+
+      expect(lockedResponse.status).toBe(423);
+      expect(lockedResponse.body.error.message).toContain("Account temporarily locked");
+
+      const lockedUser = await User.findOne({ email: "locked@example.com" });
+      expect(lockedUser.failedLoginAttempts).toBe(3);
+      expect(lockedUser.lockUntil).toBeInstanceOf(Date);
+    } finally {
+      if (originalMaxAttempts === undefined) {
+        delete process.env.ACCOUNT_LOCK_MAX_ATTEMPTS;
+      } else {
+        process.env.ACCOUNT_LOCK_MAX_ATTEMPTS = originalMaxAttempts;
+      }
+    }
+  });
+
+  it("sends a Brevo notification when a successful login uses a previously unseen device", async () => {
+    const originalApiKey = process.env.BREVO_API_KEY;
+    const originalSender = process.env.BREVO_SENDER_EMAIL;
+    const originalFetch = globalThis.fetch;
+    const fetchImplementation = vi.fn().mockResolvedValue({ ok: true });
+
+    process.env.BREVO_API_KEY = "brevo-test-key";
+    process.env.BREVO_SENDER_EMAIL = "security@example.com";
+    globalThis.fetch = fetchImplementation;
+
+    await User.create({
+      name: "New Device User",
+      email: "new-device@example.com",
+      password: "Password123!",
+    });
+
+    try {
+      const response = await request(app)
+        .post("/api/auth/login")
+        .set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) Chrome/120.0")
+        .set("CF-IPCountry", "KE")
+        .send({
+          email: "new-device@example.com",
+          password: "Password123!",
+        });
+
+      expect(response.status).toBe(200);
+      expect(fetchImplementation).toHaveBeenCalledWith(
+        "https://api.brevo.com/v3/smtp/email",
+        expect.objectContaining({ method: "POST" }),
+      );
+
+      const [, requestOptions] = fetchImplementation.mock.calls[0];
+      expect(JSON.parse(requestOptions.body)).toMatchObject({
+        to: [{ email: "new-device@example.com" }],
+        subject: "New sign-in to your Shortly account",
+        tags: ["auth", "new-device"],
+      });
+    } finally {
+      if (originalApiKey === undefined) {
+        delete process.env.BREVO_API_KEY;
+      } else {
+        process.env.BREVO_API_KEY = originalApiKey;
+      }
+      if (originalSender === undefined) {
+        delete process.env.BREVO_SENDER_EMAIL;
+      } else {
+        process.env.BREVO_SENDER_EMAIL = originalSender;
+      }
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("prevents users from reading or mutating another user's security records", async () => {

@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import AppError from "../utils/AppError.js";
 import { findRefreshTokenRecord } from "./tokenService.js";
 import { publicUserResource } from "./authService.js";
+import { maskIpAddress } from "./securityMetadata.js";
 
 function publicSession(token, currentTokenId) {
   return {
@@ -14,7 +15,7 @@ function publicSession(token, currentTokenId) {
     browser: token.browser ?? "Unknown",
     device: token.device ?? "Unknown",
     operatingSystem: token.operatingSystem ?? "Unknown",
-    ipAddress: token.ipAddress ?? "Unknown",
+    ipAddress: maskIpAddress(token.ipAddress),
     country: token.country ?? null,
     lastActiveAt: token.lastActiveAt ?? token.updatedAt,
     createdAt: token.createdAt,
@@ -28,9 +29,10 @@ function publicLoginHistory(entry) {
     status: entry.status,
     method: entry.method,
     device: entry.device ?? "Unknown",
-    ipAddress: entry.ipAddress ?? "Unknown",
+    ipAddress: maskIpAddress(entry.ipAddress),
     browser: entry.browser ?? "Unknown",
     operatingSystem: entry.operatingSystem ?? "Unknown",
+    country: entry.country ?? null,
     timestamp: entry.createdAt,
   };
 }
@@ -41,7 +43,7 @@ function publicTrustedDevice(device) {
     device: device.device ?? "Unknown",
     browser: device.browser ?? "Unknown",
     operatingSystem: device.operatingSystem ?? "Unknown",
-    ipAddress: device.ipAddress ?? "Unknown",
+    ipAddress: maskIpAddress(device.ipAddress),
     lastUsedAt: device.lastUsedAt,
     expiresAt: device.expiresAt,
   };
@@ -93,6 +95,31 @@ export async function getSecurityCenter(userId, refreshToken) {
       phoneVerified: Boolean(user.phoneVerified),
     },
   };
+}
+
+export async function getActiveSessions(userId, refreshToken) {
+  const currentSession = await findRefreshTokenRecord(refreshToken);
+  const sessions = await RefreshToken.find({
+    user: userId,
+    revoked: false,
+    expiresAt: { $gt: new Date() },
+  }).sort({ lastActiveAt: -1, createdAt: -1 });
+
+  return sessions.map((session) => publicSession(session, currentSession?._id));
+}
+
+export async function getTrustedDevices(userId) {
+  const trustedDevices = await TrustedDevice.find({ user: userId, expiresAt: { $gt: new Date() } }).sort({
+    lastUsedAt: -1,
+  });
+
+  return trustedDevices.map(publicTrustedDevice);
+}
+
+export async function getLoginHistory(userId) {
+  const loginHistory = await LoginHistory.find({ user: userId }).sort({ createdAt: -1 }).limit(50);
+
+  return loginHistory.map(publicLoginHistory);
 }
 
 export async function revokeSession(userId, sessionId, { refreshToken, confirmCurrent = false } = {}) {

@@ -13,6 +13,7 @@ import TrustedDevice from "../models/TrustedDevice.js";
 import { BrevoEmailProvider } from "./otpProviders.js";
 import { normalizePhoneNumber } from "../utils/phone.js";
 import { trustedDeviceFingerprint } from "./securityMetadata.js";
+import { logger } from "../utils/logger.js";
 
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -82,7 +83,76 @@ async function recordLoginAttempt({ user, email, status, method, metadata = {} }
     ipAddress: metadata.ipAddress,
     browser: metadata.browser,
     operatingSystem: metadata.operatingSystem,
+    country: metadata.country,
+    fingerprintHash: trustedDeviceFingerprint(metadata),
   });
+}
+
+function accountLockedMessage(lockUntil) {
+  return `Account temporarily locked. Please try again after ${lockUntil.toISOString()}.`;
+}
+
+function assertAccountNotLocked(user) {
+  if (user?.lockUntil && user.lockUntil > new Date()) {
+    throw new AppError(accountLockedMessage(user.lockUntil), 423);
+  }
+}
+
+async function registerFailedPasswordAttempt(user) {
+  if (!user) return;
+
+  const { accountLockDurationMs, accountLockMaxAttempts } = getEnv();
+  user.failedLoginAttempts = (user.failedLoginAttempts ?? 0) + 1;
+
+  if (user.failedLoginAttempts >= accountLockMaxAttempts) {
+    user.lockUntil = new Date(Date.now() + accountLockDurationMs);
+  }
+
+  await user.save({ validateModifiedOnly: true });
+}
+
+async function clearFailedPasswordAttempts(user) {
+  if (!user) return;
+
+  if ((user.failedLoginAttempts ?? 0) === 0 && !user.lockUntil) {
+    return;
+  }
+
+  user.failedLoginAttempts = 0;
+  user.lockUntil = undefined;
+  await user.save({ validateModifiedOnly: true });
+}
+
+async function isNewDevice(user, metadata = {}) {
+  if (!user) return false;
+
+  const fingerprintHash = trustedDeviceFingerprint(metadata);
+  const knownDevice = await LoginHistory.exists({
+    user: user._id,
+    fingerprintHash,
+    status: "success",
+  });
+
+  return !knownDevice;
+}
+
+async function notifyNewDevice({ user, metadata = {}, loginAt = new Date() }) {
+  if (!user?.email) return;
+
+  try {
+    await createEmailProvider().sendNewDeviceNotification({
+      email: user.email,
+      device: `${metadata.browser ?? "Unknown browser"} on ${metadata.operatingSystem ?? "Unknown OS"}`,
+      ip: metadata.ipAddress,
+      location: metadata.country,
+      loginAt,
+    });
+  } catch (error) {
+    logger.warn("auth.new_device_notification_failed", {
+      userId: user._id.toString(),
+      error: error?.message,
+    });
+  }
 }
 
 async function rememberTrustedDevice(user, metadata = {}) {
@@ -107,6 +177,9 @@ async function rememberTrustedDevice(user, metadata = {}) {
 }
 
 async function createAuthenticatedSession({ user, email = user.email, method, rememberDevice = false, metadata = {} }) {
+  const shouldNotifyNewDevice = await isNewDevice(user, metadata);
+  const loginAt = new Date();
+
   user.lastLogin = new Date();
   await user.save({ validateModifiedOnly: true });
 
@@ -115,6 +188,9 @@ async function createAuthenticatedSession({ user, email = user.email, method, re
   }
 
   await recordLoginAttempt({ user, email, status: "success", method, metadata });
+  if (shouldNotifyNewDevice) {
+    await notifyNewDevice({ user, metadata, loginAt });
+  }
   const tokens = await issueTokenPair(user, metadata);
 
   return {
@@ -177,10 +253,17 @@ export async function loginUser({ email, password, rememberDevice = false }, met
   const normalizedEmail = email?.trim().toLowerCase();
   const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
+  if (user) {
+    assertAccountNotLocked(user);
+  }
+
   if (!user || !(await user.comparePassword(password))) {
     await recordLoginAttempt({ user, email: normalizedEmail, status: "failed", method: "email_password", metadata });
+    await registerFailedPasswordAttempt(user);
     throw new AppError("Invalid email or password.", 401);
   }
+
+  await clearFailedPasswordAttempts(user);
 
   return createAuthenticatedSession({
     user,

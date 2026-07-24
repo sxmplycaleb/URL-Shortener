@@ -72,6 +72,7 @@ export function App() {
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/security" element={<SecurityPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings/security" element={<SecurityPage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
