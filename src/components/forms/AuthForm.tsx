@@ -89,7 +89,7 @@ function isAuthResponse(response: Awaited<ReturnType<typeof verifyEmailOtp>>): r
 export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const locationState = location.state as { message?: string } | null;
+  const locationState = location.state as { from?: string; message?: string } | null;
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [loginStep, setLoginStep] = useState<LoginStep>("login-options");
@@ -173,7 +173,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     saveAuthSession(authSession);
     setToast({ tone: "success", message });
     await waitForToast();
-    navigate("/dashboard");
+    navigate(locationState?.from ?? "/dashboard");
   }
 
   async function handleGoogleSignIn() {

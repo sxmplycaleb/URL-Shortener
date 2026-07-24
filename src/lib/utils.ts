@@ -1,12 +1,14 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+import { formatCompactNumber } from "@/lib/numberFormatter";
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function formatNumber(value: number) {
-  return new Intl.NumberFormat("en", { notation: value > 9999 ? "compact" : "standard" }).format(value);
+  return formatCompactNumber(value);
 }
 
 export const MIN_PASSWORD_LENGTH = 8;
