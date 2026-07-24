@@ -2,6 +2,7 @@ import {
   getSecurityCenter,
   revokeOtherSessions,
   revokeSession,
+  removeTrustedDevice,
   updateSecuritySettings,
 } from "../services/securityService.js";
 import { getRefreshCookieOptions } from "./authController.js";
@@ -31,6 +32,11 @@ export async function removeSession(request, response) {
 export async function removeOtherSessions(request, response) {
   const payload = await revokeOtherSessions(request.user._id, refreshTokenFromRequest(request));
   response.json(payload);
+}
+
+export async function removeTrusted(request, response) {
+  await removeTrustedDevice(request.user._id, request.params.deviceId);
+  response.status(204).send();
 }
 
 export async function updateSettings(request, response) {

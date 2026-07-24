@@ -47,8 +47,22 @@ function publicTrustedDevice(device) {
   };
 }
 
+function sameUserId(left, right) {
+  return left?.toString() === right?.toString();
+}
+
+async function requireCurrentSession(userId, refreshToken) {
+  const currentSession = await findRefreshTokenRecord(refreshToken);
+
+  if (!currentSession || !sameUserId(currentSession.user, userId)) {
+    throw new AppError("Current session could not be verified.", 401);
+  }
+
+  return currentSession;
+}
+
 export async function getSecurityCenter(userId, refreshToken) {
-  const [currentSession, sessions, loginHistory, trustedDevices, user] = await Promise.all([
+  const [possibleCurrentSession, sessions, loginHistory, trustedDevices, user] = await Promise.all([
     findRefreshTokenRecord(refreshToken),
     RefreshToken.find({
       user: userId,
@@ -63,6 +77,8 @@ export async function getSecurityCenter(userId, refreshToken) {
   if (!user) {
     throw new AppError("Authenticated user no longer exists.", 401);
   }
+
+  const currentSession = sameUserId(possibleCurrentSession?.user, userId) ? possibleCurrentSession : null;
 
   return {
     sessions: sessions.map((session) => publicSession(session, currentSession?._id)),
@@ -84,7 +100,7 @@ export async function revokeSession(userId, sessionId, { refreshToken, confirmCu
     throw new AppError("sessionId is invalid.", 400);
   }
 
-  const currentSession = await findRefreshTokenRecord(refreshToken);
+  const currentSession = await requireCurrentSession(userId, refreshToken);
   const revokingCurrent = currentSession?._id.equals(sessionId);
 
   if (revokingCurrent && !confirmCurrent) {
@@ -108,7 +124,7 @@ export async function revokeSession(userId, sessionId, { refreshToken, confirmCu
 }
 
 export async function revokeOtherSessions(userId, refreshToken) {
-  const currentSession = await findRefreshTokenRecord(refreshToken);
+  const currentSession = await requireCurrentSession(userId, refreshToken);
   const query = {
     user: userId,
     revoked: false,
@@ -121,6 +137,21 @@ export async function revokeOtherSessions(userId, refreshToken) {
 
   const result = await RefreshToken.updateMany(query, { revoked: true });
   return { revokedCount: result.modifiedCount };
+}
+
+export async function removeTrustedDevice(userId, deviceId) {
+  if (!mongoose.Types.ObjectId.isValid(deviceId)) {
+    throw new AppError("deviceId is invalid.", 400);
+  }
+
+  const result = await TrustedDevice.deleteOne({
+    _id: deviceId,
+    user: userId,
+  });
+
+  if (result.deletedCount === 0) {
+    throw new AppError("Trusted device was not found.", 404);
+  }
 }
 
 export async function updateSecuritySettings(userId, { emailOtpEnabled, smsOtpEnabled }) {

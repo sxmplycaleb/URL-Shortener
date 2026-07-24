@@ -15,6 +15,7 @@ import OTP from "../models/OTP.js";
 import TrustedDevice from "../models/TrustedDevice.js";
 import URLModel from "../models/URL.js";
 import User from "../models/User.js";
+import { parseUserAgent } from "../services/securityMetadata.js";
 
 const { verifyGoogleIdTokenMock } = vi.hoisted(() => ({
   verifyGoogleIdTokenMock: vi.fn(),
@@ -351,12 +352,19 @@ describe("backend API", () => {
       .send({});
     expect(rejectCurrent.status).toBe(409);
 
+    const rejectWithoutCurrentCookie = await request(app)
+      .delete("/api/security/sessions/others")
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
+    expect(rejectWithoutCurrentCookie.status).toBe(401);
+    expect(rejectWithoutCurrentCookie.body.error.message).toBe("Current session could not be verified.");
+
     const revokeOther = await secondAgent
       .delete(`/api/security/sessions/${otherSession.id}`)
       .set("Authorization", `Bearer ${secondLogin.body.accessToken}`)
       .send({});
     expect(revokeOther.status).toBe(200);
     expect(revokeOther.body.revokedCurrent).toBe(false);
+    await expect(RefreshToken.find({ user: secondLogin.body.user.id, revoked: false })).resolves.toHaveLength(1);
 
     const settingsResponse = await secondAgent
       .put("/api/security/settings")
@@ -366,6 +374,58 @@ describe("backend API", () => {
     expect(settingsResponse.body.user.accountSettings).toMatchObject({
       emailOtpEnabled: false,
       smsOtpEnabled: true,
+    });
+
+    const trustedDeviceId = securityResponse.body.trustedDevices[0].id;
+    const removeTrustedResponse = await secondAgent
+      .delete(`/api/security/trusted-devices/${trustedDeviceId}`)
+      .set("Authorization", `Bearer ${secondLogin.body.accessToken}`);
+    expect(removeTrustedResponse.status).toBe(204);
+    await expect(TrustedDevice.find({ user: secondLogin.body.user.id })).resolves.toHaveLength(0);
+  });
+
+  it("prevents users from reading or mutating another user's security records", async () => {
+    const firstAgent = request.agent(app);
+    const secondAgent = request.agent(app);
+
+    const firstUser = await firstAgent.post("/api/auth/register").send({
+      name: "First Security User",
+      email: "first-security@example.com",
+      password: "Password123!",
+    });
+    const secondUser = await secondAgent.post("/api/auth/register").send({
+      name: "Second Security User",
+      email: "second-security@example.com",
+      password: "Password123!",
+    });
+    expect(firstUser.status).toBe(201);
+    expect(secondUser.status).toBe(201);
+
+    const firstSecurity = await firstAgent.get("/api/security").set("Authorization", `Bearer ${firstUser.body.accessToken}`);
+    const secondSecurity = await secondAgent.get("/api/security").set("Authorization", `Bearer ${secondUser.body.accessToken}`);
+    expect(firstSecurity.body.sessions).toHaveLength(1);
+    expect(secondSecurity.body.sessions).toHaveLength(1);
+    expect(firstSecurity.body.sessions[0].id).not.toBe(secondSecurity.body.sessions[0].id);
+
+    const crossUserRevoke = await secondAgent
+      .delete(`/api/security/sessions/${firstSecurity.body.sessions[0].id}`)
+      .set("Authorization", `Bearer ${secondUser.body.accessToken}`)
+      .send({});
+    expect(crossUserRevoke.status).toBe(404);
+
+    const firstSessionAfterAttempt = await RefreshToken.findById(firstSecurity.body.sessions[0].id);
+    expect(firstSessionAfterAttempt.revoked).toBe(false);
+  });
+
+  it("detects iOS browsers without misclassifying them as macOS", () => {
+    expect(
+      parseUserAgent(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/120.0 Mobile/15E148 Safari/604.1",
+      ),
+    ).toMatchObject({
+      browser: "Chrome",
+      device: "Mobile",
+      operatingSystem: "iOS",
     });
   });
 

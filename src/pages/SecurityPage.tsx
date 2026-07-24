@@ -30,6 +30,7 @@ import { updatePassword } from "@/services/account";
 import { clearAuthSession, getAuthSession, saveAuthSession } from "@/services/authStorage";
 import {
   getSecurityCenter,
+  removeTrustedDevice,
   revokeOtherSessions,
   revokeSession,
   updateSecuritySettings,
@@ -225,6 +226,30 @@ export function SecurityPage() {
         return;
       }
       showNotice({ tone: "error", message: getApiErrorMessage(error, "Unable to revoke sessions.") });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleRemoveTrustedDevice(deviceId: string) {
+    setBusyAction(deviceId);
+    try {
+      await removeTrustedDevice(accessToken, deviceId);
+      setSecurity((current) =>
+        current
+          ? {
+              ...current,
+              trustedDevices: current.trustedDevices.filter((device) => device.id !== deviceId),
+            }
+          : current,
+      );
+      showNotice({ tone: "success", message: "Trusted device removed." });
+    } catch (error) {
+      if (isAuthorizationError(error)) {
+        endSession();
+        return;
+      }
+      showNotice({ tone: "error", message: getApiErrorMessage(error, "Unable to remove trusted device.") });
     } finally {
       setBusyAction(null);
     }
@@ -494,11 +519,11 @@ export function SecurityPage() {
             {!loading && security?.trustedDevices.length ? (
               <div className="space-y-3">
                 {security.trustedDevices.map((device) => (
-                  <div className="flex items-start gap-3 rounded-md border p-4" key={device.id}>
+                  <div className="flex flex-col gap-4 rounded-md border p-4 sm:flex-row sm:items-start" key={device.id}>
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-muted">
                       <Laptop className="h-5 w-5" aria-hidden="true" />
                     </span>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium">
                         {device.browser} on {device.operatingSystem}
                       </p>
@@ -511,6 +536,16 @@ export function SecurityPage() {
                         Last used {formatDate(device.lastUsedAt)}. Expires {formatDate(device.expiresAt)}.
                       </p>
                     </div>
+                    <Button
+                      aria-label={`Remove trusted device ${device.browser} on ${device.operatingSystem}`}
+                      disabled={busyAction === device.id}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleRemoveTrustedDevice(device.id)}
+                    >
+                      {busyAction === device.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      Remove
+                    </Button>
                   </div>
                 ))}
               </div>

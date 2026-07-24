@@ -15,28 +15,28 @@ export function parseUserAgent(userAgent = "") {
   const browser =
     source.includes("edg/")
       ? "Edge"
-      : source.includes("chrome/")
+      : source.includes("crios/") || source.includes("chrome/")
         ? "Chrome"
-        : source.includes("firefox/")
+        : source.includes("fxios/") || source.includes("firefox/")
           ? "Firefox"
-          : source.includes("safari/") && !source.includes("chrome/")
+          : source.includes("safari/") && !source.includes("chrome/") && !source.includes("crios/")
             ? "Safari"
             : source.includes("msie") || source.includes("trident/")
               ? "Internet Explorer"
               : "Unknown";
 
   const operatingSystem =
-    source.includes("windows")
+    source.includes("iphone") || source.includes("ipad")
+      ? "iOS"
+      : source.includes("windows")
       ? "Windows"
       : source.includes("mac os x")
         ? "macOS"
         : source.includes("android")
           ? "Android"
-          : source.includes("iphone") || source.includes("ipad")
-            ? "iOS"
-            : source.includes("linux")
-              ? "Linux"
-              : "Unknown";
+          : source.includes("linux")
+            ? "Linux"
+            : "Unknown";
 
   const device =
     source.includes("ipad")
@@ -50,7 +50,7 @@ export function parseUserAgent(userAgent = "") {
 
 export function securityMetadataFromRequest(request) {
   const userAgent = request.get("user-agent") ?? "";
-  const ipAddress = firstHeaderValue(request.headers["x-forwarded-for"]) ?? request.ip ?? request.socket?.remoteAddress ?? "Unknown";
+  const ipAddress = request.ip ?? request.socket?.remoteAddress ?? "Unknown";
   const country =
     firstHeaderValue(request.headers["cf-ipcountry"]) ??
     firstHeaderValue(request.headers["x-vercel-ip-country"]) ??

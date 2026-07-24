@@ -79,6 +79,13 @@ export function revokeOtherSessions(accessToken: string) {
   });
 }
 
+export function removeTrustedDevice(accessToken: string, deviceId: string) {
+  return authenticatedApiRequest<void>(`/api/security/trusted-devices/${deviceId}`, {
+    method: "DELETE",
+    accessToken,
+  });
+}
+
 export function updateSecuritySettings(accessToken: string, body: Pick<SecuritySettings, "emailOtpEnabled" | "smsOtpEnabled">) {
   return authenticatedApiRequest<AccountResponse>("/api/security/settings", {
     method: "PUT",
