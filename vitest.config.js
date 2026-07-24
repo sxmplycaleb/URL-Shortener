@@ -1,7 +1,9 @@
+import { fileURLToPath } from "node:url";
+
 export default {
   resolve: {
     alias: {
-      "@": new URL("./src", import.meta.url).pathname,
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
   test: {
