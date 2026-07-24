@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Shortly social preview</title>
+  <desc id="desc">Shortly logo, product name, and tagline on a modern gradient background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0f172a"/>
+      <stop offset="0.48" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(920 132) rotate(125) scale(520 360)">
+      <stop stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mark" x1="420" y1="112" x2="544" y2="236" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3b82f6"/>
+      <stop offset="0.58" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <path d="M0 520 C220 470 330 590 560 540 S935 460 1200 520 V630 H0Z" fill="#020617" opacity="0.22"/>
+  <rect x="420" y="112" width="124" height="124" rx="28" fill="url(#mark)"/>
+  <path d="M469 185 495 159" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round"/>
+  <path d="m461 167-7 7a20 20 0 0 0 28 28l8-8" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round"/>
+  <path d="m503 181 7-7a20 20 0 0 0-28-28l-8 8" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round"/>
+  <text x="584" y="183" fill="#fff" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="72" font-weight="800">Shortly</text>
+  <text x="424" y="334" fill="#fff" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="56" font-weight="800">Short links with clear analytics.</text>
+  <text x="426" y="397" fill="#dbeafe" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="500">Create, manage, and track production-ready short URLs.</text>
+</svg>

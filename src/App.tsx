@@ -5,6 +5,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { LoadingState } from "@/components/common/LoadingState";
 import { AppShell } from "@/components/layout/AppShell";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
@@ -19,6 +20,8 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((module) => 
 
 export function App() {
   const location = useLocation();
+  const pageTitle = getRoutePageTitle(location.pathname);
+  useDocumentTitle(pageTitle);
 
   function focusMainContent(event: MouseEvent<HTMLAnchorElement>) {
     const main = document.getElementById("main-content");
@@ -81,4 +84,17 @@ export function App() {
       </AnimatePresence>
     </TooltipProvider>
   );
+}
+
+function getRoutePageTitle(pathname: string) {
+  if (pathname === "/") return "Home";
+  if (pathname === "/login") return "Login";
+  if (pathname === "/forgot-password") return "Forgot Password";
+  if (pathname === "/register") return "Register";
+  if (pathname === "/reset-password") return "Reset Password";
+  if (pathname === "/dashboard") return "Dashboard";
+  if (pathname === "/analytics") return "Analytics";
+  if (pathname === "/settings/security" || pathname === "/security") return "Security";
+  if (pathname === "/settings") return "Settings";
+  return "404";
 }

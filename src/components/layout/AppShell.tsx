@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { logoutUser } from "@/services/auth";
@@ -39,14 +40,15 @@ export function AppShell() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <Navbar user={session.user} onLogout={handleLogout} onMenuClick={openMobileNav} />
-      <div className="mx-auto flex w-full max-w-7xl">
+      <div className="mx-auto flex w-full max-w-7xl flex-1">
         <Sidebar open={mobileOpen} user={session.user} onClose={closeMobileNav} onLogout={handleLogout} />
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8" id="main-content" tabIndex={-1}>
           <Outlet />
         </main>
       </div>
+      <Footer />
     </div>
   );
 }

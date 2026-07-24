@@ -3,15 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Production-ready URL shortener dashboard and analytics interface." />
+    <meta name="description" content="Create reliable short links with ownership, analytics, secure authentication, and production-ready redirects." />
+    <meta name="keywords" content="URL shortener, short links, link analytics, custom aliases, redirect tracking, Shortly" />
+    <meta name="author" content="Shortly" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Shortly" />
     <meta property="og:title" content="Shortly URL Shortener" />
-    <meta property="og:description" content="Create reliable short links with ownership, analytics, and production-ready redirects." />
+    <meta property="og:description" content="Create reliable short links with ownership, analytics, secure authentication, and production-ready redirects." />
+    <meta property="og:image" content="%VITE_SHORT_URL_BASE%/social-preview.png" />
     <meta property="og:url" content="%VITE_SHORT_URL_BASE%/" />
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Shortly URL Shortener" />
-    <meta name="twitter:description" content="Create reliable short links with ownership, analytics, and production-ready redirects." />
+    <meta name="twitter:description" content="Create reliable short links with ownership, analytics, secure authentication, and production-ready redirects." />
+    <meta name="twitter:image" content="%VITE_SHORT_URL_BASE%/social-preview.png" />
     <script>
       const theme = localStorage.getItem("theme");
       const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -19,7 +29,7 @@
         document.documentElement.classList.add("dark");
       }
     </script>
-    <title>Shortly URL Shortener</title>
+    <title>Home | URL Shortener</title>
   </head>
   <body>
     <div id="root"></div>

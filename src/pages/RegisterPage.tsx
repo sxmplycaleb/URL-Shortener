@@ -1,8 +1,9 @@
-import { Link2 } from "lucide-react";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { AuthForm } from "@/components/forms/AuthForm";
+import { Footer } from "@/components/layout/Footer";
 import { getAuthSession } from "@/services/authStorage";
 
 export function RegisterPage() {
@@ -11,17 +12,17 @@ export function RegisterPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-10" id="main-content">
-      <div className="mb-6 flex w-full max-w-md items-center justify-between">
-        <Link className="flex items-center gap-2 font-semibold" to="/">
-          <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Link2 className="h-5 w-5" aria-hidden="true" />
-          </span>
-          Shortly
-        </Link>
-        <ThemeToggle />
-      </div>
-      <AuthForm mode="register" />
-    </main>
+    <div className="flex min-h-screen flex-col bg-background">
+      <main className="grid flex-1 place-items-center px-4 py-10" id="main-content">
+        <div className="w-full max-w-md">
+          <div className="mb-6 flex items-center justify-between">
+            <BrandLogo to="/" />
+            <ThemeToggle />
+          </div>
+          <AuthForm mode="register" />
+        </div>
+      </main>
+      <Footer />
+    </div>
   );
 }
