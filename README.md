@@ -1,6 +1,6 @@
 # Shortly URL Shortener
 
-Shortly is a React/Vite and Express/MongoDB URL shortener with email/password authentication, email OTP, phone OTP with Twilio SMS delivery, Google sign-in, refresh-token sessions, dashboards, analytics, and account settings. WhatsApp OTP support is temporarily disabled pending Meta WhatsApp Cloud API integration.
+Shortly is a React and Express/MongoDB URL shortener with email/password authentication, email OTP, phone OTP with Twilio SMS delivery, Google sign-in, refresh-token sessions, dashboards, analytics, and account settings. WhatsApp OTP support is temporarily disabled pending Meta WhatsApp Cloud API integration.
 
 ## Local Setup
 
@@ -202,3 +202,17 @@ npm run lint
 npm test
 npm run build
 ```
+
+## Branding Assets
+
+Shortly branding is centralized in `src/lib/brand.ts` and rendered through `src/components/brand/BrandLogo.tsx`.
+
+Assets live in `public/`:
+
+- `logo.svg` - full logo for documentation and larger brand placements.
+- `logo-icon.svg` - scalable icon mark.
+- `favicon.ico`, `favicon-32x32.png`, `favicon-16x16.png` - browser favicon set.
+- `apple-touch-icon.png` - iOS home screen icon.
+- `social-preview.png` and `social-preview.svg` - Open Graph and Twitter preview artwork.
+
+`index.html` defines the production metadata, favicon links, theme color, Open Graph tags, and Twitter Card tags. Page titles update dynamically in the React app using route-aware titles such as `Home | URL Shortener`, `Dashboard | URL Shortener`, and `404 | URL Shortener`.

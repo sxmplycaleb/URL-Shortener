@@ -1,6 +1,7 @@
-import { Link, NavLink } from "react-router-dom";
-import { Link2, LogOut, Menu } from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { LogOut, Menu } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import type { AuthUser } from "@/services/auth";
@@ -21,12 +22,7 @@ export function Navbar({ user, onMenuClick, onLogout }: NavbarProps) {
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link className="flex items-center gap-2 font-semibold" to="/">
-          <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Link2 className="h-5 w-5" aria-hidden="true" />
-          </span>
-          Shortly
-        </Link>
+        <BrandLogo to="/" />
         <nav className="hidden items-center gap-2 lg:flex" aria-label="Main navigation">
           {navItems.map((item) => (
             <NavLink

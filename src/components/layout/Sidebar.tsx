@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef } from "react";
 import { NavLink } from "react-router-dom";
-import { BarChart3, Home, Link2, LogOut, Settings, ShieldCheck, X } from "lucide-react";
+import { BarChart3, Home, LogOut, Settings, ShieldCheck, X } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/services/auth";
@@ -94,12 +95,7 @@ export function Sidebar({ open = false, user, onClose, onLogout }: SidebarProps)
 
 function Brand({ id }: { id?: string }) {
   return (
-    <div className="flex items-center gap-2 font-semibold" id={id}>
-      <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground">
-        <Link2 className="h-5 w-5" aria-hidden="true" />
-      </span>
-      Shortly
-    </div>
+    <BrandLogo className="font-semibold" id={id} to="/dashboard" />
   );
 }
 

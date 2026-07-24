@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { BarChart3, ChartNoAxesColumnIncreasing, Link2, Menu, ShieldCheck, Tags, X, Zap } from "lucide-react";
+import { BarChart3, ChartNoAxesColumnIncreasing, Menu, ShieldCheck, Tags, X, Zap } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -51,12 +52,7 @@ function LandingNav() {
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link className="flex items-center gap-2 font-semibold" to="/" onClick={() => setIsOpen(false)}>
-          <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Link2 className="h-5 w-5" aria-hidden="true" />
-          </span>
-          Shortly
-        </Link>
+        <BrandLogo to="/" onClick={() => setIsOpen(false)} />
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
           {navigationItems.map((item) =>
@@ -145,9 +141,9 @@ function FeatureCard({ feature }: { feature: (typeof features)[number] }) {
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <LandingNav />
-      <main id="main-content">
+      <main className="flex-1" id="main-content">
         <section className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-24">
           <div className="flex flex-col justify-center">
             <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">Shortly</h1>
@@ -211,7 +207,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="sr-only" id="pricing" aria-label="Pricing placeholder">
+        <section className="sr-only" id="pricing" aria-label="Pricing">
           Pricing information will be available later.
         </section>
 

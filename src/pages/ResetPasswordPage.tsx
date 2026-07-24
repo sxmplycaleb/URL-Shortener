@@ -1,7 +1,9 @@
 import { FormEvent, useId, useMemo, useState } from "react";
-import { CheckCircle2, Link2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { BrandLogo } from "@/components/brand/BrandLogo";
+import { Footer } from "@/components/layout/Footer";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,14 +63,10 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-10" id="main-content">
-      <div className="w-full max-w-md">
-        <Link className="mb-6 flex items-center gap-2 font-semibold" to="/">
-          <span className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Link2 className="h-5 w-5" aria-hidden="true" />
-          </span>
-          Shortly
-        </Link>
+    <div className="flex min-h-screen flex-col bg-background">
+      <main className="grid flex-1 place-items-center px-4 py-10" id="main-content">
+        <div className="w-full max-w-md">
+        <BrandLogo className="mb-6" to="/" />
         <Card className="shadow-soft">
           <CardHeader>
             <CardTitle>Choose a new password</CardTitle>
@@ -127,7 +125,9 @@ export function ResetPasswordPage() {
             </p>
           </CardContent>
         </Card>
-      </div>
-    </main>
+        </div>
+      </main>
+      <Footer />
+    </div>
   );
 }

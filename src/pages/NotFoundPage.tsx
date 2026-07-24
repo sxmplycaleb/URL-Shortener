@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Compass, Home, LayoutDashboard } from "lucide-react";
 
+import { Footer } from "@/components/layout/Footer";
 import { buttonVariants } from "@/components/ui/buttonVariants";
 import { Card } from "@/components/ui/card";
 import { getAuthSession } from "@/services/authStorage";
@@ -12,8 +13,9 @@ export function NotFoundPage() {
   const ActionIcon = isAuthenticated ? LayoutDashboard : Home;
 
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-4 py-16" id="main-content">
-      <Card className="w-full max-w-xl p-8 text-center shadow-soft sm:p-10">
+    <div className="flex min-h-screen flex-col bg-background">
+      <main className="grid flex-1 place-items-center px-4 py-16" id="main-content">
+        <Card className="w-full max-w-xl p-8 text-center shadow-soft sm:p-10">
         <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-primary/10">
           <Compass className="h-12 w-12 text-primary" aria-hidden="true" />
         </div>
@@ -26,7 +28,9 @@ export function NotFoundPage() {
           <ActionIcon className="h-4 w-4" aria-hidden="true" />
           {actionLabel}
         </Link>
-      </Card>
-    </main>
+        </Card>
+      </main>
+      <Footer />
+    </div>
   );
 }
