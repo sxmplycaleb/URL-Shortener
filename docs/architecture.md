@@ -167,7 +167,7 @@ Stores one-time passcodes for authentication-adjacent flows. Raw OTP values are 
 | `id` | ObjectId | Primary key | MongoDB document identifier. |
 | `userId` | ObjectId | Nullable, ref `users` | User associated with the OTP when known. |
 | `email` | String | Nullable, lowercase | Email delivery or verification target. |
-| `phone` | String | Nullable | E.164 phone target for SMS or WhatsApp. |
+| `phone` | String | Nullable | E.164 phone target for SMS or WhatsApp delivery. |
 | `purpose` | String | Not null | `LOGIN`, `REGISTER`, `RESET_PASSWORD`, `CHANGE_EMAIL`, `CHANGE_PHONE`. |
 | `hashedOtp` | String | Not null, select false | SHA-256 hash using the application hash salt. |
 | `expiresAt` | Date | Not null | Defaults to 5 minutes after issue. |
@@ -347,7 +347,7 @@ Returns the current authenticated user.
 
 #### `POST /api/auth/otp/request`
 
-Issues an OTP for a future authentication flow and delivers it with Brevo transactional email or Twilio Verify SMS/WhatsApp. Existing unused OTPs for the same user/contact/purpose are marked used before the new code is stored.
+Issues an OTP for a future authentication flow and delivers it with Brevo transactional email, Twilio Verify SMS, or Meta WhatsApp Cloud API. Existing unused OTPs for the same user/contact/purpose are marked used before the new code is stored.
 
 Request:
 

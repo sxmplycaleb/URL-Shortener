@@ -6,7 +6,7 @@ import AppError from "../utils/AppError.js";
 import { hashToken } from "../utils/hash.js";
 import { logger } from "../utils/logger.js";
 import { normalizePhoneNumber } from "../utils/phone.js";
-import { BrevoEmailProvider, TwilioVerifyProvider } from "./otpProviders.js";
+import { BrevoEmailProvider, MetaWhatsAppProvider, PhoneOtpProvider, TwilioSmsProvider } from "./otpProviders.js";
 
 const OTP_DIGITS = 6;
 const MAX_OTP_ATTEMPTS = 5;
@@ -234,12 +234,8 @@ export class AuthenticationService {
       throw new AppError("Verification code has too many failed attempts.", 429);
     }
 
-    const phoneProviderResult =
-      target.phone && this.phoneProvider?.verifyOtp
-        ? await this.phoneProvider.verifyOtp({ phone: target.phone, otp, purpose })
-        : null;
     const candidateHash = hashOtp({ otp, purpose, ...target });
-    const isValidOtp = phoneProviderResult?.verified || candidateHash === record.hashedOtp;
+    const isValidOtp = candidateHash === record.hashedOtp;
 
     if (!isValidOtp) {
       record.attempts += 1;
@@ -293,10 +289,21 @@ export function createAuthenticationService() {
       senderEmail: config.brevoSenderEmail,
       expiresInMinutes: config.otpExpiryMinutes,
     }),
-    phoneProvider: new TwilioVerifyProvider({
-      accountSid: config.twilioAccountSid,
-      authToken: config.twilioAuthToken,
-      serviceSid: config.twilioVerifyServiceSid,
+    phoneProvider: new PhoneOtpProvider({
+      providers: {
+        sms: new TwilioSmsProvider({
+          accountSid: config.twilioAccountSid,
+          authToken: config.twilioAuthToken,
+          serviceSid: config.twilioVerifyServiceSid,
+        }),
+        whatsapp: new MetaWhatsAppProvider({
+          accessToken: config.metaWhatsAppAccessToken,
+          phoneNumberId: config.metaWhatsAppPhoneNumberId,
+          templateName: config.metaWhatsAppTemplateName,
+          templateLanguage: config.metaWhatsAppTemplateLanguage,
+          apiVersion: config.metaWhatsAppApiVersion,
+        }),
+      },
     }),
   });
 }
