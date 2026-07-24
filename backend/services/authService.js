@@ -106,6 +106,23 @@ async function rememberTrustedDevice(user, metadata = {}) {
   );
 }
 
+async function createAuthenticatedSession({ user, email = user.email, method, rememberDevice = false, metadata = {} }) {
+  user.lastLogin = new Date();
+  await user.save({ validateModifiedOnly: true });
+
+  if (rememberDevice) {
+    await rememberTrustedDevice(user, metadata);
+  }
+
+  await recordLoginAttempt({ user, email, status: "success", method, metadata });
+  const tokens = await issueTokenPair(user, metadata);
+
+  return {
+    user: publicUser(user),
+    ...tokens,
+  };
+}
+
 export async function registerUser({ name, email, password, phone }, metadata = {}) {
   try {
     const normalizedEmail = email?.trim().toLowerCase();
@@ -165,18 +182,13 @@ export async function loginUser({ email, password, rememberDevice = false }, met
     throw new AppError("Invalid email or password.", 401);
   }
 
-  user.lastLogin = new Date();
-  await user.save({ validateModifiedOnly: true });
-  if (rememberDevice) {
-    await rememberTrustedDevice(user, metadata);
-  }
-  await recordLoginAttempt({ user, email: normalizedEmail, status: "success", method: "email_password", metadata });
-  const tokens = await issueTokenPair(user, metadata);
-
-  return {
-    user: publicUser(user),
-    ...tokens,
-  };
+  return createAuthenticatedSession({
+    user,
+    email: normalizedEmail,
+    method: "email_password",
+    rememberDevice,
+    metadata,
+  });
 }
 
 export async function loginWithGoogle({ idToken, rememberDevice = false }, metadata = {}) {
@@ -214,7 +226,6 @@ export async function loginWithGoogle({ idToken, rememberDevice = false }, metad
     avatar: typeof decodedToken.picture === "string" ? decodedToken.picture : undefined,
     emailVerified,
     isVerified: emailVerified,
-    lastLogin: now,
   };
   let user = existingGoogleUser ?? existingEmailUser;
 
@@ -227,7 +238,6 @@ export async function loginWithGoogle({ idToken, rememberDevice = false }, metad
     user.avatar = googleProfile.avatar ?? user.avatar;
     user.emailVerified = emailVerified;
     user.isVerified = user.isVerified || emailVerified;
-    user.lastLogin = now;
     await user.save({ validateModifiedOnly: true });
   } else {
     try {
@@ -247,16 +257,13 @@ export async function loginWithGoogle({ idToken, rememberDevice = false }, metad
     }
   }
 
-  if (rememberDevice) {
-    await rememberTrustedDevice(user, metadata);
-  }
-  await recordLoginAttempt({ user, email, status: "success", method: "google", metadata });
-  const tokens = await issueTokenPair(user, metadata);
-
-  return {
-    user: publicUser(user),
-    ...tokens,
-  };
+  return createAuthenticatedSession({
+    user,
+    email,
+    method: "google",
+    rememberDevice,
+    metadata,
+  });
 }
 
 function buildPasswordResetUrl(token) {
@@ -333,19 +340,12 @@ export async function loginUserWithOtp({ email, rememberDevice = false }, metada
     throw new AppError("No account exists for that email address.", 404);
   }
 
-  user.lastLogin = new Date();
-  await user.save({ validateModifiedOnly: true });
-
-  if (rememberDevice) {
-    await rememberTrustedDevice(user, metadata);
-  }
-  await recordLoginAttempt({ user, email: user.email, status: "success", method: "email_otp", metadata });
-  const tokens = await issueTokenPair(user, metadata);
-
-  return {
-    user: publicUser(user),
-    ...tokens,
-  };
+  return createAuthenticatedSession({
+    user,
+    method: "email_otp",
+    rememberDevice,
+    metadata,
+  });
 }
 
 export async function loginUserWithPhoneOtp({ phone, rememberDevice = false }, metadata = {}) {
@@ -357,19 +357,12 @@ export async function loginUserWithPhoneOtp({ phone, rememberDevice = false }, m
     throw new AppError("No account exists for that phone number.", 404);
   }
 
-  user.lastLogin = new Date();
-  await user.save({ validateModifiedOnly: true });
-
-  if (rememberDevice) {
-    await rememberTrustedDevice(user, metadata);
-  }
-  await recordLoginAttempt({ user, email: user.email, status: "success", method: "sms_otp", metadata });
-  const tokens = await issueTokenPair(user, metadata);
-
-  return {
-    user: publicUser(user),
-    ...tokens,
-  };
+  return createAuthenticatedSession({
+    user,
+    method: "sms_otp",
+    rememberDevice,
+    metadata,
+  });
 }
 
 export async function createPasswordResetFromOtp({ email }) {
