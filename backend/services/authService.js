@@ -7,6 +7,7 @@ import { hashToken } from "../utils/hash.js";
 import { issueTokenPair, revokeRefreshToken, rotateRefreshToken } from "./tokenService.js";
 import RefreshToken from "../models/RefreshToken.js";
 import { verifyGoogleIdToken } from "./firebaseAdmin.js";
+import OTP from "../models/OTP.js";
 
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -63,7 +64,21 @@ function googleTokenErrorMessage(error) {
 
 export async function registerUser({ name, email, password }) {
   try {
-    const user = await User.create({ name, email, password });
+    const normalizedEmail = email?.trim().toLowerCase();
+    const verifiedRegistrationOtp = await OTP.findOne({
+      email: normalizedEmail,
+      purpose: "REGISTER",
+      used: true,
+      verifiedAt: { $ne: null },
+      expiresAt: { $gt: new Date() },
+    });
+    const user = await User.create({
+      name,
+      email: normalizedEmail,
+      password,
+      emailVerified: Boolean(verifiedRegistrationOtp),
+      isVerified: Boolean(verifiedRegistrationOtp),
+    });
     const tokens = await issueTokenPair(user);
 
     return {
@@ -219,6 +234,44 @@ export async function resetPassword({ token, password }) {
 
   return {
     message: "Your password has been reset. You can now log in with the new password.",
+  };
+}
+
+export async function loginUserWithOtp({ email }) {
+  const user = await User.findOne({ email: email?.trim().toLowerCase() });
+
+  if (!user) {
+    throw new AppError("No account exists for that email address.", 404);
+  }
+
+  user.lastLogin = new Date();
+  await user.save({ validateModifiedOnly: true });
+
+  const tokens = await issueTokenPair(user);
+
+  return {
+    user: publicUser(user),
+    ...tokens,
+  };
+}
+
+export async function createPasswordResetFromOtp({ email }) {
+  const user = await User.findOne({ email: email?.trim().toLowerCase() }).select(
+    "+passwordResetTokenHash +passwordResetExpiresAt",
+  );
+
+  if (!user) {
+    throw new AppError("No account exists for that email address.", 404);
+  }
+
+  const token = crypto.randomBytes(PASSWORD_RESET_TOKEN_BYTES).toString("hex");
+  user.passwordResetTokenHash = hashToken(token);
+  user.passwordResetExpiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS);
+  await user.save({ validateModifiedOnly: true });
+
+  return {
+    message: "Verification complete. Choose a new password to finish resetting your account.",
+    resetUrl: buildPasswordResetUrl(token),
   };
 }
 

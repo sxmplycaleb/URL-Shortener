@@ -44,6 +44,14 @@ test.describe('registration', () => {
     await fillRegistrationForm(page, user);
     await page.getByRole('button', { name: 'Create account' }).click();
 
+    const codeMessage = page.getByText(/Development code: \d{6}/);
+    await expect(codeMessage).toBeVisible();
+    const code = (await codeMessage.textContent())?.match(/\d{6}/)?.[0];
+    expect(code).toBeTruthy();
+    for (const [index, digit] of [...(code as string)].entries()) {
+      await page.getByLabel(`Digit ${index + 1}`).fill(digit);
+    }
+
     await expectDashboard(page);
     await expectAuthenticatedSession(page, user);
   });

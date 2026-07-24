@@ -254,6 +254,7 @@ export class AuthenticationService {
     }
 
     record.used = true;
+    record.verifiedAt = this.now();
     await record.save({ validateModifiedOnly: true });
     this.auditLogger.info("auth.otp.verified", {
       otpId: record._id.toString(),
