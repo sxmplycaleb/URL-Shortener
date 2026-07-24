@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { BarChart3, ChartNoAxesColumnIncreasing, Menu, ShieldCheck, Tags, X, Zap } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { BackToTop } from "@/components/common/BackToTop";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -226,6 +227,7 @@ export function LandingPage() {
         </section>
       </main>
       <Footer />
+      <BackToTop />
     </div>
   );
 }

@@ -11,6 +11,7 @@ const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage").then((module) =
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
 const DashboardSettingsPage = lazy(() => import("@/pages/DashboardSettingsPage").then((module) => ({ default: module.DashboardSettingsPage })));
 const LandingPage = lazy(() => import("@/pages/LandingPage").then((module) => ({ default: module.LandingPage })));
+const LegalPage = lazy(() => import("@/pages/LegalPage").then((module) => ({ default: module.LegalPage })));
 const LoginPage = lazy(() => import("@/pages/LoginPage").then((module) => ({ default: module.LoginPage })));
 const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage").then((module) => ({ default: module.ForgotPasswordPage })));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })));
@@ -67,6 +68,9 @@ export function App() {
           <Suspense fallback={<LoadingState label="Loading page" />}>
             <Routes location={location}>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/privacy" element={<LegalPage />} />
+              <Route path="/terms" element={<LegalPage />} />
+              <Route path="/cookies" element={<LegalPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/register" element={<RegisterPage />} />
@@ -90,6 +94,9 @@ export function App() {
 
 function getRoutePageTitle(pathname: string) {
   if (pathname === "/") return "Home";
+  if (pathname === "/privacy") return "Privacy Policy";
+  if (pathname === "/terms") return "Terms of Service";
+  if (pathname === "/cookies") return "Cookie Policy";
   if (pathname === "/login") return "Login";
   if (pathname === "/forgot-password") return "Forgot Password";
   if (pathname === "/register") return "Register";

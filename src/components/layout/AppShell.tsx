@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { BackToTop } from "@/components/common/BackToTop";
+import { CommandPalette } from "@/components/common/CommandPalette";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -76,6 +78,8 @@ export function AppShell() {
         </main>
       </div>
       <Footer />
+      <CommandPalette onLogout={handleLogout} />
+      <BackToTop />
     </div>
   );
 }
