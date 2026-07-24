@@ -126,6 +126,7 @@ export function validateLogin(request, _response, next) {
     request.validatedBody = {
       email,
       password: requiredString(request.body, "password"),
+      rememberDevice: request.body.rememberDevice === true,
     };
     next();
   } catch (error) {
@@ -139,7 +140,7 @@ export function validateGoogleLogin(request, _response, next) {
 
     const idToken = requiredString(request.body, "idToken");
 
-    request.validatedBody = { idToken };
+    request.validatedBody = { idToken, rememberDevice: request.body.rememberDevice === true };
     next();
   } catch (error) {
     next(error);
@@ -503,6 +504,39 @@ export function validateUpdateAccountSettings(request, _response, next) {
 
     request.validatedBody = {
       notificationsEnabled: request.body.notificationsEnabled,
+    };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateUpdateSecuritySettings(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    if (typeof request.body.emailOtpEnabled !== "boolean") {
+      throw new AppError("emailOtpEnabled must be a boolean.", 400);
+    }
+
+    if (typeof request.body.smsOtpEnabled !== "boolean") {
+      throw new AppError("smsOtpEnabled must be a boolean.", 400);
+    }
+
+    request.validatedBody = {
+      emailOtpEnabled: request.body.emailOtpEnabled,
+      smsOtpEnabled: request.body.smsOtpEnabled,
+    };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateRevokeSession(request, _response, next) {
+  try {
+    request.validatedBody = {
+      confirmCurrent: request.body?.confirmCurrent === true,
     };
     next();
   } catch (error) {

@@ -8,8 +8,11 @@ import { issueTokenPair, revokeRefreshToken, rotateRefreshToken } from "./tokenS
 import RefreshToken from "../models/RefreshToken.js";
 import { verifyGoogleIdToken } from "./firebaseAdmin.js";
 import OTP from "../models/OTP.js";
+import LoginHistory from "../models/LoginHistory.js";
+import TrustedDevice from "../models/TrustedDevice.js";
 import { BrevoEmailProvider } from "./otpProviders.js";
 import { normalizePhoneNumber } from "../utils/phone.js";
+import { trustedDeviceFingerprint } from "./securityMetadata.js";
 
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -36,6 +39,8 @@ function publicUser(user) {
     phoneVerified: user.phoneVerified,
     accountSettings: {
       notificationsEnabled: user.accountSettings?.notificationsEnabled ?? true,
+      emailOtpEnabled: user.accountSettings?.emailOtpEnabled ?? true,
+      smsOtpEnabled: user.accountSettings?.smsOtpEnabled ?? false,
     },
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
@@ -67,7 +72,41 @@ function googleTokenErrorMessage(error) {
   return "Google sign-in could not be verified. Please try again.";
 }
 
-export async function registerUser({ name, email, password, phone }) {
+async function recordLoginAttempt({ user, email, status, method, metadata = {} }) {
+  await LoginHistory.create({
+    user: user?._id,
+    email,
+    status,
+    method,
+    device: metadata.device,
+    ipAddress: metadata.ipAddress,
+    browser: metadata.browser,
+    operatingSystem: metadata.operatingSystem,
+  });
+}
+
+async function rememberTrustedDevice(user, metadata = {}) {
+  if (!user) return;
+
+  const { rememberDeviceDurationMs } = getEnv();
+  const fingerprintHash = trustedDeviceFingerprint(metadata);
+  await TrustedDevice.findOneAndUpdate(
+    { user: user._id, fingerprintHash },
+    {
+      user: user._id,
+      fingerprintHash,
+      device: metadata.device,
+      browser: metadata.browser,
+      operatingSystem: metadata.operatingSystem,
+      ipAddress: metadata.ipAddress,
+      lastUsedAt: new Date(),
+      expiresAt: new Date(Date.now() + rememberDeviceDurationMs),
+    },
+    { upsert: true, setDefaultsOnInsert: true },
+  );
+}
+
+export async function registerUser({ name, email, password, phone }, metadata = {}) {
   try {
     const normalizedEmail = email?.trim().toLowerCase();
     const normalizedPhone = normalizePhoneNumber(phone);
@@ -101,7 +140,8 @@ export async function registerUser({ name, email, password, phone }) {
       emailVerified: Boolean(verifiedRegistrationOtp),
       isVerified: Boolean(verifiedRegistrationOtp || verifiedPhoneRegistrationOtp),
     });
-    const tokens = await issueTokenPair(user);
+    await recordLoginAttempt({ user, email: normalizedEmail, status: "success", method: "email_password", metadata });
+    const tokens = await issueTokenPair(user, metadata);
 
     return {
       user: publicUser(user),
@@ -116,14 +156,22 @@ export async function registerUser({ name, email, password, phone }) {
   }
 }
 
-export async function loginUser({ email, password }) {
-  const user = await User.findOne({ email: email?.trim().toLowerCase() }).select("+password");
+export async function loginUser({ email, password, rememberDevice = false }, metadata = {}) {
+  const normalizedEmail = email?.trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
   if (!user || !(await user.comparePassword(password))) {
+    await recordLoginAttempt({ user, email: normalizedEmail, status: "failed", method: "email_password", metadata });
     throw new AppError("Invalid email or password.", 401);
   }
 
-  const tokens = await issueTokenPair(user);
+  user.lastLogin = new Date();
+  await user.save({ validateModifiedOnly: true });
+  if (rememberDevice) {
+    await rememberTrustedDevice(user, metadata);
+  }
+  await recordLoginAttempt({ user, email: normalizedEmail, status: "success", method: "email_password", metadata });
+  const tokens = await issueTokenPair(user, metadata);
 
   return {
     user: publicUser(user),
@@ -131,7 +179,7 @@ export async function loginUser({ email, password }) {
   };
 }
 
-export async function loginWithGoogle({ idToken }) {
+export async function loginWithGoogle({ idToken, rememberDevice = false }, metadata = {}) {
   let decodedToken;
 
   try {
@@ -149,6 +197,7 @@ export async function loginWithGoogle({ idToken }) {
   }
 
   if (!emailVerified) {
+    await recordLoginAttempt({ email, status: "failed", method: "google", metadata });
     throw new AppError("Your Google email must be verified before you can sign in.", 403);
   }
 
@@ -198,7 +247,11 @@ export async function loginWithGoogle({ idToken }) {
     }
   }
 
-  const tokens = await issueTokenPair(user);
+  if (rememberDevice) {
+    await rememberTrustedDevice(user, metadata);
+  }
+  await recordLoginAttempt({ user, email, status: "success", method: "google", metadata });
+  const tokens = await issueTokenPair(user, metadata);
 
   return {
     user: publicUser(user),
@@ -272,17 +325,22 @@ export async function resetPassword({ token, password }) {
   };
 }
 
-export async function loginUserWithOtp({ email }) {
+export async function loginUserWithOtp({ email, rememberDevice = false }, metadata = {}) {
   const user = await User.findOne({ email: email?.trim().toLowerCase() });
 
   if (!user) {
+    await recordLoginAttempt({ email: email?.trim().toLowerCase(), status: "failed", method: "email_otp", metadata });
     throw new AppError("No account exists for that email address.", 404);
   }
 
   user.lastLogin = new Date();
   await user.save({ validateModifiedOnly: true });
 
-  const tokens = await issueTokenPair(user);
+  if (rememberDevice) {
+    await rememberTrustedDevice(user, metadata);
+  }
+  await recordLoginAttempt({ user, email: user.email, status: "success", method: "email_otp", metadata });
+  const tokens = await issueTokenPair(user, metadata);
 
   return {
     user: publicUser(user),
@@ -290,18 +348,23 @@ export async function loginUserWithOtp({ email }) {
   };
 }
 
-export async function loginUserWithPhoneOtp({ phone }) {
+export async function loginUserWithPhoneOtp({ phone, rememberDevice = false }, metadata = {}) {
   const normalizedPhone = normalizePhoneNumber(phone);
   const user = await User.findOne({ phone: normalizedPhone });
 
   if (!user) {
+    await recordLoginAttempt({ status: "failed", method: "sms_otp", metadata });
     throw new AppError("No account exists for that phone number.", 404);
   }
 
   user.lastLogin = new Date();
   await user.save({ validateModifiedOnly: true });
 
-  const tokens = await issueTokenPair(user);
+  if (rememberDevice) {
+    await rememberTrustedDevice(user, metadata);
+  }
+  await recordLoginAttempt({ user, email: user.email, status: "success", method: "sms_otp", metadata });
+  const tokens = await issueTokenPair(user, metadata);
 
   return {
     user: publicUser(user),
@@ -350,8 +413,8 @@ export async function createPasswordResetFromPhoneOtp({ phone }) {
   };
 }
 
-export async function refreshAuth(refreshToken) {
-  const payload = await rotateRefreshToken(refreshToken);
+export async function refreshAuth(refreshToken, metadata = {}) {
+  const payload = await rotateRefreshToken(refreshToken, metadata);
 
   return {
     user: publicUser(payload.user),

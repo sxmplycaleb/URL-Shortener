@@ -32,6 +32,41 @@ const refreshTokenSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    userAgent: {
+      type: String,
+      trim: true,
+      maxlength: [512, "User agent cannot exceed 512 characters."],
+    },
+    ipAddress: {
+      type: String,
+      trim: true,
+      maxlength: [64, "IP address cannot exceed 64 characters."],
+    },
+    country: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: [80, "Country cannot exceed 80 characters."],
+    },
+    browser: {
+      type: String,
+      trim: true,
+      maxlength: [80, "Browser cannot exceed 80 characters."],
+    },
+    device: {
+      type: String,
+      trim: true,
+      maxlength: [80, "Device cannot exceed 80 characters."],
+    },
+    operatingSystem: {
+      type: String,
+      trim: true,
+      maxlength: [80, "Operating system cannot exceed 80 characters."],
+    },
+    lastActiveAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,
@@ -40,6 +75,7 @@ const refreshTokenSchema = new Schema(
 
 refreshTokenSchema.index({ tokenHash: 1 }, { unique: true });
 refreshTokenSchema.index({ user: 1, revoked: 1 });
+refreshTokenSchema.index({ user: 1, lastActiveAt: -1 });
 refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 refreshTokenSchema.index({ createdAt: -1 });
 

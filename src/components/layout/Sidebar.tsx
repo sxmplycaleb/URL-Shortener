@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from "react";
 import { NavLink } from "react-router-dom";
-import { BarChart3, Home, Link2, LogOut, Settings, X } from "lucide-react";
+import { BarChart3, Home, Link2, LogOut, Settings, ShieldCheck, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import type { AuthUser } from "@/services/auth";
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/security", label: "Security", icon: ShieldCheck },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

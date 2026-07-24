@@ -16,9 +16,10 @@ import accountRoutes from "./routes/accountRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import redirectRoutes from "./routes/redirectRoutes.js";
+import securityRoutes from "./routes/securityRoutes.js";
 import urlRoutes from "./routes/urlRoutes.js";
 
-const SPA_ROUTES = ["/", "/login", "/forgot-password", "/register", "/reset-password", "/dashboard", "/analytics", "/settings"];
+const SPA_ROUTES = ["/", "/login", "/forgot-password", "/register", "/reset-password", "/dashboard", "/analytics", "/settings", "/security"];
 
 function resolveStaticDir(staticDir) {
   return path.isAbsolute(staticDir) ? staticDir : path.resolve(process.cwd(), staticDir);
@@ -81,7 +82,7 @@ export function createApp() {
   app.get(["/ready", "/api/ready"], (_request, response) => sendReadiness(response));
 
   app.use("/api", createApiRateLimiter());
-  app.use(["/api/auth", "/api/account", "/api/urls", "/api/analytics"], (_request, response, next) => {
+  app.use(["/api/auth", "/api/account", "/api/urls", "/api/analytics", "/api/security"], (_request, response, next) => {
     response.set("Cache-Control", "no-store");
     next();
   });
@@ -89,6 +90,7 @@ export function createApp() {
   app.use("/api/account", accountRoutes);
   app.use("/api/urls", urlRoutes);
   app.use("/api/analytics", analyticsRoutes);
+  app.use("/api/security", securityRoutes);
   app.use("/api", notFoundHandler);
 
   if (serveStaticAssets) {

@@ -13,6 +13,7 @@ import {
 } from "../services/authService.js";
 import { createAuthenticationService } from "../services/authenticationService.js";
 import { getEnv } from "../config/env.js";
+import { securityMetadataFromRequest } from "../services/securityMetadata.js";
 
 export function getRefreshCookieOptions() {
   const { authCookieSameSite, authCookieSecure } = getEnv();
@@ -21,7 +22,7 @@ export function getRefreshCookieOptions() {
     httpOnly: true,
     sameSite: authCookieSameSite,
     secure: authCookieSecure,
-    path: "/api/auth",
+    path: "/api",
   };
 }
 
@@ -37,22 +38,22 @@ function sendAuthResponse(response, statusCode, payload) {
 }
 
 export async function register(request, response) {
-  const payload = await registerUser(request.validatedBody);
+  const payload = await registerUser(request.validatedBody, securityMetadataFromRequest(request));
   sendAuthResponse(response, 201, payload);
 }
 
 export async function login(request, response) {
-  const payload = await loginUser(request.validatedBody);
+  const payload = await loginUser(request.validatedBody, securityMetadataFromRequest(request));
   sendAuthResponse(response, 200, payload);
 }
 
 export async function googleLogin(request, response) {
-  const payload = await loginWithGoogle(request.validatedBody);
+  const payload = await loginWithGoogle(request.validatedBody, securityMetadataFromRequest(request));
   sendAuthResponse(response, 200, payload);
 }
 
 export async function refresh(request, response) {
-  const payload = await refreshAuth(request.validatedBody.refreshToken);
+  const payload = await refreshAuth(request.validatedBody.refreshToken, securityMetadataFromRequest(request));
   sendAuthResponse(response, 200, payload);
 }
 
@@ -93,7 +94,7 @@ export async function verifyOtp(request, response) {
     const authPayload = await loginUserWithOtp({
       email: payload.email,
       rememberDevice: request.validatedBody.rememberDevice,
-    });
+    }, securityMetadataFromRequest(request));
     sendAuthResponse(response, 200, authPayload);
     return;
   }
@@ -102,7 +103,7 @@ export async function verifyOtp(request, response) {
     const authPayload = await loginUserWithPhoneOtp({
       phone: payload.phone,
       rememberDevice: request.validatedBody.rememberDevice,
-    });
+    }, securityMetadataFromRequest(request));
     sendAuthResponse(response, 200, authPayload);
     return;
   }

@@ -35,13 +35,20 @@ export function signRefreshToken(tokenValue, user) {
   });
 }
 
-export async function issueTokenPair(user) {
+export async function issueTokenPair(user, metadata = {}) {
   const refreshTokenValue = createRefreshTokenValue();
 
   await RefreshToken.create({
     user: user._id,
     tokenHash: refreshTokenValue,
     expiresAt: refreshTokenExpiryDate(),
+    userAgent: metadata.userAgent,
+    ipAddress: metadata.ipAddress,
+    country: metadata.country,
+    browser: metadata.browser,
+    device: metadata.device,
+    operatingSystem: metadata.operatingSystem,
+    lastActiveAt: new Date(),
   });
 
   return {
@@ -55,7 +62,7 @@ export function verifyAccessToken(token) {
   return jwt.verify(token, accessTokenSecret, { algorithms: ["HS256"] });
 }
 
-export async function rotateRefreshToken(refreshToken) {
+export async function rotateRefreshToken(refreshToken, metadata = {}) {
   const { refreshTokenSecret } = getEnv();
 
   let payload;
@@ -90,11 +97,44 @@ export async function rotateRefreshToken(refreshToken) {
   }
 
   await storedToken.populate("user");
+  const nextMetadata = {
+    userAgent: metadata.userAgent ?? storedToken.userAgent,
+    ipAddress: metadata.ipAddress ?? storedToken.ipAddress,
+    country: metadata.country ?? storedToken.country,
+    browser: metadata.browser ?? storedToken.browser,
+    device: metadata.device ?? storedToken.device,
+    operatingSystem: metadata.operatingSystem ?? storedToken.operatingSystem,
+  };
 
   return {
     user: storedToken.user,
-    ...(await issueTokenPair(storedToken.user)),
+    ...(await issueTokenPair(storedToken.user, nextMetadata)),
   };
+}
+
+export async function findRefreshTokenRecord(refreshToken) {
+  if (!refreshToken) {
+    return null;
+  }
+
+  const { refreshTokenSecret } = getEnv();
+
+  try {
+    const payload = jwt.verify(refreshToken, refreshTokenSecret, { algorithms: ["HS256"] });
+
+    if (typeof payload?.token !== "string" || typeof payload?.sub !== "string") {
+      return null;
+    }
+
+    return RefreshToken.findOne({
+      tokenHash: RefreshToken.hashToken(payload.token),
+      user: payload.sub,
+      revoked: false,
+      expiresAt: { $gt: new Date() },
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function revokeRefreshToken(refreshToken) {

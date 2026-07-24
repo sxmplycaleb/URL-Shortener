@@ -20,6 +20,8 @@ export interface AuthUser {
   };
   accountSettings?: {
     notificationsEnabled: boolean;
+    emailOtpEnabled?: boolean;
+    smsOtpEnabled?: boolean;
   };
   createdAt: string;
   updatedAt: string;
@@ -41,10 +43,12 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+  rememberDevice?: boolean;
 }
 
 export interface GoogleLoginRequest {
   idToken: string;
+  rememberDevice?: boolean;
 }
 
 export interface ForgotPasswordResponse {
