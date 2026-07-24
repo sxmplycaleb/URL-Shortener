@@ -29,12 +29,13 @@ interface SidebarProps {
 export function Sidebar({ collapsed, open = false, user, onClose, onCollapsedChange, onLogout }: SidebarProps) {
   const labelId = useId();
   const mobilePanelRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return undefined;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.style.overflow = "hidden";
-    mobilePanelRef.current?.querySelector<HTMLElement>("button, [href]")?.focus();
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -62,6 +63,7 @@ export function Sidebar({ collapsed, open = false, user, onClose, onCollapsedCha
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
+      window.cancelAnimationFrame(focusFrame);
       document.body.style.overflow = "";
       previousFocus?.focus();
     };
@@ -108,7 +110,7 @@ export function Sidebar({ collapsed, open = false, user, onClose, onCollapsedCha
             >
               <div className="mb-4 flex items-center justify-between">
                 <Brand id={labelId} />
-                <Button aria-label="Close navigation menu" size="icon" variant="ghost" onClick={onClose}>
+                <Button ref={closeButtonRef} aria-label="Close navigation menu" size="icon" variant="ghost" onClick={onClose}>
                   <X className="h-5 w-5" />
                 </Button>
               </div>
@@ -218,9 +220,10 @@ function SidebarLink({
   label: string;
   onNavigate?: (() => void) | undefined;
 }) {
+  const accessibleLabel = label === "Dashboard Settings" ? "Dashboard preferences" : label;
   const link = (
     <NavLink
-      aria-label={collapsed ? label : undefined}
+      aria-label={collapsed || label === "Dashboard Settings" ? accessibleLabel : undefined}
       className={({ isActive }) =>
         cn(
           "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",

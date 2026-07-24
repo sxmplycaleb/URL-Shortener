@@ -26,6 +26,10 @@ function statusForUrl(url) {
     return "expired";
   }
 
+  if ((url.activatesAt && url.activatesAt > new Date()) || (url.deactivatesAt && url.deactivatesAt <= new Date())) {
+    return "blocked";
+  }
+
   return "active";
 }
 
@@ -134,6 +138,68 @@ function buildLocationAnalytics(clicks) {
     }));
 }
 
+function buildCountBreakdown(items, total, nameKey = "name", limit = 8) {
+  return items.slice(0, limit).map((item) => ({
+    name: item._id || "Unknown",
+    [nameKey]: item._id || "Unknown",
+    clicks: item.clicks,
+    share: toPercent(item.clicks, total),
+  }));
+}
+
+function isoWeekLabel(date) {
+  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((target - yearStart) / 86_400_000 + 1) / 7);
+  return `${target.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+function buildActivitySeries(clicks, unit, count) {
+  const now = new Date();
+  const points = [];
+  const keys = new Map();
+
+  for (let index = count - 1; index >= 0; index -= 1) {
+    const date = new Date(now);
+
+    if (unit === "hour") date.setUTCHours(now.getUTCHours() - index, 0, 0, 0);
+    if (unit === "day") date.setUTCDate(now.getUTCDate() - index);
+    if (unit === "week") date.setUTCDate(now.getUTCDate() - index * 7);
+    if (unit === "month") date.setUTCMonth(now.getUTCMonth() - index, 1);
+
+    const key = unit === "hour"
+      ? date.toISOString().slice(0, 13)
+      : unit === "day"
+        ? date.toISOString().slice(0, 10)
+        : unit === "week"
+          ? isoWeekLabel(date)
+          : date.toISOString().slice(0, 7);
+    const point = {
+      label: unit === "hour" ? `${String(date.getUTCHours()).padStart(2, "0")}:00` : key,
+      clicks: 0,
+    };
+    points.push(point);
+    keys.set(key, point);
+  }
+
+  for (const click of clicks) {
+    const clickedAt = new Date(click.clickedAt);
+    const key = unit === "hour"
+      ? clickedAt.toISOString().slice(0, 13)
+      : unit === "day"
+        ? clickedAt.toISOString().slice(0, 10)
+        : unit === "week"
+          ? isoWeekLabel(clickedAt)
+          : clickedAt.toISOString().slice(0, 7);
+    const point = keys.get(key);
+    if (point) point.clicks += 1;
+  }
+
+  return points;
+}
+
 function buildTrend(currentCount, previousCount) {
   if (previousCount === 0 && currentCount === 0) {
     return { trend: "No clicks yet", trendDirection: "neutral" };
@@ -152,14 +218,10 @@ function buildTrend(currentCount, previousCount) {
 
 export async function getDashboardAnalytics(userId) {
   const urls = await URLModel.find({ user: userId })
-    .select("_id shortCode originalUrl clickCount createdAt expiresAt isActive")
+    .select("_id shortCode originalUrl title clickCount shareCount createdAt updatedAt expiresAt activatesAt deactivatesAt isActive isArchived")
     .sort({ createdAt: -1 })
     .lean();
   const urlIds = urls.map((url) => url._id);
-  const clicks = await Click.find({ url: { $in: urlIds } })
-    .select("clickedAt device browser city country")
-    .sort({ clickedAt: -1 })
-    .lean();
 
   const now = new Date();
   const currentPeriodStart = new Date(now);
@@ -167,16 +229,37 @@ export async function getDashboardAnalytics(userId) {
   const previousPeriodStart = new Date(now);
   previousPeriodStart.setUTCDate(now.getUTCDate() - 60);
 
-  let currentClicks = 0;
-  let previousClicks = 0;
-
-  for (const click of clicks) {
-    if (click.clickedAt >= currentPeriodStart) {
-      currentClicks += 1;
-    } else if (click.clickedAt >= previousPeriodStart) {
-      previousClicks += 1;
-    }
-  }
+  const [
+    totalClicks,
+    currentClicks,
+    previousClicks,
+    recentClicks,
+    deviceTotals,
+    browserTotals,
+    osTotals,
+    referrerTotals,
+    countryTotals,
+    locationTotals,
+  ] = await Promise.all([
+    Click.countDocuments({ url: { $in: urlIds } }),
+    Click.countDocuments({ url: { $in: urlIds }, clickedAt: { $gte: currentPeriodStart } }),
+    Click.countDocuments({ url: { $in: urlIds }, clickedAt: { $gte: previousPeriodStart, $lt: currentPeriodStart } }),
+    Click.find({ url: { $in: urlIds }, clickedAt: { $gte: previousPeriodStart } })
+      .select("clickedAt device browser operatingSystem city country referrer")
+      .sort({ clickedAt: -1 })
+      .lean(),
+    Click.aggregate([{ $match: { url: { $in: urlIds } } }, { $group: { _id: { $ifNull: ["$device", "Unknown"] }, clicks: { $sum: 1 } } }, { $sort: { clicks: -1 } }]),
+    Click.aggregate([{ $match: { url: { $in: urlIds } } }, { $group: { _id: { $ifNull: ["$browser", "Unknown"] }, clicks: { $sum: 1 } } }, { $sort: { clicks: -1 } }, { $limit: 8 }]),
+    Click.aggregate([{ $match: { url: { $in: urlIds } } }, { $group: { _id: { $ifNull: ["$operatingSystem", "Unknown"] }, clicks: { $sum: 1 } } }, { $sort: { clicks: -1 } }, { $limit: 8 }]),
+    Click.aggregate([{ $match: { url: { $in: urlIds }, referrer: { $exists: true, $ne: "" } } }, { $group: { _id: "$referrer", clicks: { $sum: 1 } } }, { $sort: { clicks: -1 } }, { $limit: 8 }]),
+    Click.aggregate([{ $match: { url: { $in: urlIds } } }, { $group: { _id: { $ifNull: ["$country", "Unknown"] }, clicks: { $sum: 1 } } }, { $sort: { clicks: -1 } }, { $limit: 8 }]),
+    Click.aggregate([
+      { $match: { url: { $in: urlIds } } },
+      { $group: { _id: { city: { $ifNull: ["$city", "Unknown"] }, country: { $ifNull: ["$country", "Unknown"] } }, clicks: { $sum: 1 } } },
+      { $sort: { clicks: -1 } },
+      { $limit: 5 },
+    ]),
+  ]);
 
   const trend = buildTrend(currentClicks, previousClicks);
   let activeUrls = 0;
@@ -197,7 +280,7 @@ export async function getDashboardAnalytics(userId) {
       {
         id: "total-clicks",
         title: "Total clicks",
-        value: clicks.length.toLocaleString("en"),
+        value: totalClicks.toLocaleString("en"),
         icon: "clicks",
         ...trend,
       },
@@ -227,12 +310,41 @@ export async function getDashboardAnalytics(userId) {
       },
     ],
     clickActivity: {
-      "7d": buildClickActivity(clicks, 7),
-      "30d": buildClickActivity(clicks, 30),
+      "7d": buildClickActivity(recentClicks, 7),
+      "30d": buildClickActivity(recentClicks, 30),
     },
-    devices: buildDeviceAnalytics(clicks),
-    browsers: buildBrowserAnalytics(clicks),
-    locations: buildLocationAnalytics(clicks),
+    devices: ["Desktop", "Mobile", "Tablet"].map((name) => ({
+      name,
+      value: toPercent(deviceTotals.find((item) => item._id === name)?.clicks ?? 0, totalClicks),
+    })),
+    browsers: buildCountBreakdown(browserTotals, totalClicks).map((item) => ({ name: item.name, clicks: item.clicks, share: item.share })),
+    operatingSystems: buildCountBreakdown(osTotals, totalClicks).map((item) => ({ name: item.name, clicks: item.clicks, share: item.share })),
+    referrers: buildCountBreakdown(referrerTotals, totalClicks).map((item) => ({ name: item.name, clicks: item.clicks, share: item.share })),
+    countries: buildCountBreakdown(countryTotals, totalClicks).map((item) => ({ name: item.name, clicks: item.clicks, share: item.share })),
+    locations: locationTotals.map((item) => ({
+      place: item._id.city,
+      country: item._id.country,
+      clicks: item.clicks,
+      share: toPercent(item.clicks, totalClicks),
+    })),
+    activity: {
+      hourly: buildActivitySeries(recentClicks, "hour", 24),
+      daily: buildActivitySeries(recentClicks, "day", 14),
+      weekly: buildActivitySeries(recentClicks, "week", 8),
+      monthly: buildActivitySeries(recentClicks, "month", 12),
+    },
+    topUrls: urls
+      .slice()
+      .sort((left, right) => right.clickCount - left.clickCount)
+      .slice(0, 5)
+      .map((url) => ({
+        id: url._id.toString(),
+        title: url.title ?? url.shortCode,
+        shortUrl: buildShortUrl(url.shortCode),
+        originalUrl: url.originalUrl,
+        totalClicks: url.clickCount,
+      })),
+    insights: buildInsights(urls, recentClicks),
     links: urls.map((url) => ({
       id: url._id.toString(),
       shortUrl: buildShortUrl(url.shortCode),
@@ -242,6 +354,49 @@ export async function getDashboardAnalytics(userId) {
       status: statusForUrl(url),
     })),
   };
+}
+
+function buildInsights(urls, recentClicks) {
+  const now = new Date();
+  const today = startOfUtcDay(now);
+  const best = urls.slice().sort((left, right) => right.clickCount - left.clickCount)[0];
+  const mostShared = urls.slice().sort((left, right) => (right.shareCount ?? 0) - (left.shareCount ?? 0))[0];
+  const inactiveCount = urls.filter((url) => statusForUrl(url) !== "active" || url.isArchived).length;
+  const todayClicks = recentClicks.filter((click) => new Date(click.clickedAt) >= today).length;
+  const latestClick = recentClicks[0];
+
+  return [
+    {
+      id: "best-performing",
+      title: "Best performing link",
+      value: best ? buildShortUrl(best.shortCode) : "No links yet",
+      detail: best ? `${best.clickCount.toLocaleString("en")} total clicks` : "Create a link to start collecting data",
+    },
+    {
+      id: "biggest-growth",
+      title: "Biggest growth",
+      value: `${todayClicks.toLocaleString("en")} today`,
+      detail: "Clicks recorded since UTC midnight",
+    },
+    {
+      id: "recent-activity",
+      title: "Recent activity",
+      value: latestClick ? formatDateLabel(new Date(latestClick.clickedAt)) : "No clicks yet",
+      detail: latestClick ? "Latest redirect recorded" : "Traffic appears here after redirects",
+    },
+    {
+      id: "most-shared",
+      title: "Most shared",
+      value: mostShared ? buildShortUrl(mostShared.shortCode) : "No shares yet",
+      detail: mostShared ? `${(mostShared.shareCount ?? 0).toLocaleString("en")} shares` : "Use dashboard share actions to track sharing",
+    },
+    {
+      id: "inactive-links",
+      title: "Inactive links",
+      value: inactiveCount.toLocaleString("en"),
+      detail: "Disabled, expired, scheduled inactive, or archived links",
+    },
+  ];
 }
 
 export async function getUrlAnalytics(userId, urlId) {

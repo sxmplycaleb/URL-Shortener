@@ -1,8 +1,9 @@
 import { createUrl, deleteUrl, getUrlForUser, listUrls, updateUrl } from "../services/urlService.js";
+import { exportUrls, sendExport } from "../services/exportService.js";
 
 export async function create(request, response) {
-  const url = await createUrl(request.user._id, request.validatedBody);
-  response.status(201).json({ url });
+  const result = await createUrl(request.user._id, request.validatedBody);
+  response.status(201).json(result);
 }
 
 export async function list(request, response) {
@@ -23,4 +24,8 @@ export async function update(request, response) {
 export async function remove(request, response) {
   await deleteUrl(request.user._id, request.params.id);
   response.status(204).send();
+}
+
+export async function exportList(request, response) {
+  sendExport(response, await exportUrls(request.user._id, request.query.format));
 }

@@ -383,7 +383,7 @@ export function SettingsPage() {
                 <p className="font-medium">Email</p>
                 <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
               </div>
-              {user?.authProviders?.email ? <Check className="h-5 w-5 text-success" aria-label="Email sign-in enabled" /> : null}
+              {user?.authProviders?.email ? <Check className="h-5 w-5 text-success" aria-hidden="true" /> : null}
             </div>
 
             {user?.authProviders?.google ? (
@@ -400,7 +400,7 @@ export function SettingsPage() {
                   <p className="truncate text-sm text-muted-foreground">{profile.email}</p>
                   {googleLinkedAt ? <p className="text-xs text-muted-foreground">Linked {googleLinkedAt}</p> : null}
                 </div>
-                <Check className="h-5 w-5 text-success" aria-label="Google sign-in enabled" />
+                <Check className="h-5 w-5 text-success" aria-hidden="true" />
               </div>
             ) : (
               <div className="flex items-center gap-3 rounded-md border p-4 text-muted-foreground">

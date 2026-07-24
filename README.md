@@ -177,6 +177,35 @@ The dashboard URL list supports fast management workflows for larger link librar
 - The share menu supports copy link, WhatsApp, Facebook, X, LinkedIn, Telegram, email, and the native Web Share API when available. Share counts are persisted on the URL document.
 - URL rows and cards show click count, created date, updated date, last clicked, favorite/archive indicators, QR state, quick actions, responsive card/table layouts, and accessible labels/focus states.
 - Loading uses reusable skeleton blocks in `src/components/common/Skeleton.tsx` instead of a dashboard spinner.
+- Launch controls include expiration, scheduled activation, scheduled deactivation, optional password protection, internal notes, and duplicate destination warnings at creation time.
+- URL exports are available from the dashboard in CSV, Excel-compatible `.xls`, and JSON formats.
+
+## Advanced Analytics
+
+The analytics dashboard combines summary cards with responsive Recharts visualizations and server-side MongoDB aggregation. It includes click trends, hourly/daily/weekly/monthly activity, top performing URLs, browser/device/operating system/referrer/country/location breakdowns, per-link status, and insight cards for best performing, recent activity, most shared, most clicked today, and inactive-link signals.
+
+Analytics exports are available from `/api/analytics/export?format=csv|excel|json`. URL exports are available from `/api/urls/export?format=csv|excel|json`. Both require an authenticated session and return only resources owned by the current user.
+
+## Public API Preparation
+
+Sprint 6 adds a future public API foundation without exposing secrets in the UI:
+
+- `GET /api/keys/docs` returns placeholder public API documentation.
+- `GET /api/keys`, `POST /api/keys`, and `DELETE /api/keys/:id` manage hashed API keys for authenticated users.
+- `GET /api/keys/usage` summarizes API usage over the last 30 days.
+- `GET /api/public/v1/urls`, `POST /api/public/v1/urls`, and `GET /api/public/v1/analytics` accept `X-API-Key`.
+
+API key values are shown only once at creation. Stored keys are SHA-256 hashed, usage events expire after 180 days, and responses include structured error metadata with status codes and request ids.
+
+## Performance And Caching
+
+Routes and chart-heavy modules are split with dynamic imports. Recharts and D3 live in a separate lazy `charts` chunk, Framer Motion is isolated in a `motion` chunk, and React/router dependencies are grouped in `react-vendor`. Dashboard filtering, sorting, widget visibility, selected rows, and analytics activity selection use memoized computations where they reduce repeated work.
+
+The backend avoids loading full click histories for dashboard analytics. Summary, breakdown, and top-list values are computed with MongoDB counts and aggregation pipelines, backed by indexes on URL ownership, destination duplication, click timestamps, and API usage. Authenticated API responses use `Cache-Control: no-store`, while production static assets are served immutable for one year.
+
+## PWA Preparation
+
+The app is install-ready at the asset/metadata layer with `public/manifest.webmanifest`, theme colors, existing favicon/apple-touch icons, and `public/offline.html` as the future service-worker fallback. A service worker is intentionally not registered yet so caching policy can be introduced deliberately during the deployment phase.
 
 ## Sidebar and Profile Navigation
 
@@ -215,7 +244,7 @@ The Dashboard Settings page documents these shortcuts and includes placeholders 
 
 ## Accessibility and Responsive UX
 
-Sprint 5 polish includes a floating Back to Top button, associated tooltip labels, visible focus rings, focus-trapped dialogs, screen-reader labels for icon controls, reduced-motion CSS support, responsive footer/legal layouts, larger touch targets, skeleton loading states, fade-in page transitions, and copy/action feedback for link copy, QR download, archiving, and favorites.
+Accessibility polish includes a floating Back to Top button, associated tooltip labels, visible focus rings, focus-trapped dialogs and mobile navigation, screen-reader labels for icon controls, reduced-motion CSS support, responsive footer/legal layouts, larger touch targets, skeleton loading states, fade-in page transitions, and copy/action feedback for link copy, QR download, archiving, exports, and favorites. Error messages are inline for forms to avoid duplicate announcements, and chart figures use distinct accessible names.
 
 ## Dashboard Counters and Number Formatting
 

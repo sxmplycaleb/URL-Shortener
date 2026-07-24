@@ -21,6 +21,7 @@ const OTP_PURPOSES = new Set(["LOGIN", "REGISTER", "RESET_PASSWORD", "CHANGE_EMA
 const OTP_CHANNELS = new Set(["email", "sms"]);
 const OTP_REGEX = /^\d{6}$/;
 const WHATSAPP_OTP_UNAVAILABLE_MESSAGE = "WhatsApp OTP is temporarily unavailable.";
+const API_KEY_SCOPES = new Set(["urls:read", "urls:write", "analytics:read"]);
 
 function assertObject(value, label = "Request body") {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -66,6 +67,20 @@ function optionalDate(value, field) {
   return value;
 }
 
+function optionalScheduleDate(value, field) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new AppError(`${field} must be a valid date.`, 400);
+  }
+
+  return value;
+}
+
 function optionalCustomAlias(body) {
   const customAlias = body.customAlias?.trim();
 
@@ -96,6 +111,40 @@ function optionalTitle(body) {
   }
 
   return title;
+}
+
+function optionalNotes(body) {
+  if (body.notes === undefined || body.notes === null || body.notes === "") {
+    return "";
+  }
+
+  if (typeof body.notes !== "string") {
+    throw new AppError("notes must be a string.", 400);
+  }
+
+  const notes = body.notes.trim();
+
+  if (notes.length > 1000) {
+    throw new AppError("notes cannot exceed 1000 characters.", 400);
+  }
+
+  return notes;
+}
+
+function optionalLinkPassword(body) {
+  if (body.password === undefined || body.password === null || body.password === "") {
+    return "";
+  }
+
+  if (typeof body.password !== "string") {
+    throw new AppError("password must be a string.", 400);
+  }
+
+  if (body.password.length < 6 || body.password.length > 128) {
+    throw new AppError("password must be between 6 and 128 characters.", 400);
+  }
+
+  return body.password;
 }
 
 function optionalTags(body) {
@@ -436,8 +485,39 @@ export function validateCreateUrl(request, _response, next) {
       originalUrl,
       customAlias,
       title: optionalTitle(request.body),
+      notes: optionalNotes(request.body),
       expiresAt: optionalDate(request.body.expiresAt, "expiresAt"),
+      activatesAt: optionalScheduleDate(request.body.activatesAt, "activatesAt"),
+      deactivatesAt: optionalScheduleDate(request.body.deactivatesAt, "deactivatesAt"),
+      password: optionalLinkPassword(request.body),
     };
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function validateCreateApiKey(request, _response, next) {
+  try {
+    assertObject(request.body);
+
+    const name = requiredString(request.body, "name");
+
+    if (name.length > 80) {
+      throw new AppError("name cannot exceed 80 characters.", 400);
+    }
+
+    const scopes = Array.isArray(request.body.scopes) && request.body.scopes.length
+      ? request.body.scopes.map((scope) => {
+          if (typeof scope !== "string" || !API_KEY_SCOPES.has(scope)) {
+            throw new AppError("scopes contains an unsupported value.", 400);
+          }
+
+          return scope;
+        })
+      : ["urls:read", "urls:write", "analytics:read"];
+
+    request.validatedBody = { name, scopes: [...new Set(scopes)] };
     next();
   } catch (error) {
     next(error);
@@ -469,8 +549,24 @@ export function validateUpdateUrl(request, _response, next) {
       body.title = optionalTitle(request.body);
     }
 
+    if (request.body.notes !== undefined) {
+      body.notes = optionalNotes(request.body);
+    }
+
     if (request.body.expiresAt !== undefined) {
       body.expiresAt = optionalDate(request.body.expiresAt, "expiresAt") ?? "";
+    }
+
+    if (request.body.activatesAt !== undefined) {
+      body.activatesAt = optionalScheduleDate(request.body.activatesAt, "activatesAt") ?? "";
+    }
+
+    if (request.body.deactivatesAt !== undefined) {
+      body.deactivatesAt = optionalScheduleDate(request.body.deactivatesAt, "deactivatesAt") ?? "";
+    }
+
+    if (request.body.password !== undefined) {
+      body.password = optionalLinkPassword(request.body);
     }
 
     if (request.body.isActive !== undefined) {

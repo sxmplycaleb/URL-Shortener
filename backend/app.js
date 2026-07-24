@@ -14,7 +14,9 @@ import { createApiRateLimiter } from "./middleware/rateLimit.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import accountRoutes from "./routes/accountRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import apiKeyRoutes from "./routes/apiKeyRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import publicApiRoutes from "./routes/publicApiRoutes.js";
 import redirectRoutes from "./routes/redirectRoutes.js";
 import securityRoutes from "./routes/securityRoutes.js";
 import urlRoutes from "./routes/urlRoutes.js";
@@ -82,10 +84,11 @@ export function createApp() {
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
     }),
   );
   app.use(express.json({ limit: "20kb" }));
+  app.use(express.urlencoded({ extended: false, limit: "10kb" }));
   app.use(cookieParser());
   app.use(requestLogger);
 
@@ -93,8 +96,12 @@ export function createApp() {
   app.get(["/ready", "/api/ready"], (_request, response) => sendReadiness(response));
 
   app.use("/api", createApiRateLimiter());
-  app.use(["/api/auth", "/api/account", "/api/urls", "/api/analytics", "/api/security"], (_request, response, next) => {
+  app.use(["/api/auth", "/api/account", "/api/urls", "/api/analytics", "/api/security", "/api/keys"], (_request, response, next) => {
     response.set("Cache-Control", "no-store");
+    next();
+  });
+  app.use((request, response, next) => {
+    response.set("RateLimit-Policy", "standard;w=900");
     next();
   });
   app.use("/api/auth", authRoutes);
@@ -102,6 +109,8 @@ export function createApp() {
   app.use("/api/urls", urlRoutes);
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api/security", securityRoutes);
+  app.use("/api/keys", apiKeyRoutes);
+  app.use("/api/public/v1", publicApiRoutes);
   app.use("/api", notFoundHandler);
 
   if (serveStaticAssets) {

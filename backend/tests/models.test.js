@@ -4,6 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { hashToken } from "../utils/hash.js";
 import { connectDatabase, disconnectDatabase } from "../config/database.js";
+import APIKey from "../models/APIKey.js";
+import APIUsage from "../models/APIUsage.js";
 import Click from "../models/Click.js";
 import RefreshToken from "../models/RefreshToken.js";
 import URLModel from "../models/URL.js";
@@ -12,7 +14,7 @@ import User from "../models/User.js";
 let mongoServer;
 
 async function syncModelIndexes() {
-  await Promise.all([User.syncIndexes(), URLModel.syncIndexes(), Click.syncIndexes(), RefreshToken.syncIndexes()]);
+  await Promise.all([User.syncIndexes(), URLModel.syncIndexes(), Click.syncIndexes(), RefreshToken.syncIndexes(), APIKey.syncIndexes(), APIUsage.syncIndexes()]);
 }
 
 describe("database models", () => {
@@ -29,7 +31,7 @@ describe("database models", () => {
   }, 900_000);
 
   beforeEach(async () => {
-    await Promise.all([Click.deleteMany({}), URLModel.deleteMany({}), RefreshToken.deleteMany({}), User.deleteMany({})]);
+    await Promise.all([APIKey.deleteMany({}), APIUsage.deleteMany({}), Click.deleteMany({}), URLModel.deleteMany({}), RefreshToken.deleteMany({}), User.deleteMany({})]);
   });
 
   afterAll(async () => {
@@ -234,6 +236,8 @@ describe("database models", () => {
     const urlIndexes = await URLModel.collection.indexes();
     const clickIndexes = await Click.collection.indexes();
     const tokenIndexes = await RefreshToken.collection.indexes();
+    const apiKeyIndexes = await APIKey.collection.indexes();
+    const apiUsageIndexes = await APIUsage.collection.indexes();
 
     expect(userIndexes.some((index) => index.key.email === 1 && index.unique)).toBe(true);
     expect(urlIndexes.some((index) => index.key.shortCode === 1 && index.unique)).toBe(true);
@@ -241,6 +245,8 @@ describe("database models", () => {
     expect(urlIndexes.some((index) => index.key.expiresAt === 1 && index.expireAfterSeconds === 0)).toBe(true);
     expect(clickIndexes.some((index) => index.key.url === 1 && index.key.clickedAt === -1)).toBe(true);
     expect(tokenIndexes.some((index) => index.key.expiresAt === 1 && index.expireAfterSeconds === 0)).toBe(true);
+    expect(apiKeyIndexes.some((index) => index.key.keyHash === 1 && index.unique)).toBe(true);
+    expect(apiUsageIndexes.some((index) => index.key.usedAt === 1 && index.expireAfterSeconds)).toBe(true);
   });
 
   it("supports basic CRUD operations", async () => {

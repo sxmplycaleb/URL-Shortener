@@ -27,6 +27,7 @@ export function requestLogger(request, response, next) {
   const startedAt = process.hrtime.bigint();
   const requestId = request.get("x-request-id") || crypto.randomUUID();
 
+  request.id = requestId;
   response.set("X-Request-Id", requestId);
 
   response.on("finish", () => {

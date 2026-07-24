@@ -146,3 +146,22 @@ export async function authenticatedApiRequest<TResponse>(
 
   return parseResponse<TResponse>(response);
 }
+
+export async function authenticatedDownload(path: string, accessToken: string) {
+  let response = await sendAuthenticatedRequest(path, { accessToken });
+
+  if (response.status === 401) {
+    const refreshedSession = await refreshSession();
+    const nextAccessToken = refreshedSession?.accessToken ?? getAuthSession()?.accessToken;
+
+    if (nextAccessToken) {
+      response = await sendAuthenticatedRequest(path, { accessToken: nextAccessToken });
+    }
+  }
+
+  if (!response.ok) {
+    await parseResponse<never>(response);
+  }
+
+  return response.blob();
+}
