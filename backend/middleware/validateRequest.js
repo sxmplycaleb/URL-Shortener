@@ -1,4 +1,5 @@
 import AppError from "../utils/AppError.js";
+import { normalizePhoneNumber } from "../utils/phone.js";
 import {
   MAX_ALIAS_LENGTH,
   MAX_EMAIL_LENGTH,
@@ -17,7 +18,6 @@ import {
 const OTP_PURPOSES = new Set(["LOGIN", "REGISTER", "RESET_PASSWORD", "CHANGE_EMAIL", "CHANGE_PHONE"]);
 const OTP_CHANNELS = new Set(["email", "sms", "whatsapp"]);
 const OTP_REGEX = /^\d{6}$/;
-const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
 
 function assertObject(value, label = "Request body") {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -103,7 +103,7 @@ export function validateRegister(request, _response, next) {
 
     assertStrongPassword(password);
 
-    request.validatedBody = { name, email, password };
+    request.validatedBody = { name, email, password, phone: optionalPhone(request.body) };
     next();
   } catch (error) {
     next(error);
@@ -226,9 +226,9 @@ function optionalPhone(body) {
     return null;
   }
 
-  const phone = requiredString(body, "phone");
+  const phone = normalizePhoneNumber(requiredString(body, "phone"));
 
-  if (!PHONE_REGEX.test(phone)) {
+  if (!phone) {
     throw new AppError("phone must be a valid E.164 phone number.", 400);
   }
 
@@ -312,6 +312,52 @@ export function validateOtpVerification(request, _response, next) {
   } catch (error) {
     next(error);
   }
+}
+
+export function validatePhoneOtpRequest(request, response, next) {
+  validateOtpRequest(request, response, (error) => {
+    if (error) {
+      next(error);
+      return;
+    }
+
+    if (!request.validatedBody.phone) {
+      next(new AppError("phone is required.", 400));
+      return;
+    }
+
+    if (request.validatedBody.channel === "email") {
+      next(new AppError("channel must be sms or whatsapp.", 400));
+      return;
+    }
+
+    request.validatedBody = {
+      ...request.validatedBody,
+      email: null,
+      channel: request.validatedBody.channel ?? "sms",
+    };
+    next();
+  });
+}
+
+export function validatePhoneOtpVerification(request, response, next) {
+  validateOtpVerification(request, response, (error) => {
+    if (error) {
+      next(error);
+      return;
+    }
+
+    if (!request.validatedBody.phone) {
+      next(new AppError("phone is required.", 400));
+      return;
+    }
+
+    request.validatedBody = {
+      ...request.validatedBody,
+      email: null,
+    };
+    next();
+  });
 }
 
 export function validateCreateUrl(request, _response, next) {

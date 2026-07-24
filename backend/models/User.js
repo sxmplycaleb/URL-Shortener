@@ -11,6 +11,7 @@ import {
   isStrongEnoughPassword,
   isValidEmail,
 } from "../utils/validators.js";
+import { isValidPhoneNumber } from "../utils/phone.js";
 
 const { Schema, model, models } = mongoose;
 
@@ -60,6 +61,20 @@ const userSchema = new Schema(
       type: String,
       trim: true,
       maxlength: [128, "Google account identifier cannot exceed 128 characters."],
+    },
+    phone: {
+      type: String,
+      trim: true,
+      validate: {
+        validator(value) {
+          return !value || isValidPhoneNumber(value);
+        },
+        message: "Phone must be a valid E.164 phone number.",
+      },
+    },
+    phoneVerified: {
+      type: Boolean,
+      default: false,
     },
     provider: {
       type: String,
@@ -124,6 +139,7 @@ const userSchema = new Schema(
 
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
+userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 userSchema.index({ role: 1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ passwordResetTokenHash: 1 }, { sparse: true });

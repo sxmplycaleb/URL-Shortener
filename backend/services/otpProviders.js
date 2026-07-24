@@ -180,7 +180,7 @@ export class TwilioVerifyProvider {
   async sendOtp({ phone, otp, channel = "sms", purpose }) {
     if (!this.isConfigured()) {
       logger.warn("auth.otp.phone_provider_unconfigured", { provider: "twilio_verify", channel, purpose });
-      return { provider: "twilio_verify", channel, delivered: false };
+      return { provider: "twilio_verify", channel, delivered: false, otp };
     }
 
     const credentials = Buffer.from(`${this.accountSid}:${this.authToken}`).toString("base64");
@@ -205,5 +205,34 @@ export class TwilioVerifyProvider {
     }
 
     return { provider: "twilio_verify", channel, delivered: true };
+  }
+
+  async verifyOtp({ phone, otp }) {
+    if (!this.isConfigured()) {
+      return { provider: "twilio_verify", verified: false };
+    }
+
+    const credentials = Buffer.from(`${this.accountSid}:${this.authToken}`).toString("base64");
+    const response = await this.fetch(
+      `https://verify.twilio.com/v2/Services/${this.serviceSid}/VerificationCheck`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: encodeForm({
+          To: phone,
+          Code: otp,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new AppError("Phone verification could not be completed.", 502);
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    return { provider: "twilio_verify", verified: payload.status === "approved" };
   }
 }

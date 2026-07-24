@@ -8,8 +8,10 @@ import {
   refresh,
   register,
   requestOtp,
+  requestPhoneOtp,
   resetForgottenPassword,
   verifyOtp,
+  verifyPhoneOtp,
 } from "../controllers/authController.js";
 import { createAuthRateLimiter, createPasswordRateLimiter } from "../middleware/rateLimit.js";
 import {
@@ -17,6 +19,8 @@ import {
   validateGoogleLogin,
   validateLogin,
   validateOtpRequest,
+  validatePhoneOtpRequest,
+  validatePhoneOtpVerification,
   validateOtpVerification,
   validateRefreshOrLogout,
   validateRegister,
@@ -37,5 +41,7 @@ router.post("/forgot-password", passwordRateLimiter, validateForgotPassword, asy
 router.post("/reset-password", passwordRateLimiter, validateResetPassword, asyncHandler(resetForgottenPassword));
 router.post("/otp/request", authRateLimiter, validateOtpRequest, asyncHandler(requestOtp));
 router.post("/otp/verify", authRateLimiter, validateOtpVerification, asyncHandler(verifyOtp));
+router.post("/phone/request", authRateLimiter, validatePhoneOtpRequest, asyncHandler(requestPhoneOtp));
+router.post("/phone/verify", authRateLimiter, validatePhoneOtpVerification, asyncHandler(verifyPhoneOtp));
 
 export default router;

@@ -5,6 +5,7 @@ import OTP, { OTP_PURPOSES } from "../models/OTP.js";
 import AppError from "../utils/AppError.js";
 import { hashToken } from "../utils/hash.js";
 import { logger } from "../utils/logger.js";
+import { normalizePhoneNumber } from "../utils/phone.js";
 import { BrevoEmailProvider, TwilioVerifyProvider } from "./otpProviders.js";
 
 const OTP_DIGITS = 6;
@@ -16,7 +17,7 @@ function normalizeEmail(email) {
 }
 
 function normalizePhone(phone) {
-  return typeof phone === "string" && phone.trim() ? phone.trim() : null;
+  return normalizePhoneNumber(phone);
 }
 
 function hashOtp({ otp, purpose, email, phone }) {
@@ -233,9 +234,14 @@ export class AuthenticationService {
       throw new AppError("Verification code has too many failed attempts.", 429);
     }
 
+    const phoneProviderResult =
+      target.phone && this.phoneProvider?.verifyOtp
+        ? await this.phoneProvider.verifyOtp({ phone: target.phone, otp, purpose })
+        : null;
     const candidateHash = hashOtp({ otp, purpose, ...target });
+    const isValidOtp = phoneProviderResult?.verified || candidateHash === record.hashedOtp;
 
-    if (candidateHash !== record.hashedOtp) {
+    if (!isValidOtp) {
       record.attempts += 1;
       if (record.attempts >= MAX_OTP_ATTEMPTS) {
         record.used = true;
