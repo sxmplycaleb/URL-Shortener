@@ -1,7 +1,8 @@
 import { ChangeEvent, FormEvent, useId, useState } from "react";
-import { CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Mail, TriangleAlert } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
+import { OTPInput } from "@/components/forms/OTPInput";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,14 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { MAX_PASSWORD_LENGTH, MIN_NAME_LENGTH, MIN_PASSWORD_LENGTH, validateEmail, validatePassword } from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
-import { loginUser, loginWithGoogle, registerUser } from "@/services/auth";
+import {
+  type AuthResponse,
+  loginUser,
+  loginWithGoogle,
+  registerUser,
+  requestEmailOtp,
+  verifyEmailOtp,
+} from "@/services/auth";
 import { saveAuthSession } from "@/services/authStorage";
 import { getGoogleIdToken } from "@/services/firebase";
 import { getGoogleAuthErrorMessage } from "@/services/googleAuthErrors";
@@ -25,6 +33,7 @@ interface AuthFormErrors {
   email?: string;
   password?: string;
   confirm?: string;
+  otp?: string;
   form?: string;
 }
 
@@ -40,6 +49,9 @@ interface AuthToast {
   message: string;
 }
 
+type LoginStep = "login-options" | "login-email" | "login-method" | "login-password" | "login-otp";
+type RegisterStep = "register-form" | "register-otp";
+
 const initialValues: AuthFormValues = {
   name: "",
   email: "",
@@ -54,13 +66,21 @@ function waitForToast() {
   });
 }
 
+function isAuthResponse(response: Awaited<ReturnType<typeof verifyEmailOtp>>): response is AuthResponse {
+  return "accessToken" in response && "user" in response;
+}
+
 export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = location.state as { message?: string } | null;
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [loginStep, setLoginStep] = useState<LoginStep>("login-options");
+  const [registerStep, setRegisterStep] = useState<RegisterStep>("register-form");
   const [values, setValues] = useState<AuthFormValues>(initialValues);
+  const [otp, setOtp] = useState("");
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [errors, setErrors] = useState<AuthFormErrors>({});
   const [success, setSuccess] = useState(initialMessage ?? locationState?.message ?? "");
   const [toast, setToast] = useState<AuthToast | null>(
@@ -68,38 +88,44 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   );
   const errorId = useId();
   const successId = useId();
+  const rememberId = useId();
   const isRegister = mode === "register";
   const authenticating = loading || googleLoading;
+  const trimmedEmail = values.email.trim().toLowerCase();
+  const fieldClassName = "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive";
 
-  function validate(nextValues: AuthFormValues) {
+  function validate(nextValues: AuthFormValues, scope: "email" | "password" | "register") {
     const nextErrors: AuthFormErrors = {};
-    const trimmedName = nextValues.name.trim();
-    const trimmedEmail = nextValues.email.trim();
+    const emailError = validateEmail(nextValues.email.trim());
 
-    if (isRegister && !trimmedName) {
-      nextErrors.name = "Name is required.";
-    } else if (isRegister && trimmedName.length < MIN_NAME_LENGTH) {
-      nextErrors.name = `Name must be at least ${MIN_NAME_LENGTH} characters.`;
-    }
-
-    const emailError = validateEmail(trimmedEmail);
     if (emailError) {
       nextErrors.email = emailError;
     }
 
-    if (!nextValues.password) {
-      nextErrors.password = "Password is required.";
-    } else if (isRegister) {
-      const passwordError = validatePassword(nextValues.password);
-      if (passwordError) {
-        nextErrors.password = passwordError;
+    if (scope === "password" || scope === "register") {
+      if (!nextValues.password) {
+        nextErrors.password = "Password is required.";
+      } else if (scope === "register") {
+        const passwordError = validatePassword(nextValues.password);
+        if (passwordError) {
+          nextErrors.password = passwordError;
+        }
       }
     }
 
-    if (isRegister && !nextValues.confirm) {
-      nextErrors.confirm = "Confirm your password.";
-    } else if (isRegister && nextValues.password !== nextValues.confirm) {
-      nextErrors.confirm = "Passwords do not match.";
+    if (scope === "register") {
+      const name = nextValues.name.trim();
+      if (!name) {
+        nextErrors.name = "Name is required.";
+      } else if (name.length < MIN_NAME_LENGTH) {
+        nextErrors.name = `Name must be at least ${MIN_NAME_LENGTH} characters.`;
+      }
+
+      if (!nextValues.confirm) {
+        nextErrors.confirm = "Confirm your password.";
+      } else if (nextValues.password !== nextValues.confirm) {
+        nextErrors.confirm = "Passwords do not match.";
+      }
     }
 
     return nextErrors;
@@ -110,72 +136,25 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
       const nextValues = { ...values, [field]: event.target.value };
 
       setValues(nextValues);
-
-      if (success) {
-        setSuccess("");
-      }
+      setSuccess("");
 
       if (errors[field] || errors.form) {
-        const nextErrors = validate(nextValues);
-        setErrors(nextErrors);
+        setErrors({});
       }
     };
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (authenticating) return;
-
-    const trimmedValues = {
-      name: values.name.trim(),
-      email: values.email.trim(),
-      password: values.password.trim(),
-      confirm: values.confirm.trim(),
-    };
-    const validationErrors = validate(trimmedValues);
-
-    if (Object.keys(validationErrors).length > 0) {
-      setSuccess("");
-      setErrors(validationErrors);
-      setToast({ tone: "error", message: "Please correct the highlighted fields." });
-      return;
-    }
-
-    setValues(trimmedValues);
-    setErrors({});
+  function showValidationErrors(nextErrors: AuthFormErrors) {
     setSuccess("");
-    setToast(null);
-    setLoading(true);
+    setErrors(nextErrors);
+    setToast({ tone: "error", message: "Please correct the highlighted fields." });
+  }
 
-    try {
-      if (isRegister) {
-        const authSession = await registerUser({
-          name: trimmedValues.name,
-          email: trimmedValues.email,
-          password: trimmedValues.password,
-        });
-        saveAuthSession(authSession);
-        setToast({ tone: "success", message: "Account created successfully." });
-        await waitForToast();
-        navigate("/dashboard");
-        return;
-      }
-
-      const authSession = await loginUser({
-        email: trimmedValues.email,
-        password: trimmedValues.password,
-      });
-      saveAuthSession(authSession);
-      setToast({ tone: "success", message: "Logged in successfully." });
-      await waitForToast();
-      navigate("/dashboard");
-    } catch (error) {
-      const message = getApiErrorMessage(error, "Unable to reach the authentication service. Please try again.");
-      setErrors({ form: message });
-      setToast({ tone: "error", message });
-    } finally {
-      setLoading(false);
-    }
+  async function finishWithSession(authSession: AuthResponse, message: string) {
+    saveAuthSession(authSession);
+    setToast({ tone: "success", message });
+    await waitForToast();
+    navigate("/dashboard");
   }
 
   async function handleGoogleSignIn() {
@@ -189,13 +168,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     try {
       const idToken = await getGoogleIdToken();
       const authSession = await loginWithGoogle({ idToken });
-      saveAuthSession(authSession);
-      setToast({
-        tone: "success",
-        message: isRegister ? "Google account connected. Welcome to Shortly." : "Logged in with Google.",
-      });
-      await waitForToast();
-      navigate("/dashboard");
+      await finishWithSession(authSession, isRegister ? "Google account connected. Welcome to Shortly." : "Logged in with Google.");
     } catch (error) {
       const message = getGoogleAuthErrorMessage(error);
       setErrors({ form: message });
@@ -205,181 +178,475 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     }
   }
 
-  const fieldClassName = "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive";
+  async function handleLoginEmailSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (authenticating) return;
+
+    const validationErrors = validate(values, "email");
+    if (Object.keys(validationErrors).length > 0) {
+      showValidationErrors(validationErrors);
+      return;
+    }
+
+    setValues((current) => ({ ...current, email: trimmedEmail }));
+    setErrors({});
+    setToast(null);
+    setLoginStep("login-method");
+  }
+
+  async function handlePasswordLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (authenticating) return;
+
+    const validationErrors = validate(values, "password");
+    if (Object.keys(validationErrors).length > 0) {
+      showValidationErrors(validationErrors);
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+    setToast(null);
+
+    try {
+      const authSession = await loginUser({ email: trimmedEmail, password: values.password });
+      await finishWithSession(authSession, "Logged in successfully.");
+    } catch (error) {
+      const message = getApiErrorMessage(error, "Unable to reach the authentication service. Please try again.");
+      setErrors({ form: message });
+      setToast({ tone: "error", message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function requestOtpCode(purpose: "LOGIN" | "REGISTER" | "RESET_PASSWORD" = isRegister ? "REGISTER" : "LOGIN") {
+    const validationErrors = validate(values, "email");
+    if (Object.keys(validationErrors).length > 0) {
+      showValidationErrors(validationErrors);
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+    setOtp("");
+    setToast(null);
+
+    try {
+      const response = await requestEmailOtp({ email: trimmedEmail, purpose });
+      setSuccess(response.otp ? `Development code: ${response.otp}` : "We sent a one-time code to your email.");
+      if (purpose === "LOGIN") {
+        setLoginStep("login-otp");
+      } else {
+        setRegisterStep("register-otp");
+      }
+    } catch (error) {
+      const message = getApiErrorMessage(error, "Unable to send a verification code. Please try again.");
+      setErrors({ form: message });
+      setToast({ tone: "error", message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleOtpVerification(code = otp) {
+    if (loading || code.length !== 6) return;
+
+    setLoading(true);
+    setErrors({});
+    setToast(null);
+
+    try {
+      const purpose = isRegister ? "REGISTER" : "LOGIN";
+      const response = await verifyEmailOtp({
+        email: trimmedEmail,
+        purpose,
+        otp: code,
+        rememberDevice: !isRegister && rememberDevice,
+      });
+
+      if (!isRegister) {
+        if (!isAuthResponse(response)) {
+          throw new Error("OTP login did not return an authenticated session.");
+        }
+        await finishWithSession(response, "Logged in with a one-time code.");
+        return;
+      }
+
+      const authSession = await registerUser({
+        name: values.name.trim(),
+        email: trimmedEmail,
+        password: values.password,
+      });
+      await finishWithSession(authSession, "Email verified. Account created successfully.");
+    } catch (error) {
+      const message = getApiErrorMessage(error, "Unable to verify that code. Please try again.");
+      setErrors({ otp: message });
+      setToast({ tone: "error", message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRegistrationSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (authenticating) return;
+
+    const trimmedValues = {
+      name: values.name.trim(),
+      email: trimmedEmail,
+      password: values.password.trim(),
+      confirm: values.confirm.trim(),
+    };
+    const validationErrors = validate(trimmedValues, "register");
+
+    if (Object.keys(validationErrors).length > 0) {
+      showValidationErrors(validationErrors);
+      return;
+    }
+
+    setValues(trimmedValues);
+    await requestOtpCode("REGISTER");
+  }
+
+  function renderToast() {
+    return toast ? (
+      <div
+        className={`fixed right-4 top-4 z-50 flex max-w-sm items-center gap-2 rounded-md border bg-background px-4 py-3 text-sm shadow-lg ${
+          toast.tone === "success" ? "border-success/40 text-foreground" : "border-destructive/40 text-destructive"
+        }`}
+        role={toast.tone === "error" ? "alert" : "status"}
+      >
+        {toast.tone === "success" ? <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" /> : <TriangleAlert className="h-4 w-4" aria-hidden="true" />}
+        {toast.message}
+      </div>
+    ) : null;
+  }
+
+  function renderMessages() {
+    return (
+      <>
+        {errors.form ? <Alert id={errorId}>{errors.form}</Alert> : null}
+        {success ? (
+          <Alert className="border-success/30 bg-success/10" id={successId}>
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
+              {success}
+            </span>
+          </Alert>
+        ) : null}
+      </>
+    );
+  }
+
+  function renderGoogleButton() {
+    return (
+      <Button
+        className="w-full border-input bg-background text-foreground hover:bg-muted"
+        disabled={authenticating}
+        type="button"
+        variant="outline"
+        aria-label={isRegister ? "Continue registering with Google" : "Continue logging in with Google"}
+        onClick={() => void handleGoogleSignIn()}
+      >
+        {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <GoogleIcon />}
+        Continue with Google
+      </Button>
+    );
+  }
+
+  function renderDivider() {
+    return (
+      <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-muted-foreground" aria-hidden="true">
+        <span className="h-px flex-1 bg-border" />
+        OR
+        <span className="h-px flex-1 bg-border" />
+      </div>
+    );
+  }
+
+  function renderEmailField(disabled = authenticating) {
+    return (
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          value={values.email}
+          placeholder="you@example.com"
+          autoComplete="email"
+          className={fieldClassName}
+          aria-describedby={errors.email ? "email-error" : undefined}
+          aria-invalid={errors.email ? "true" : undefined}
+          disabled={disabled}
+          inputMode="email"
+          onChange={handleChange("email")}
+          required
+        />
+        {errors.email ? (
+          <p className="text-sm text-destructive" id="email-error">
+            {errors.email}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderPasswordField(autoComplete: "current-password" | "new-password") {
+    return (
+      <div className="space-y-2">
+        <Label htmlFor="password">Password</Label>
+        {autoComplete === "new-password" ? (
+          <PasswordInput
+            id="password"
+            name="password"
+            value={values.password}
+            autoComplete="new-password"
+            className={fieldClassName}
+            aria-describedby={errors.password ? "password-error" : undefined}
+            aria-invalid={errors.password ? "true" : undefined}
+            disabled={authenticating}
+            maxLength={MAX_PASSWORD_LENGTH}
+            minLength={MIN_PASSWORD_LENGTH}
+            showRequirements
+            onChange={handleChange("password")}
+            required
+          />
+        ) : (
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            value={values.password}
+            autoComplete="current-password"
+            className={fieldClassName}
+            aria-describedby={errors.password ? "password-error" : undefined}
+            aria-invalid={errors.password ? "true" : undefined}
+            disabled={authenticating}
+            minLength={MIN_PASSWORD_LENGTH}
+            onChange={handleChange("password")}
+            required
+          />
+        )}
+        {errors.password ? (
+          <p className="text-sm text-destructive" id="password-error">
+            {errors.password}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderLoginContent() {
+    if (loginStep === "login-options") {
+      return (
+        <div className="space-y-4">
+          {renderGoogleButton()}
+          {renderDivider()}
+          <Button className="w-full" disabled={authenticating} type="button" variant="outline" onClick={() => setLoginStep("login-email")}>
+            <Mail className="h-4 w-4" aria-hidden="true" />
+            Continue with Email
+          </Button>
+        </div>
+      );
+    }
+
+    if (loginStep === "login-email") {
+      return (
+        <form className="space-y-4" noValidate onSubmit={handleLoginEmailSubmit}>
+          {renderEmailField()}
+          <Button className="w-full" disabled={authenticating} type="submit">
+            Continue
+          </Button>
+        </form>
+      );
+    }
+
+    if (loginStep === "login-method") {
+      return (
+        <div className="space-y-4">
+          <Alert className="border-success/30 bg-success/10">Continue as {trimmedEmail}.</Alert>
+          <Button className="w-full" disabled={authenticating} type="button" onClick={() => setLoginStep("login-password")}>
+            Sign in with Password
+          </Button>
+          <Button className="w-full" disabled={authenticating} type="button" variant="outline" onClick={() => void requestOtpCode("LOGIN")}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            Sign in with One-Time Code
+          </Button>
+        </div>
+      );
+    }
+
+    if (loginStep === "login-password") {
+      return (
+        <form className="space-y-4" noValidate onSubmit={handlePasswordLogin}>
+          {renderEmailField(true)}
+          {renderPasswordField("current-password")}
+          <div className="flex justify-end text-sm">
+            <Link className="font-medium text-primary hover:underline" to="/forgot-password">
+              Forgot password?
+            </Link>
+          </div>
+          <Button className="w-full" disabled={authenticating} type="submit">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            Log in
+          </Button>
+        </form>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <OTPInput
+          email={trimmedEmail}
+          error={errors.otp}
+          loading={loading}
+          value={otp}
+          onChange={setOtp}
+          onComplete={(code) => void handleOtpVerification(code)}
+          onResend={() => requestOtpCode("LOGIN")}
+        />
+        <label className="flex items-start gap-2 text-sm text-muted-foreground" htmlFor={rememberId}>
+          <input
+            id={rememberId}
+            checked={rememberDevice}
+            className="mt-1 h-4 w-4 rounded border-input accent-primary"
+            disabled={loading}
+            type="checkbox"
+            onChange={(event) => setRememberDevice(event.target.checked)}
+          />
+          <span>Remember this device</span>
+        </label>
+        <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void handleOtpVerification()}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+          Verify and log in
+        </Button>
+      </div>
+    );
+  }
+
+  function renderRegisterContent() {
+    if (registerStep === "register-otp") {
+      return (
+        <div className="space-y-4">
+          <OTPInput
+            email={trimmedEmail}
+            error={errors.otp}
+            loading={loading}
+            value={otp}
+            onChange={setOtp}
+            onComplete={(code) => void handleOtpVerification(code)}
+            onResend={() => requestOtpCode("REGISTER")}
+          />
+          <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void handleOtpVerification()}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            Verify and create account
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {renderGoogleButton()}
+        {renderDivider()}
+        <form className="space-y-4" noValidate onSubmit={handleRegistrationSubmit}>
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              name="name"
+              value={values.name}
+              placeholder="Caleb Ongau"
+              autoComplete="name"
+              className={fieldClassName}
+              aria-describedby={errors.name ? "name-error" : undefined}
+              aria-invalid={errors.name ? "true" : undefined}
+              disabled={authenticating}
+              onChange={handleChange("name")}
+              required
+            />
+            {errors.name ? (
+              <p className="text-sm text-destructive" id="name-error">
+                {errors.name}
+              </p>
+            ) : null}
+          </div>
+          {renderEmailField()}
+          {renderPasswordField("new-password")}
+          <div className="space-y-2">
+            <Label htmlFor="confirm">Confirm password</Label>
+            <PasswordInput
+              id="confirm"
+              name="confirm"
+              value={values.confirm}
+              autoComplete="new-password"
+              className={fieldClassName}
+              aria-describedby={errors.confirm ? "confirm-error" : undefined}
+              aria-invalid={errors.confirm ? "true" : undefined}
+              disabled={authenticating}
+              maxLength={MAX_PASSWORD_LENGTH}
+              minLength={MIN_PASSWORD_LENGTH}
+              onChange={handleChange("confirm")}
+              required
+            />
+            {errors.confirm ? (
+              <p className="text-sm text-destructive" id="confirm-error">
+                {errors.confirm}
+              </p>
+            ) : null}
+          </div>
+          <Button className="w-full" disabled={authenticating} type="submit">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            Create account
+          </Button>
+        </form>
+      </>
+    );
+  }
+
+  const canGoBack =
+    (!isRegister && loginStep !== "login-options") || (isRegister && registerStep !== "register-form");
 
   return (
     <Card className="w-full max-w-md shadow-soft">
       <CardHeader>
+        {canGoBack ? (
+          <Button
+            className="mb-2 w-fit px-0 text-muted-foreground"
+            disabled={authenticating}
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setErrors({});
+              setSuccess("");
+              if (isRegister) {
+                setRegisterStep("register-form");
+              } else if (loginStep === "login-method") {
+                setLoginStep("login-email");
+              } else if (loginStep === "login-email") {
+                setLoginStep("login-options");
+              } else {
+                setLoginStep("login-method");
+              }
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back
+          </Button>
+        ) : null}
         <CardTitle>{isRegister ? "Create your workspace" : "Welcome back"}</CardTitle>
         <CardDescription>
-          {isRegister ? "Start managing links with ownership and analytics." : "Sign in to manage your short links."}
+          {isRegister ? "Verify your email before activating your account." : "Sign in to manage your short links."}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {toast ? (
-          <div
-            className={`fixed right-4 top-4 z-50 flex max-w-sm items-center gap-2 rounded-md border bg-background px-4 py-3 text-sm shadow-lg ${
-              toast.tone === "success" ? "border-success/40 text-foreground" : "border-destructive/40 text-destructive"
-            }`}
-            role={toast.tone === "error" ? "alert" : "status"}
-          >
-            {toast.tone === "success" ? (
-              <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
-            ) : (
-              <TriangleAlert className="h-4 w-4" aria-hidden="true" />
-            )}
-            {toast.message}
-          </div>
-        ) : null}
+        {renderToast()}
         <div className="space-y-4" aria-describedby={errors.form ? errorId : success ? successId : undefined}>
-          {errors.form ? <Alert id={errorId}>{errors.form}</Alert> : null}
-          {success ? (
-            <Alert className="border-success/30 bg-success/10" id={successId}>
-              <span className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
-                {success}
-              </span>
-            </Alert>
-          ) : null}
-          <Button
-            className="w-full border-input bg-background text-foreground hover:bg-muted"
-            disabled={authenticating}
-            type="button"
-            variant="outline"
-            aria-label={isRegister ? "Continue registering with Google" : "Continue logging in with Google"}
-            onClick={() => void handleGoogleSignIn()}
-          >
-            {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <GoogleIcon />}
-            Continue with Google
-          </Button>
-          <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-wide text-muted-foreground" aria-hidden="true">
-            <span className="h-px flex-1 bg-border" />
-            OR
-            <span className="h-px flex-1 bg-border" />
-          </div>
+          {renderMessages()}
+          {isRegister ? renderRegisterContent() : renderLoginContent()}
         </div>
-        <form className="mt-4 space-y-4" aria-describedby={errors.form ? errorId : success ? successId : undefined} noValidate onSubmit={handleSubmit}>
-          {isRegister ? (
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                name="name"
-                value={values.name}
-                placeholder="Caleb Ongau"
-                autoComplete="name"
-                className={fieldClassName}
-                aria-describedby={errors.name ? "name-error" : undefined}
-                aria-invalid={errors.name ? "true" : undefined}
-                disabled={authenticating}
-                onChange={handleChange("name")}
-                required
-              />
-              {errors.name ? (
-                <p className="text-sm text-destructive" id="name-error">
-                  {errors.name}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              value={values.email}
-              placeholder="you@example.com"
-              autoComplete="email"
-              className={fieldClassName}
-              aria-describedby={errors.email ? "email-error" : undefined}
-              aria-invalid={errors.email ? "true" : undefined}
-              disabled={authenticating}
-              inputMode="email"
-              onChange={handleChange("email")}
-              required
-            />
-            {errors.email ? (
-              <p className="text-sm text-destructive" id="email-error">
-                {errors.email}
-              </p>
-            ) : null}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            {isRegister ? (
-              <PasswordInput
-                id="password"
-                name="password"
-                value={values.password}
-                autoComplete="new-password"
-                className={fieldClassName}
-                aria-describedby={errors.password ? "password-error" : undefined}
-                aria-invalid={errors.password ? "true" : undefined}
-                disabled={authenticating}
-                maxLength={MAX_PASSWORD_LENGTH}
-                minLength={MIN_PASSWORD_LENGTH}
-                showRequirements
-                onChange={handleChange("password")}
-                required
-              />
-            ) : (
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={values.password}
-                autoComplete="current-password"
-                className={fieldClassName}
-                aria-describedby={errors.password ? "password-error" : undefined}
-                aria-invalid={errors.password ? "true" : undefined}
-                disabled={authenticating}
-                minLength={MIN_PASSWORD_LENGTH}
-                onChange={handleChange("password")}
-                required
-              />
-            )}
-            {errors.password ? (
-              <p className="text-sm text-destructive" id="password-error">
-                {errors.password}
-              </p>
-            ) : null}
-          </div>
-          {isRegister ? (
-            <div className="space-y-2">
-              <Label htmlFor="confirm">Confirm password</Label>
-              <PasswordInput
-                id="confirm"
-                name="confirm"
-                value={values.confirm}
-                autoComplete="new-password"
-                className={fieldClassName}
-                aria-describedby={errors.confirm ? "confirm-error" : undefined}
-                aria-invalid={errors.confirm ? "true" : undefined}
-                disabled={authenticating}
-                maxLength={MAX_PASSWORD_LENGTH}
-                minLength={MIN_PASSWORD_LENGTH}
-                onChange={handleChange("confirm")}
-                required
-              />
-              {errors.confirm ? (
-                <p className="text-sm text-destructive" id="confirm-error">
-                  {errors.confirm}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <div className="flex justify-end text-sm">
-              <Link className="font-medium text-primary hover:underline" to="/forgot-password">
-                Forgot password?
-              </Link>
-            </div>
-          )}
-          <Button className="w-full" disabled={authenticating} type="submit">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isRegister ? "Create account" : "Log in"}
-          </Button>
-        </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
           {isRegister ? "Already have an account?" : "New to Shortly?"}{" "}
           <Link className="font-semibold text-primary hover:underline" to={isRegister ? "/login" : "/register"}>

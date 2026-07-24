@@ -53,6 +53,41 @@ export interface ResetPasswordRequest {
   password: string;
 }
 
+export type OtpPurpose = "LOGIN" | "REGISTER" | "RESET_PASSWORD";
+
+export interface OtpRequest {
+  email: string;
+  purpose: OtpPurpose;
+  channel?: "email";
+}
+
+export interface OtpRequestResponse {
+  otpId: string;
+  expiresAt: string;
+  channel: "email" | "sms" | "whatsapp";
+  delivery: {
+    provider: string;
+    delivered: boolean;
+  };
+  otp?: string;
+}
+
+export interface OtpVerifyRequest extends OtpRequest {
+  otp: string;
+  rememberDevice?: boolean;
+}
+
+export interface OtpVerifyResponse {
+  verified: true;
+  otpId: string;
+  userId: string | null;
+  email?: string;
+  phone?: string;
+  purpose: OtpPurpose;
+  message?: string;
+  resetUrl?: string;
+}
+
 export function registerUser(body: RegisterRequest) {
   return apiRequest<AuthResponse, RegisterRequest>("/api/auth/register", body);
 }
@@ -75,4 +110,12 @@ export function requestPasswordReset(body: Pick<LoginRequest, "email">) {
 
 export function resetPassword(body: ResetPasswordRequest) {
   return apiRequest<ForgotPasswordResponse, ResetPasswordRequest>("/api/auth/reset-password", body);
+}
+
+export function requestEmailOtp(body: OtpRequest) {
+  return apiRequest<OtpRequestResponse, OtpRequest>("/api/auth/otp/request", { ...body, channel: "email" });
+}
+
+export function verifyEmailOtp(body: OtpVerifyRequest) {
+  return apiRequest<AuthResponse | OtpVerifyResponse, OtpVerifyRequest>("/api/auth/otp/verify", body);
 }

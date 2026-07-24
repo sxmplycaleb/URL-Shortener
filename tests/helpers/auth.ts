@@ -88,7 +88,10 @@ export async function fillRegistrationForm(page: Page, user: TestUser) {
 }
 
 export async function fillLoginForm(page: Page, user: Pick<TestUser, 'email' | 'password'>) {
+  await page.getByRole('button', { name: 'Continue with Email' }).click();
   await page.getByLabel('Email').fill(user.email);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Sign in with Password' }).click();
   await page.getByLabel('Password', { exact: true }).fill(user.password);
 }
 

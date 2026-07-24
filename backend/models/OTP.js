@@ -48,6 +48,10 @@ const otpSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  verifiedAt: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

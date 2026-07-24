@@ -1,5 +1,7 @@
 import {
+  createPasswordResetFromOtp,
   loginUser,
+  loginUserWithOtp,
   loginWithGoogle,
   logoutUser,
   refreshAuth,
@@ -84,5 +86,21 @@ export async function requestOtp(request, response) {
 export async function verifyOtp(request, response) {
   const authenticationService = createAuthenticationService();
   const payload = await authenticationService.verifyOtp(request.validatedBody);
+
+  if (payload.purpose === "LOGIN" && payload.email) {
+    const authPayload = await loginUserWithOtp({
+      email: payload.email,
+      rememberDevice: request.validatedBody.rememberDevice,
+    });
+    sendAuthResponse(response, 200, authPayload);
+    return;
+  }
+
+  if (payload.purpose === "RESET_PASSWORD" && payload.email) {
+    const resetPayload = await createPasswordResetFromOtp({ email: payload.email });
+    response.json({ ...payload, ...resetPayload });
+    return;
+  }
+
   response.json(payload);
 }

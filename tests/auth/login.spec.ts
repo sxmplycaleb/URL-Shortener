@@ -6,20 +6,23 @@ test.describe('login', () => {
   test('validates credentials before sending a login request', async ({ page }) => {
     await page.goto('/login');
 
+    await page.getByRole('button', { name: 'Continue with Email' }).click();
     const email = page.getByLabel('Email');
-    const password = page.getByLabel('Password', { exact: true });
 
     await email.fill('not-an-email');
-    await password.fill('');
-    await page.getByRole('button', { name: 'Log in' }).click();
+    await page.getByRole('button', { name: 'Continue' }).click();
 
     await expect(page.getByText('Enter a valid email address.')).toBeVisible();
-    await expect(page.getByText('Password is required.')).toBeVisible();
 
     await email.fill('user@example.com');
-    await password.fill('anything');
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByRole('button', { name: 'Sign in with Password' }).click();
+    await page.getByRole('button', { name: 'Log in' }).click();
 
     await expect(page.getByText('Enter a valid email address.')).toBeHidden();
+    await expect(page.getByText('Password is required.')).toBeVisible();
+
+    await page.getByLabel('Password', { exact: true }).fill('anything');
     await expect(page.getByText('Password is required.')).toBeHidden();
   });
 

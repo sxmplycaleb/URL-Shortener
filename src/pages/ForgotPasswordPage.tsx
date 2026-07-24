@@ -1,7 +1,8 @@
 import { FormEvent, useId, useState } from "react";
 import { CheckCircle2, Link2, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
+import { OTPInput } from "@/components/forms/OTPInput";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,29 +10,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { validateEmail } from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
-import { requestPasswordReset } from "@/services/auth";
+import { requestEmailOtp, requestPasswordReset, verifyEmailOtp } from "@/services/auth";
+
+type ResetMode = "link" | "otp";
+type OtpStep = "email" | "code";
 
 export function ForgotPasswordPage() {
+  const navigate = useNavigate();
+  const [mode, setMode] = useState<ResetMode>("link");
+  const [otpStep, setOtpStep] = useState<OtpStep>("email");
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
+  const [otpError, setOtpError] = useState("");
   const [success, setSuccess] = useState("");
   const [resetUrl, setResetUrl] = useState("");
   const errorId = useId();
   const successId = useId();
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (loading) return;
+  function normalizedEmail() {
+    return email.trim().toLowerCase();
+  }
 
-    const form = new FormData(event.currentTarget);
-    const email = String(form.get("email") ?? "").trim();
-
-    const emailError = validateEmail(email);
+  function validateSubmittedEmail() {
+    const emailError = validateEmail(normalizedEmail());
     if (emailError) {
       setError(emailError);
       setSuccess("");
-      return;
+      return false;
     }
+
+    return true;
+  }
+
+  async function handleLinkSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading || !validateSubmittedEmail()) return;
 
     setLoading(true);
     setError("");
@@ -39,7 +54,7 @@ export function ForgotPasswordPage() {
     setResetUrl("");
 
     try {
-      const response = await requestPasswordReset({ email });
+      const response = await requestPasswordReset({ email: normalizedEmail() });
       setSuccess(response.message);
       setResetUrl(response.resetUrl ?? "");
     } catch (error) {
@@ -47,6 +62,75 @@ export function ForgotPasswordPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function requestResetOtp() {
+    if (loading || !validateSubmittedEmail()) return;
+
+    setLoading(true);
+    setError("");
+    setOtpError("");
+    setOtp("");
+    setSuccess("");
+
+    try {
+      const response = await requestEmailOtp({ email: normalizedEmail(), purpose: "RESET_PASSWORD" });
+      setSuccess(response.otp ? `Development code: ${response.otp}` : "We sent a reset code to your email.");
+      setOtpStep("code");
+    } catch (error) {
+      setError(getApiErrorMessage(error, "Unable to send a reset code. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verifyResetOtp(code = otp) {
+    if (loading || code.length !== 6) return;
+
+    setLoading(true);
+    setError("");
+    setOtpError("");
+
+    try {
+      const response = await verifyEmailOtp({
+        email: normalizedEmail(),
+        purpose: "RESET_PASSWORD",
+        otp: code,
+      });
+
+      if (!("resetUrl" in response) || !response.resetUrl) {
+        throw new Error("Reset OTP did not return a reset URL.");
+      }
+
+      const reset = new URL(response.resetUrl);
+      navigate(`${reset.pathname}${reset.search}`, {
+        state: { message: response.message ?? "Verification complete. Choose a new password." },
+      });
+    } catch (error) {
+      setOtpError(getApiErrorMessage(error, "Unable to verify that code. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function renderModeButton(nextMode: ResetMode, label: string) {
+    return (
+      <Button
+        className="w-full"
+        disabled={loading}
+        type="button"
+        variant={mode === nextMode ? "default" : "outline"}
+        onClick={() => {
+          setMode(nextMode);
+          setError("");
+          setOtpError("");
+          setSuccess("");
+          setResetUrl("");
+        }}
+      >
+        {label}
+      </Button>
+    );
   }
 
   return (
@@ -61,10 +145,14 @@ export function ForgotPasswordPage() {
         <Card className="shadow-soft">
           <CardHeader>
             <CardTitle>Reset your password</CardTitle>
-            <CardDescription>Enter your account email to prepare a secure reset link.</CardDescription>
+            <CardDescription>Choose a reset link or a one-time code sent to your email.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4" aria-describedby={error ? errorId : success ? successId : undefined} noValidate onSubmit={handleSubmit}>
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              {renderModeButton("link", "Email link")}
+              {renderModeButton("otp", "One-time code")}
+            </div>
+            <div className="space-y-4" aria-describedby={error ? errorId : success ? successId : undefined}>
               {error ? <Alert id={errorId}>{error}</Alert> : null}
               {success ? (
                 <Alert className="border-success/30 bg-success/10" id={successId}>
@@ -82,15 +170,73 @@ export function ForgotPasswordPage() {
                   </Link>
                 </Alert>
               ) : null}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" autoComplete="email" disabled={loading} inputMode="email" required />
-              </div>
-              <Button className="w-full" disabled={loading} type="submit">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Send reset link
-              </Button>
-            </form>
+              {mode === "link" ? (
+                <form className="space-y-4" noValidate onSubmit={handleLinkSubmit}>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={email}
+                      autoComplete="email"
+                      disabled={loading}
+                      inputMode="email"
+                      required
+                      onChange={(event) => setEmail(event.target.value)}
+                    />
+                  </div>
+                  <Button className="w-full" disabled={loading} type="submit">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                    Send reset link
+                  </Button>
+                </form>
+              ) : otpStep === "email" ? (
+                <form
+                  className="space-y-4"
+                  noValidate
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void requestResetOtp();
+                  }}
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="otp-email">Email</Label>
+                    <Input
+                      id="otp-email"
+                      name="email"
+                      type="email"
+                      value={email}
+                      autoComplete="email"
+                      disabled={loading}
+                      inputMode="email"
+                      required
+                      onChange={(event) => setEmail(event.target.value)}
+                    />
+                  </div>
+                  <Button className="w-full" disabled={loading} type="submit">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                    Send reset code
+                  </Button>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <OTPInput
+                    email={normalizedEmail()}
+                    error={otpError}
+                    loading={loading}
+                    value={otp}
+                    onChange={setOtp}
+                    onComplete={(code) => void verifyResetOtp(code)}
+                    onResend={requestResetOtp}
+                  />
+                  <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void verifyResetOtp()}>
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                    Verify reset code
+                  </Button>
+                </div>
+              )}
+            </div>
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Remembered it?{" "}
               <Link className="font-semibold text-primary hover:underline" to="/login">

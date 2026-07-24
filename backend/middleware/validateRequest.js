@@ -306,6 +306,7 @@ export function validateOtpVerification(request, _response, next) {
       phone,
       purpose: requiredOtpPurpose(request.body),
       otp,
+      rememberDevice: request.body.rememberDevice === true,
     };
     next();
   } catch (error) {
