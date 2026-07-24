@@ -83,4 +83,25 @@ test.describe('dashboard authenticated workflows', () => {
     await expectDashboard(page);
     await expect(page).toHaveURL(/\/dashboard$/);
   });
+
+  test('customizes dashboard widgets and layout presets', async ({ page, request }) => {
+    const user = await createUser(request, uniqueUser('dashboard-preferences'));
+    await establishAuthenticatedSession(page, request, user);
+
+    await page.goto('/settings/dashboard');
+    await expect(page.getByRole('heading', { name: 'Dashboard Settings' })).toBeVisible();
+
+    await page.getByRole('switch', { name: 'Hide Create short URL' }).click();
+    await page.goto('/dashboard');
+    await expect(page.getByRole('button', { name: 'Generate short URL' })).toBeHidden();
+
+    await page.goto('/settings/dashboard');
+    await expect(page.getByRole('button', { name: 'Custom' })).toBeVisible();
+    await page.getByRole('button', { name: 'Analytics Focus' }).click();
+    await page.goto('/dashboard');
+
+    await expect(page.getByRole('button', { name: 'Generate short URL' })).toBeVisible();
+    await expect(page.getByLabel('Statistics')).toBeVisible();
+    await expect(page.getByLabel('Your URLs')).toBeVisible();
+  });
 });

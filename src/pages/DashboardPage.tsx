@@ -1,5 +1,5 @@
-import { FormEvent, memo, useCallback, useEffect, useId, useMemo, useState } from "react";
-import { BarChart3, CircleAlert, ExternalLink, Link2, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { FormEvent, memo, useCallback, useEffect, useId, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { BarChart3, CircleAlert, ExternalLink, GripVertical, Link2, Loader2, Plus, RefreshCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { CopyButton } from "@/components/common/CopyButton";
@@ -14,9 +14,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, Td, Th } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useDashboardPreferences } from "@/hooks/useDashboardPreferences";
 import { formatNumber, isValidCustomAlias, isValidHttpUrl } from "@/lib/utils";
 import { getApiErrorMessage, isAuthorizationError } from "@/services/api";
 import { clearAuthSession, getAuthSession } from "@/services/authStorage";
+import { DASHBOARD_WIDGET_LABELS, type DashboardWidgetId } from "@/services/dashboardPreferences";
 import { createShortenedUrl, deleteShortenedUrl, listShortenedUrls, type ShortenedUrl } from "@/services/urls";
 
 interface FormErrors {
@@ -56,10 +58,16 @@ export function DashboardPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [listError, setListError] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [draggedWidget, setDraggedWidget] = useState<DashboardWidgetId | null>(null);
+  const { preferences, setWidgetOrder } = useDashboardPreferences();
   const errorId = useId();
 
   const totalClicks = useMemo(() => urls.reduce((total, url) => total + url.clickCount, 0), [urls]);
   const activeCount = useMemo(() => urls.filter((url) => url.isActive).length, [urls]);
+  const visibleWidgets = useMemo(
+    () => preferences.widgetOrder.filter((widgetId) => !preferences.hiddenWidgets.includes(widgetId)),
+    [preferences.hiddenWidgets, preferences.widgetOrder],
+  );
 
   const endSession = useCallback(() => {
     const message = "Your session expired. Please log in again.";
@@ -190,6 +198,15 @@ export function DashboardPage() {
     [accessToken, deletingId, endSession],
   );
 
+  function moveWidget(targetWidget: DashboardWidgetId) {
+    if (!draggedWidget || draggedWidget === targetWidget) return;
+
+    const nextOrder = preferences.widgetOrder.filter((widgetId) => widgetId !== draggedWidget);
+    const targetIndex = nextOrder.indexOf(targetWidget);
+    nextOrder.splice(targetIndex, 0, draggedWidget);
+    setWidgetOrder(nextOrder);
+  }
+
   if (initialLoading) {
     return <LoadingState label="Loading dashboard" />;
   }
@@ -201,87 +218,107 @@ export function DashboardPage() {
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="mt-1 text-muted-foreground">Create and manage your shortened URLs.</p>
         </div>
-        <Button disabled={refreshing} variant="outline" onClick={() => void loadUrls({ quiet: true })}>
-          {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => navigate("/settings/dashboard")}>
+            <SlidersHorizontal className="h-4 w-4" />
+            Dashboard Settings
+          </Button>
+          <Button disabled={refreshing} variant="outline" onClick={() => void loadUrls({ quiet: true })}>
+            {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard detail="Owned by your account" icon={Link2} label="Total URLs" value={formatNumber(urls.length)} />
-        <StatCard detail="Available for redirects" icon={Plus} label="Active URLs" value={formatNumber(activeCount)} />
-        <StatCard detail="Across your short links" icon={BarChart3} label="Total clicks" value={formatNumber(totalClicks)} />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Create short URL</CardTitle>
-          <CardDescription>Paste a long URL and optionally reserve a readable alias.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" aria-describedby={errors.form ? errorId : undefined} noValidate onSubmit={handleCreate}>
-            {errors.form ? <Alert id={errorId}>{errors.form}</Alert> : null}
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-start">
-              <div className="space-y-2">
-                <Label htmlFor="dashboard-original-url">Long URL</Label>
-                <div className="relative">
-                  <Link2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    id="dashboard-original-url"
-                    name="originalUrl"
-                    type="url"
-                    placeholder="https://example.com/very/long/url"
-                    autoComplete="url"
-                    aria-describedby={errors.originalUrl ? "dashboard-original-url-error" : undefined}
-                    aria-invalid={errors.originalUrl ? "true" : undefined}
-                    disabled={creating}
-                    inputMode="url"
-                    required
-                  />
-                </div>
-                {errors.originalUrl ? (
-                  <p className="text-sm text-destructive" id="dashboard-original-url-error">
-                    {errors.originalUrl}
-                  </p>
-                ) : null}
+      <div className="space-y-4" aria-label="Customizable dashboard widgets">
+        {visibleWidgets.map((widgetId) => (
+          <DashboardWidgetFrame
+            key={widgetId}
+            dragging={draggedWidget === widgetId}
+            label={DASHBOARD_WIDGET_LABELS[widgetId]}
+            onDragEnd={() => setDraggedWidget(null)}
+            onDragOver={(event) => event.preventDefault()}
+            onDragStart={() => setDraggedWidget(widgetId)}
+            onDrop={() => moveWidget(widgetId)}
+          >
+            {widgetId === "stats" ? (
+              <div className="grid gap-4 md:grid-cols-3">
+                <StatCard detail="Owned by your account" icon={Link2} label="Total URLs" value={urls.length} />
+                <StatCard detail="Available for redirects" icon={Plus} label="Active URLs" value={activeCount} />
+                <StatCard detail="Across your short links" icon={BarChart3} label="Total clicks" value={totalClicks} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="dashboard-custom-alias">Custom alias</Label>
-                <Input
-                  id="dashboard-custom-alias"
-                  name="customAlias"
-                  placeholder="launch"
-                  aria-describedby={errors.customAlias ? "dashboard-custom-alias-error" : undefined}
-                  aria-invalid={errors.customAlias ? "true" : undefined}
-                  disabled={creating}
-                  maxLength={64}
-                  pattern="[A-Za-z0-9_-]{3,64}"
-                />
-                {errors.customAlias ? (
-                  <p className="text-sm text-destructive" id="dashboard-custom-alias-error">
-                    {errors.customAlias}
-                  </p>
-                ) : null}
-              </div>
-              <Button className="w-full lg:mt-7 lg:w-auto" disabled={creating} type="submit">
-                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Generate short URL
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Your URLs</CardTitle>
-            <CardDescription>Copy, open, or delete shortened URLs from your account.</CardDescription>
-          </div>
-          <Badge variant="muted">{formatNumber(urls.length)} total</Badge>
-        </CardHeader>
-        <CardContent>
+            ) : null}
+            {widgetId === "create-link" ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create short URL</CardTitle>
+                  <CardDescription>Paste a long URL and optionally reserve a readable alias.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form className="space-y-4" aria-describedby={errors.form ? errorId : undefined} noValidate onSubmit={handleCreate}>
+                    {errors.form ? <Alert id={errorId}>{errors.form}</Alert> : null}
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-start">
+                      <div className="space-y-2">
+                        <Label htmlFor="dashboard-original-url">Long URL</Label>
+                        <div className="relative">
+                          <Link2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            className="pl-9"
+                            id="dashboard-original-url"
+                            name="originalUrl"
+                            type="url"
+                            placeholder="https://example.com/very/long/url"
+                            autoComplete="url"
+                            aria-describedby={errors.originalUrl ? "dashboard-original-url-error" : undefined}
+                            aria-invalid={errors.originalUrl ? "true" : undefined}
+                            disabled={creating}
+                            inputMode="url"
+                            required
+                          />
+                        </div>
+                        {errors.originalUrl ? (
+                          <p className="text-sm text-destructive" id="dashboard-original-url-error">
+                            {errors.originalUrl}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="dashboard-custom-alias">Custom alias</Label>
+                        <Input
+                          id="dashboard-custom-alias"
+                          name="customAlias"
+                          placeholder="launch"
+                          aria-describedby={errors.customAlias ? "dashboard-custom-alias-error" : undefined}
+                          aria-invalid={errors.customAlias ? "true" : undefined}
+                          disabled={creating}
+                          maxLength={64}
+                          pattern="[A-Za-z0-9_-]{3,64}"
+                        />
+                        {errors.customAlias ? (
+                          <p className="text-sm text-destructive" id="dashboard-custom-alias-error">
+                            {errors.customAlias}
+                          </p>
+                        ) : null}
+                      </div>
+                      <Button className="w-full lg:mt-7 lg:w-auto" disabled={creating} type="submit">
+                        {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                        Generate short URL
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : null}
+            {widgetId === "url-list" ? (
+              <Card>
+                <CardHeader className="gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle>Your URLs</CardTitle>
+                    <CardDescription>Copy, open, or delete shortened URLs from your account.</CardDescription>
+                  </div>
+                  <Badge variant="muted">{formatNumber(urls.length)} total</Badge>
+                </CardHeader>
+                <CardContent>
           {listError ? <Alert className="mb-4">{listError}</Alert> : null}
           {urls.length ? (
             <>
@@ -351,8 +388,12 @@ export function DashboardPage() {
           ) : (
             <EmptyState description="Create your first short URL to see it appear here immediately." icon={CircleAlert} title="No URLs yet" />
           )}
-        </CardContent>
-      </Card>
+                </CardContent>
+              </Card>
+            ) : null}
+          </DashboardWidgetFrame>
+        ))}
+      </div>
 
       {notice ? (
         <div
@@ -408,3 +449,46 @@ const UrlActions = memo(function UrlActions({
     </>
   );
 });
+
+function DashboardWidgetFrame({
+  children,
+  dragging,
+  label,
+  onDragEnd,
+  onDragOver,
+  onDragStart,
+  onDrop,
+}: {
+  children: ReactNode;
+  dragging: boolean;
+  label: string;
+  onDragEnd: () => void;
+  onDragOver: (event: DragEvent<HTMLElement>) => void;
+  onDragStart: () => void;
+  onDrop: () => void;
+}) {
+  return (
+    <section
+      aria-label={label}
+      className={dragging ? "opacity-60" : ""}
+      draggable
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDragStart={onDragStart}
+      onDrop={onDrop}
+    >
+      <div className="mb-2 flex items-center justify-end">
+        <Tooltip label={`Drag to reorder ${label}`}>
+          <button
+            className="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
+            type="button"
+            aria-label={`Drag to reorder ${label}`}
+          >
+            <GripVertical className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </Tooltip>
+      </div>
+      {children}
+    </section>
+  );
+}

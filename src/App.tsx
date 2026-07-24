@@ -9,6 +9,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
+const DashboardSettingsPage = lazy(() => import("@/pages/DashboardSettingsPage").then((module) => ({ default: module.DashboardSettingsPage })));
 const LandingPage = lazy(() => import("@/pages/LandingPage").then((module) => ({ default: module.LandingPage })));
 const LoginPage = lazy(() => import("@/pages/LoginPage").then((module) => ({ default: module.LoginPage })));
 const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage").then((module) => ({ default: module.ForgotPasswordPage })));
@@ -74,6 +75,7 @@ export function App() {
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/security" element={<SecurityPage />} />
+                <Route path="/settings/dashboard" element={<DashboardSettingsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/settings/security" element={<SecurityPage />} />
               </Route>
@@ -94,6 +96,7 @@ function getRoutePageTitle(pathname: string) {
   if (pathname === "/reset-password") return "Reset Password";
   if (pathname === "/dashboard") return "Dashboard";
   if (pathname === "/analytics") return "Analytics";
+  if (pathname === "/settings/dashboard") return "Dashboard Settings";
   if (pathname === "/settings/security" || pathname === "/security") return "Security";
   if (pathname === "/settings") return "Settings";
   return "404";

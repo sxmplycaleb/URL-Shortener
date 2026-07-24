@@ -150,6 +150,29 @@ GET /api/security/login-history
 
 Session and history responses include browser, operating system, device type, masked IP address, country when available, and timestamps. Repeated failed password logins temporarily lock the account for `ACCOUNT_LOCK_DURATION_MS`. Successful sign-ins from a previously unseen device fingerprint trigger a Brevo new-device notification when Brevo credentials are configured.
 
+## Dashboard Personalization
+
+The authenticated dashboard supports per-browser personalization backed by `localStorage`. Users can show or hide dashboard widgets, drag widgets to reorder them, restore the default layout, and reset all dashboard preferences. Preferences are stored under `shortly.dashboard.preferences` through `src/services/dashboardPreferences.ts`, which keeps the persistence boundary small so a backend-backed store can replace `localStorage` later.
+
+Dashboard layout presets are available from `/settings/dashboard`:
+
+- Overview - statistics, create link, URL list.
+- Analytics Focus - statistics and URL list first.
+- Productivity - create link first.
+- Custom - selected automatically after manual widget visibility or ordering changes.
+
+The dashboard settings page also includes sidebar behavior controls and placeholders for future notification preferences, cloud sync, and account preferences.
+
+## Sidebar and Profile Navigation
+
+Desktop navigation includes a collapsible sidebar. The collapse state is saved automatically, restored on reload, keeps icons visible, and shows tooltips for collapsed navigation items. Mobile navigation uses a slide-in drawer with a backdrop, Escape handling, focus trapping, outside-click close, automatic close after navigation, and a bottom-pinned logout action.
+
+The header profile menu displays the signed-in user's avatar or initials, name, and email. It includes My Profile, Settings, Switch Account, and Logout. Switch Account signs out the current session and sends the user to Login while preserving the current destination for the next successful sign-in.
+
+## Dashboard Counters and Number Formatting
+
+Dashboard statistic cards use `src/components/common/AnimatedCounter.tsx` and `src/hooks/useAnimatedCounter.ts` to animate from zero when a stat first becomes visible. Compact number formatting is centralized in `src/lib/numberFormatter.ts` and reused through `formatNumber`, producing values such as `999`, `1K`, `3.2K`, `125K`, and `5.8M`.
+
 ## Required Authentication Variables
 
 Backend:
