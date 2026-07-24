@@ -167,7 +167,7 @@ Stores one-time passcodes for authentication-adjacent flows. Raw OTP values are 
 | `id` | ObjectId | Primary key | MongoDB document identifier. |
 | `userId` | ObjectId | Nullable, ref `users` | User associated with the OTP when known. |
 | `email` | String | Nullable, lowercase | Email delivery or verification target. |
-| `phone` | String | Nullable | E.164 phone target for SMS or WhatsApp. |
+| `phone` | String | Nullable | E.164 phone target for SMS delivery. WhatsApp OTP is temporarily disabled pending Meta WhatsApp Cloud API integration. |
 | `purpose` | String | Not null | `LOGIN`, `REGISTER`, `RESET_PASSWORD`, `CHANGE_EMAIL`, `CHANGE_PHONE`. |
 | `hashedOtp` | String | Not null, select false | SHA-256 hash using the application hash salt. |
 | `expiresAt` | Date | Not null | Defaults to 5 minutes after issue. |
@@ -347,7 +347,9 @@ Returns the current authenticated user.
 
 #### `POST /api/auth/otp/request`
 
-Issues an OTP for a future authentication flow and delivers it with Brevo transactional email or Twilio Verify SMS/WhatsApp. Existing unused OTPs for the same user/contact/purpose are marked used before the new code is stored.
+Issues an OTP for a future authentication flow and delivers it with Brevo transactional email or Twilio Verify SMS. Existing unused OTPs for the same user/contact/purpose are marked used before the new code is stored.
+
+TODO: Re-enable WhatsApp OTP when Meta WhatsApp Cloud API integration is implemented. While disabled, `channel: "whatsapp"` returns `WhatsApp OTP is temporarily unavailable.`
 
 Request:
 
@@ -360,7 +362,7 @@ Request:
 }
 ```
 
-Only one of `email` or `phone` is required. `purpose` must be one of `LOGIN`, `REGISTER`, `RESET_PASSWORD`, `CHANGE_EMAIL`, or `CHANGE_PHONE`; `channel` must be `email`, `sms`, or `whatsapp`.
+Only one of `email` or `phone` is required. `purpose` must be one of `LOGIN`, `REGISTER`, `RESET_PASSWORD`, `CHANGE_EMAIL`, or `CHANGE_PHONE`; `channel` must be `email` or `sms`. WhatsApp OTP is temporarily disabled pending Meta WhatsApp Cloud API integration.
 
 Response `202 Accepted`:
 

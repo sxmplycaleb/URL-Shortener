@@ -59,6 +59,12 @@ describe("backend API", () => {
     process.env.TWILIO_ACCOUNT_SID = "";
     process.env.TWILIO_AUTH_TOKEN = "";
     process.env.TWILIO_VERIFY_SERVICE_SID = "";
+    // TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+    // process.env.META_WHATSAPP_ACCESS_TOKEN = "";
+    // process.env.META_WHATSAPP_PHONE_NUMBER_ID = "";
+    // process.env.META_WHATSAPP_TEMPLATE_NAME = "";
+    // process.env.META_WHATSAPP_TEMPLATE_LANGUAGE = "";
+    // process.env.META_WHATSAPP_API_VERSION = "";
     process.env.CLIENT_URL = "http://localhost:5173";
     process.env.SHORT_URL_BASE = "https://short.ly";
     process.env.FIREBASE_PROJECT_ID = "url-shortener-test";
@@ -444,7 +450,7 @@ describe("backend API", () => {
     const loginRequest = await request(app).post("/api/auth/phone/request").send({
       phone: "+15551234567",
       purpose: "LOGIN",
-      channel: "whatsapp",
+      channel: "sms",
     });
     expect(loginRequest.status).toBe(202);
 
@@ -471,6 +477,25 @@ describe("backend API", () => {
     });
     expect(resetVerify.status).toBe(200);
     expect(resetVerify.body.resetUrl).toEqual(expect.stringContaining("/reset-password?token="));
+  });
+
+  it("rejects WhatsApp OTP requests and verifications while the integration is disabled", async () => {
+    const requestResponse = await request(app).post("/api/auth/phone/request").send({
+      phone: "+15551234567",
+      purpose: "LOGIN",
+      channel: "whatsapp",
+    });
+    const verifyResponse = await request(app).post("/api/auth/phone/verify").send({
+      phone: "+15551234567",
+      purpose: "LOGIN",
+      channel: "whatsapp",
+      otp: "123456",
+    });
+
+    expect(requestResponse.status).toBe(400);
+    expect(requestResponse.body).toEqual({ message: "WhatsApp OTP is temporarily unavailable." });
+    expect(verifyResponse.status).toBe(400);
+    expect(verifyResponse.body).toEqual({ message: "WhatsApp OTP is temporarily unavailable." });
   });
 
   it("returns analytics for the authenticated URL owner", async () => {

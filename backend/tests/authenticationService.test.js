@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { connectDatabase, disconnectDatabase } from "../config/database.js";
 import OTP from "../models/OTP.js";
 import { AuthenticationService } from "../services/authenticationService.js";
-import { BrevoEmailProvider, TwilioVerifyProvider } from "../services/otpProviders.js";
+import { BrevoEmailProvider, MetaWhatsAppProvider, TwilioSmsProvider } from "../services/otpProviders.js";
 
 let mongoServer;
 let now;
@@ -26,8 +26,7 @@ function createService(overrides = {}) {
       sendOtp: vi.fn().mockResolvedValue({ provider: "brevo", delivered: true }),
     },
     phoneProvider: {
-      sendOtp: vi.fn().mockResolvedValue({ provider: "twilio_verify", delivered: true }),
-      verifyOtp: vi.fn().mockResolvedValue({ provider: "twilio_verify", verified: false }),
+      sendOtp: vi.fn().mockResolvedValue({ provider: "phone_provider", delivered: true }),
     },
     auditLogger: {
       info: vi.fn(),
@@ -132,10 +131,42 @@ describe("AuthenticationService OTP foundation", () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it("delegates configured phone verification checks to Twilio Verify", async () => {
+  // TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+  it.skip("delivers WhatsApp OTPs through the configured phone provider and verifies locally", async () => {
     const phoneProvider = {
-      sendOtp: vi.fn().mockResolvedValue({ provider: "twilio_verify", delivered: true }),
-      verifyOtp: vi.fn().mockResolvedValue({ provider: "twilio_verify", verified: true }),
+      sendOtp: vi.fn().mockResolvedValue({ provider: "meta_whatsapp", channel: "whatsapp", delivered: true }),
+    };
+    const service = createService();
+    service.phoneProvider = phoneProvider;
+
+    await service.requestOtp({ phone: "+15551234567", purpose: "LOGIN", channel: "whatsapp" });
+
+    await expect(
+      service.verifyOtp({
+        phone: "+15551234567",
+        purpose: "LOGIN",
+        otp: "123456",
+      }),
+    ).resolves.toMatchObject({
+      verified: true,
+      phone: "+15551234567",
+      purpose: "LOGIN",
+    });
+
+    expect(phoneProvider.sendOtp).toHaveBeenCalledWith({
+      phone: "+15551234567",
+      otp: "123456",
+      channel: "whatsapp",
+      purpose: "LOGIN",
+      metadata: {},
+    });
+  });
+
+  // TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+  it.skip("does not delegate phone OTP verification to providers", async () => {
+    const phoneProvider = {
+      sendOtp: vi.fn().mockResolvedValue({ provider: "meta_whatsapp", channel: "whatsapp", delivered: true }),
+      verifyOtp: vi.fn().mockResolvedValue({ provider: "meta_whatsapp", verified: true }),
     };
     const service = createService();
     service.phoneProvider = phoneProvider;
@@ -148,17 +179,8 @@ describe("AuthenticationService OTP foundation", () => {
         purpose: "LOGIN",
         otp: "000000",
       }),
-    ).resolves.toMatchObject({
-      verified: true,
-      phone: "+15551234567",
-      purpose: "LOGIN",
-    });
-
-    expect(phoneProvider.verifyOtp).toHaveBeenCalledWith({
-      phone: "+15551234567",
-      otp: "000000",
-      purpose: "LOGIN",
-    });
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(phoneProvider.verifyOtp).not.toHaveBeenCalled();
   });
 
   it("rejects expired OTPs", async () => {
@@ -232,13 +254,10 @@ describe("AuthenticationService OTP foundation", () => {
   });
 });
 
-describe("TwilioVerifyProvider", () => {
-  it("requests and verifies OTPs through Twilio Verify", async () => {
-    const fetchImplementation = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true })
-      .mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue({ status: "approved" }) });
-    const provider = new TwilioVerifyProvider({
+describe("TwilioSmsProvider", () => {
+  it("sends SMS OTPs through Twilio Verify", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue({ ok: true });
+    const provider = new TwilioSmsProvider({
       accountSid: "AC123",
       authToken: "token",
       serviceSid: "VA123",
@@ -252,21 +271,65 @@ describe("TwilioVerifyProvider", () => {
         channel: "sms",
         purpose: "LOGIN",
       }),
-    ).resolves.toEqual({ provider: "twilio_verify", channel: "sms", delivered: true });
-
-    await expect(provider.verifyOtp({ phone: "+15551234567", otp: "123456" })).resolves.toEqual({
-      provider: "twilio_verify",
-      verified: true,
-    });
+    ).resolves.toEqual({ provider: "twilio_sms", channel: "sms", delivered: true });
 
     expect(fetchImplementation).toHaveBeenCalledWith(
       "https://verify.twilio.com/v2/Services/VA123/Verifications",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+});
+
+// TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+describe.skip("MetaWhatsAppProvider", () => {
+  it("sends WhatsApp OTPs through Meta Cloud API", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue({ ok: true });
+    const provider = new MetaWhatsAppProvider({
+      accessToken: "meta-token",
+      phoneNumberId: "123456789",
+      templateName: "shortly_otp",
+      templateLanguage: "en_US",
+      apiVersion: "v20.0",
+      fetchImplementation,
+    });
+
+    await expect(
+      provider.sendOtp({
+        phone: "+15551234567",
+        otp: "123456",
+        channel: "whatsapp",
+        purpose: "LOGIN",
+      }),
+    ).resolves.toEqual({ provider: "meta_whatsapp", channel: "whatsapp", delivered: true });
+
     expect(fetchImplementation).toHaveBeenCalledWith(
-      "https://verify.twilio.com/v2/Services/VA123/VerificationCheck",
-      expect.objectContaining({ method: "POST" }),
+      "https://graph.facebook.com/v20.0/123456789/messages",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          Authorization: "Bearer meta-token",
+          "Content-Type": "application/json",
+        },
+      }),
     );
+
+    const [, requestOptions] = fetchImplementation.mock.calls[0];
+    expect(JSON.parse(requestOptions.body)).toMatchObject({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: "15551234567",
+      type: "template",
+      template: {
+        name: "shortly_otp",
+        language: { code: "en_US" },
+        components: [
+          {
+            type: "body",
+            parameters: [{ type: "text", text: "123456" }],
+          },
+        ],
+      },
+    });
   });
 });
 

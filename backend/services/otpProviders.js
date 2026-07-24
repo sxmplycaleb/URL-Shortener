@@ -5,6 +5,8 @@ import AppError from "../utils/AppError.js";
 import { logger } from "../utils/logger.js";
 
 const BREVO_PROVIDER = "brevo";
+const TWILIO_SMS_PROVIDER = "twilio_sms";
+const META_WHATSAPP_PROVIDER = "meta_whatsapp";
 
 function encodeForm(data) {
   return new URLSearchParams(
@@ -165,7 +167,23 @@ export class BrevoEmailProvider {
   }
 }
 
-export class TwilioVerifyProvider {
+export class PhoneOtpProvider {
+  constructor({ providers = {} } = {}) {
+    this.providers = providers;
+  }
+
+  async sendOtp({ channel = "sms", ...payload }) {
+    const provider = this.providers[channel];
+
+    if (!provider) {
+      throw new AppError("Phone OTP channel is not configured.", 500);
+    }
+
+    return provider.sendOtp({ ...payload, channel });
+  }
+}
+
+export class TwilioSmsProvider {
   constructor({ accountSid, authToken, serviceSid, fetchImplementation = globalThis.fetch } = {}) {
     this.accountSid = accountSid;
     this.authToken = authToken;
@@ -179,8 +197,8 @@ export class TwilioVerifyProvider {
 
   async sendOtp({ phone, otp, channel = "sms", purpose }) {
     if (!this.isConfigured()) {
-      logger.warn("auth.otp.phone_provider_unconfigured", { provider: "twilio_verify", channel, purpose });
-      return { provider: "twilio_verify", channel, delivered: false, otp };
+      logger.warn("auth.otp.phone_provider_unconfigured", { provider: TWILIO_SMS_PROVIDER, channel, purpose });
+      return { provider: TWILIO_SMS_PROVIDER, channel, delivered: false, otp };
     }
 
     const credentials = Buffer.from(`${this.accountSid}:${this.authToken}`).toString("base64");
@@ -194,7 +212,7 @@ export class TwilioVerifyProvider {
         },
         body: encodeForm({
           To: phone,
-          Channel: channel,
+          Channel: "sms",
           CustomCode: otp,
         }),
       },
@@ -204,35 +222,81 @@ export class TwilioVerifyProvider {
       throw new AppError("Phone verification code could not be sent.", 502);
     }
 
-    return { provider: "twilio_verify", channel, delivered: true };
+    return { provider: TWILIO_SMS_PROVIDER, channel, delivered: true };
+  }
+}
+
+// TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+export class MetaWhatsAppProvider {
+  constructor({
+    accessToken,
+    phoneNumberId,
+    templateName,
+    templateLanguage = "en_US",
+    apiVersion = "v20.0",
+    fetchImplementation = globalThis.fetch,
+  } = {}) {
+    this.accessToken = accessToken;
+    this.phoneNumberId = phoneNumberId;
+    this.templateName = templateName;
+    this.templateLanguage = templateLanguage;
+    this.apiVersion = apiVersion;
+    this.fetch = fetchImplementation;
   }
 
-  async verifyOtp({ phone, otp }) {
+  isConfigured() {
+    return Boolean(this.accessToken && this.phoneNumberId && this.templateName && this.fetch);
+  }
+
+  recipient(phone) {
+    return String(phone ?? "").replace(/^\+/, "");
+  }
+
+  template({ otp }) {
+    return {
+      name: this.templateName,
+      language: {
+        code: this.templateLanguage,
+      },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            {
+              type: "text",
+              text: otp,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  async sendOtp({ phone, otp, channel = "whatsapp", purpose }) {
     if (!this.isConfigured()) {
-      return { provider: "twilio_verify", verified: false };
+      logger.warn("auth.otp.phone_provider_unconfigured", { provider: META_WHATSAPP_PROVIDER, channel, purpose });
+      return { provider: META_WHATSAPP_PROVIDER, channel, delivered: false, otp };
     }
 
-    const credentials = Buffer.from(`${this.accountSid}:${this.authToken}`).toString("base64");
-    const response = await this.fetch(
-      `https://verify.twilio.com/v2/Services/${this.serviceSid}/VerificationCheck`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${credentials}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: encodeForm({
-          To: phone,
-          Code: otp,
-        }),
+    const response = await this.fetch(`https://graph.facebook.com/${this.apiVersion}/${this.phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: this.recipient(phone),
+        type: "template",
+        template: this.template({ otp, purpose }),
+      }),
+    });
 
     if (!response.ok) {
-      throw new AppError("Phone verification could not be completed.", 502);
+      throw new AppError("WhatsApp verification code could not be sent.", 502);
     }
 
-    const payload = await response.json().catch(() => ({}));
-    return { provider: "twilio_verify", verified: payload.status === "approved" };
+    return { provider: META_WHATSAPP_PROVIDER, channel, delivered: true };
   }
 }

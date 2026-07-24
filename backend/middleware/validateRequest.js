@@ -16,8 +16,11 @@ import {
 } from "../utils/validators.js";
 
 const OTP_PURPOSES = new Set(["LOGIN", "REGISTER", "RESET_PASSWORD", "CHANGE_EMAIL", "CHANGE_PHONE"]);
-const OTP_CHANNELS = new Set(["email", "sms", "whatsapp"]);
+// TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+// const OTP_CHANNELS = new Set(["email", "sms", "whatsapp"]);
+const OTP_CHANNELS = new Set(["email", "sms"]);
 const OTP_REGEX = /^\d{6}$/;
+const WHATSAPP_OTP_UNAVAILABLE_MESSAGE = "WhatsApp OTP is temporarily unavailable.";
 
 function assertObject(value, label = "Request body") {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -259,9 +262,22 @@ function optionalOtpChannel(body) {
   return channel;
 }
 
-export function validateOtpRequest(request, _response, next) {
+function isWhatsAppChannel(body) {
+  return typeof body.channel === "string" && body.channel.trim().toLowerCase() === "whatsapp";
+}
+
+function sendWhatsAppUnavailable(response) {
+  response.status(400).json({ message: WHATSAPP_OTP_UNAVAILABLE_MESSAGE });
+}
+
+export function validateOtpRequest(request, response, next) {
   try {
     assertObject(request.body);
+
+    if (isWhatsAppChannel(request.body)) {
+      sendWhatsAppUnavailable(response);
+      return;
+    }
 
     const email = optionalEmail(request.body);
     const phone = optionalPhone(request.body);
@@ -283,9 +299,14 @@ export function validateOtpRequest(request, _response, next) {
   }
 }
 
-export function validateOtpVerification(request, _response, next) {
+export function validateOtpVerification(request, response, next) {
   try {
     assertObject(request.body);
+
+    if (isWhatsAppChannel(request.body)) {
+      sendWhatsAppUnavailable(response);
+      return;
+    }
 
     const email = optionalEmail(request.body);
     const phone = optionalPhone(request.body);
@@ -327,7 +348,7 @@ export function validatePhoneOtpRequest(request, response, next) {
     }
 
     if (request.validatedBody.channel === "email") {
-      next(new AppError("channel must be sms or whatsapp.", 400));
+      next(new AppError("channel must be sms.", 400));
       return;
     }
 

@@ -63,7 +63,9 @@ interface AuthToast {
 
 type LoginStep = "login-options" | "login-email" | "login-phone" | "login-method" | "login-password" | "login-otp" | "login-phone-otp";
 type RegisterStep = "register-form" | "register-otp";
-type PhoneChannel = "sms" | "whatsapp";
+// TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+// type PhoneChannel = "sms" | "whatsapp";
+type PhoneChannel = "sms";
 
 const initialValues: AuthFormValues = {
   name: "",
@@ -95,7 +97,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const [values, setValues] = useState<AuthFormValues>(initialValues);
   const [otp, setOtp] = useState("");
   const [rememberDevice, setRememberDevice] = useState(false);
-  const [phoneChannel, setPhoneChannel] = useState<PhoneChannel>("sms");
+  const [phoneChannel] = useState<PhoneChannel>("sms");
   const [registerVerificationTarget, setRegisterVerificationTarget] = useState<"email" | "phone">("email");
   const [errors, setErrors] = useState<AuthFormErrors>({});
   const [success, setSuccess] = useState(initialMessage ?? locationState?.message ?? "");
@@ -280,7 +282,9 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
 
     try {
       const response = await requestPhoneOtp({ phone: normalizedPhone, purpose, channel: phoneChannel });
-      const channelLabel = phoneChannel === "whatsapp" ? "WhatsApp" : "SMS";
+      // TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+      // const channelLabel = phoneChannel === "whatsapp" ? "WhatsApp" : "SMS";
+      const channelLabel = "SMS";
       setSuccess(response.otp ? `Development code: ${response.otp}` : `We sent a one-time code by ${channelLabel}.`);
       if (purpose === "LOGIN") {
         setLoginStep("login-phone-otp");
@@ -517,26 +521,20 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   }
 
   function renderPhoneChannelPicker() {
-    return (
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          disabled={authenticating}
-          type="button"
-          variant={phoneChannel === "sms" ? "default" : "outline"}
-          onClick={() => setPhoneChannel("sms")}
-        >
-          SMS
-        </Button>
-        <Button
-          disabled={authenticating}
-          type="button"
-          variant={phoneChannel === "whatsapp" ? "default" : "outline"}
-          onClick={() => setPhoneChannel("whatsapp")}
-        >
-          WhatsApp
-        </Button>
-      </div>
-    );
+    /*
+      TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          <Button disabled={authenticating} type="button" variant={phoneChannel === "sms" ? "default" : "outline"} onClick={() => setPhoneChannel("sms")}>
+            SMS
+          </Button>
+          <Button disabled={authenticating} type="button" variant={phoneChannel === "whatsapp" ? "default" : "outline"} onClick={() => setPhoneChannel("whatsapp")}>
+            WhatsApp
+          </Button>
+        </div>
+      );
+    */
+    return null;
   }
 
   function renderPasswordField(autoComplete: "current-password" | "new-password") {

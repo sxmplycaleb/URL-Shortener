@@ -14,7 +14,9 @@ import { requestEmailOtp, requestPasswordReset, requestPhoneOtp, verifyEmailOtp,
 
 type ResetMode = "link" | "email-otp" | "phone-otp";
 type OtpStep = "target" | "code";
-type PhoneChannel = "sms" | "whatsapp";
+// TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+// type PhoneChannel = "sms" | "whatsapp";
+type PhoneChannel = "sms";
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -23,7 +25,7 @@ export function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [phoneChannel, setPhoneChannel] = useState<PhoneChannel>("sms");
+  const [phoneChannel] = useState<PhoneChannel>("sms");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [otpError, setOtpError] = useState("");
@@ -113,7 +115,9 @@ export function ForgotPasswordPage() {
         purpose: "RESET_PASSWORD",
         channel: phoneChannel,
       });
-      const channelLabel = phoneChannel === "whatsapp" ? "WhatsApp" : "SMS";
+      // TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
+      // const channelLabel = phoneChannel === "whatsapp" ? "WhatsApp" : "SMS";
+      const channelLabel = "SMS";
       setSuccess(response.otp ? `Development code: ${response.otp}` : `We sent a reset code by ${channelLabel}.`);
       setOtpStep("code");
     } catch (error) {
@@ -314,14 +318,15 @@ export function ForgotPasswordPage() {
                       onChange={(event) => setPhone(event.target.value)}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented. */}
+                  {/* <div className="grid grid-cols-2 gap-2">
                     <Button disabled={loading} type="button" variant={phoneChannel === "sms" ? "default" : "outline"} onClick={() => setPhoneChannel("sms")}>
                       SMS
                     </Button>
                     <Button disabled={loading} type="button" variant={phoneChannel === "whatsapp" ? "default" : "outline"} onClick={() => setPhoneChannel("whatsapp")}>
                       WhatsApp
                     </Button>
-                  </div>
+                  </div> */}
                   <Button className="w-full" disabled={loading} type="submit">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                     Send reset code
