@@ -331,11 +331,11 @@ Response `200 OK`:
 
 #### `POST /api/auth/register`
 
-Creates a user account when local authentication is enabled.
+Creates a user account when local authentication is enabled. Email addresses are normalized by trimming whitespace and lowercasing. Registration runs local syntax/permanent-address checks, then calls `EmailValidationService` when `EMAIL_VALIDATION_ENABLED=true`. The service verifies with Kickbox and rejects disposable, missing-mail-record, and undeliverable addresses with user-friendly messages. Kickbox outages are logged as `email_validation.kickbox_failed` and follow `EMAIL_VALIDATION_FAILURE_POLICY` (`closed` rejects with a friendly 503; `open` permits the flow).
 
 #### `POST /api/auth/login`
 
-Authenticates the user and creates a session.
+Authenticates the user and creates a session. Login normalizes the submitted address for lookup but does not call Kickbox.
 
 #### `POST /api/auth/logout`
 
@@ -386,7 +386,7 @@ Errors:
 
 #### `POST /api/auth/otp/verify`
 
-Verifies an OTP without creating a login session. Session creation remains owned by the existing auth flows until OTP login/register UI is introduced.
+Verifies an OTP without calling Kickbox. Session creation remains owned by the existing auth flows until OTP login/register UI is introduced.
 
 Request:
 

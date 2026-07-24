@@ -14,6 +14,7 @@ import { BrevoEmailProvider } from "./otpProviders.js";
 import { normalizePhoneNumber } from "../utils/phone.js";
 import { trustedDeviceFingerprint } from "./securityMetadata.js";
 import { logger } from "../utils/logger.js";
+import { createEmailValidationService, normalizeEmailAddress } from "./emailValidationService.js";
 
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -201,7 +202,7 @@ async function createAuthenticatedSession({ user, email = user.email, method, re
 
 export async function registerUser({ name, email, password, phone }, metadata = {}) {
   try {
-    const normalizedEmail = email?.trim().toLowerCase();
+    const { email: normalizedEmail } = await createEmailValidationService().validate(email);
     const normalizedPhone = normalizePhoneNumber(phone);
     const verifiedRegistrationOtp = await OTP.findOne({
       email: normalizedEmail,
@@ -250,7 +251,7 @@ export async function registerUser({ name, email, password, phone }, metadata = 
 }
 
 export async function loginUser({ email, password, rememberDevice = false }, metadata = {}) {
-  const normalizedEmail = email?.trim().toLowerCase();
+  const normalizedEmail = normalizeEmailAddress(email);
   const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
   if (user) {
@@ -284,7 +285,7 @@ export async function loginWithGoogle({ idToken, rememberDevice = false }, metad
   }
 
   const googleId = decodedToken.uid ?? decodedToken.sub;
-  const email = typeof decodedToken.email === "string" ? decodedToken.email.trim().toLowerCase() : "";
+  const email = normalizeEmailAddress(decodedToken.email) ?? "";
   const emailVerified = decodedToken.email_verified === true;
 
   if (!googleId || !email) {
@@ -367,7 +368,7 @@ function createEmailProvider() {
 }
 
 export async function requestPasswordReset({ email }) {
-  const user = await User.findOne({ email: email?.trim().toLowerCase() }).select(
+  const user = await User.findOne({ email: normalizeEmailAddress(email) }).select(
     "+passwordResetTokenHash +passwordResetExpiresAt",
   );
   const response = {
@@ -416,10 +417,11 @@ export async function resetPassword({ token, password }) {
 }
 
 export async function loginUserWithOtp({ email, rememberDevice = false }, metadata = {}) {
-  const user = await User.findOne({ email: email?.trim().toLowerCase() });
+  const normalizedEmail = normalizeEmailAddress(email);
+  const user = await User.findOne({ email: normalizedEmail });
 
   if (!user) {
-    await recordLoginAttempt({ email: email?.trim().toLowerCase(), status: "failed", method: "email_otp", metadata });
+    await recordLoginAttempt({ email: normalizedEmail, status: "failed", method: "email_otp", metadata });
     throw new AppError("No account exists for that email address.", 404);
   }
 
@@ -449,7 +451,7 @@ export async function loginUserWithPhoneOtp({ phone, rememberDevice = false }, m
 }
 
 export async function createPasswordResetFromOtp({ email }) {
-  const user = await User.findOne({ email: email?.trim().toLowerCase() }).select(
+  const user = await User.findOne({ email: normalizeEmailAddress(email) }).select(
     "+passwordResetTokenHash +passwordResetExpiresAt",
   );
 

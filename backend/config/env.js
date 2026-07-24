@@ -8,6 +8,7 @@ const DEFAULT_CLIENT_URL = "http://localhost:5173";
 const VALID_NODE_ENVS = new Set(["development", "production", "test"]);
 const VALID_COOKIE_SAME_SITE_VALUES = new Set(["strict", "lax", "none"]);
 const FIREBASE_PRIVATE_KEY_PLACEHOLDER = "-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n";
+const VALID_EMAIL_VALIDATION_FAILURE_POLICIES = new Set(["open", "closed"]);
 
 function required(name) {
   const value = process.env[name];
@@ -101,6 +102,19 @@ function cookieSameSiteValue(nodeEnv) {
   if (!VALID_COOKIE_SAME_SITE_VALUES.has(normalizedValue)) {
     throw new Error(
       `AUTH_COOKIE_SAME_SITE must be one of: ${Array.from(VALID_COOKIE_SAME_SITE_VALUES).join(", ")}.`,
+    );
+  }
+
+  return normalizedValue;
+}
+
+function emailValidationFailurePolicyValue() {
+  const rawValue = process.env.EMAIL_VALIDATION_FAILURE_POLICY ?? process.env.EMAIL_VALIDATION_FAIL_POLICY ?? "closed";
+  const normalizedValue = rawValue.trim().toLowerCase();
+
+  if (!VALID_EMAIL_VALIDATION_FAILURE_POLICIES.has(normalizedValue)) {
+    throw new Error(
+      `EMAIL_VALIDATION_FAILURE_POLICY must be one of: ${Array.from(VALID_EMAIL_VALIDATION_FAILURE_POLICIES).join(", ")}.`,
     );
   }
 
@@ -243,6 +257,9 @@ export function getEnv() {
     accountLockMaxAttempts: integerValue("ACCOUNT_LOCK_MAX_ATTEMPTS", 5, { min: 1, max: 20 }),
     accountLockDurationMs: integerValue("ACCOUNT_LOCK_DURATION_MS", 15 * 60 * 1000, { min: 0 }),
     rememberDeviceDurationMs: integerValue("REMEMBER_DEVICE_DURATION_MS", 30 * 24 * 60 * 60 * 1000, { min: 0 }),
+    emailValidationEnabled: booleanValue("EMAIL_VALIDATION_ENABLED", true),
+    emailValidationFailurePolicy: emailValidationFailurePolicyValue(),
+    kickboxApiKey: process.env.KICKBOX_API_KEY ?? "",
     brevoApiKey: process.env.BREVO_API_KEY ?? "",
     brevoSenderName: process.env.BREVO_SENDER_NAME ?? "",
     brevoSenderEmail: process.env.BREVO_SENDER_EMAIL ?? "",

@@ -83,6 +83,18 @@ Email delivery uses Brevo Transactional Email. `BREVO_SENDER_EMAIL` must be a se
 
 Phone delivery currently uses Twilio Verify for SMS only. Configure a Twilio Verify Service for SMS and set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_VERIFY_SERVICE_SID`. WhatsApp OTP is temporarily disabled; requests with `channel: "whatsapp"` return `WhatsApp OTP is temporarily unavailable.` Phone numbers are normalized to E.164 before delivery. Verification always uses the locally stored hashed OTP.
 
+## Email Validation
+
+Registration and profile email changes normalize addresses by trimming whitespace and lowercasing before validation. The backend first rejects malformed or known disposable addresses locally, then calls Kickbox when `EMAIL_VALIDATION_ENABLED=true` to reject disposable, missing-mail-record, and undeliverable addresses. Login, password reset, and OTP verification do not call Kickbox.
+
+```ini
+EMAIL_VALIDATION_ENABLED=true
+EMAIL_VALIDATION_FAILURE_POLICY=closed
+KICKBOX_API_KEY=
+```
+
+When Kickbox is unavailable, the server logs `email_validation.kickbox_failed`. `EMAIL_VALIDATION_FAILURE_POLICY=closed` returns a friendly `503` validation response. Set it to `open` to allow registration/email changes to continue during a provider outage.
+
 Runtime controls:
 
 ```ini
@@ -263,6 +275,9 @@ SHORT_URL_BASE=
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
+EMAIL_VALIDATION_ENABLED=true
+EMAIL_VALIDATION_FAILURE_POLICY=closed
+KICKBOX_API_KEY=
 BREVO_API_KEY=
 BREVO_SENDER_NAME=
 BREVO_SENDER_EMAIL=

@@ -75,6 +75,9 @@ describe("backend API", () => {
     process.env.TWILIO_ACCOUNT_SID = "";
     process.env.TWILIO_AUTH_TOKEN = "";
     process.env.TWILIO_VERIFY_SERVICE_SID = "";
+    process.env.EMAIL_VALIDATION_ENABLED = "false";
+    process.env.EMAIL_VALIDATION_FAILURE_POLICY = "closed";
+    process.env.KICKBOX_API_KEY = "";
     // TODO: Re-enable when Meta WhatsApp Cloud API integration is implemented.
     // process.env.META_WHATSAPP_ACCESS_TOKEN = "";
     // process.env.META_WHATSAPP_PHONE_NUMBER_ID = "";
@@ -152,6 +155,78 @@ describe("backend API", () => {
         requestId: expect.any(String),
       },
     });
+  });
+
+  it("validates registration email deliverability with Kickbox when enabled", async () => {
+    const originalEnabled = process.env.EMAIL_VALIDATION_ENABLED;
+    const originalApiKey = process.env.KICKBOX_API_KEY;
+    const originalFetch = globalThis.fetch;
+    const fetchImplementation = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        result: "undeliverable",
+        reason: "rejected_email",
+        disposable: false,
+      }),
+    });
+
+    process.env.EMAIL_VALIDATION_ENABLED = "true";
+    process.env.KICKBOX_API_KEY = "kickbox-test-key";
+    globalThis.fetch = fetchImplementation;
+
+    try {
+      const response = await request(app).post("/api/auth/register").send({
+        name: "Kickbox User",
+        email: "  KICKBOX@example.com ",
+        password: "Password123!",
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.message).toBe("This email address does not appear to be deliverable.");
+      expect(fetchImplementation).toHaveBeenCalledWith(
+        expect.stringContaining("email=kickbox%40example.com"),
+        expect.objectContaining({ method: "GET" }),
+      );
+    } finally {
+      process.env.EMAIL_VALIDATION_ENABLED = originalEnabled;
+      process.env.KICKBOX_API_KEY = originalApiKey;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("skips Kickbox validation during login and forgot password", async () => {
+    const originalEnabled = process.env.EMAIL_VALIDATION_ENABLED;
+    const originalApiKey = process.env.KICKBOX_API_KEY;
+    const originalFetch = globalThis.fetch;
+    const fetchImplementation = vi.fn().mockRejectedValue(new Error("Kickbox should not be called"));
+
+    process.env.EMAIL_VALIDATION_ENABLED = "true";
+    process.env.KICKBOX_API_KEY = "kickbox-test-key";
+    globalThis.fetch = fetchImplementation;
+
+    await User.create({
+      name: "Skip Kickbox User",
+      email: "skip-kickbox@example.com",
+      password: "Password123!",
+    });
+
+    try {
+      const loginResponse = await request(app).post("/api/auth/login").send({
+        email: "skip-kickbox@example.com",
+        password: "Password123!",
+      });
+      const forgotResponse = await request(app).post("/api/auth/forgot-password").send({
+        email: "skip-kickbox@example.com",
+      });
+
+      expect(loginResponse.status).toBe(200);
+      expect(forgotResponse.status).toBe(200);
+      expect(fetchImplementation).not.toHaveBeenCalled();
+    } finally {
+      process.env.EMAIL_VALIDATION_ENABLED = originalEnabled;
+      process.env.KICKBOX_API_KEY = originalApiKey;
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("logs in users with valid credentials", async () => {
@@ -1061,6 +1136,49 @@ describe("backend API", () => {
 
     expect(settingsResponse.status).toBe(200);
     expect(settingsResponse.body.user.accountSettings.notificationsEnabled).toBe(false);
+  });
+
+  it("validates changed account email addresses with Kickbox", async () => {
+    const originalEnabled = process.env.EMAIL_VALIDATION_ENABLED;
+    const originalApiKey = process.env.KICKBOX_API_KEY;
+    const originalFetch = globalThis.fetch;
+    const fetchImplementation = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        result: "deliverable",
+        reason: "accepted_email",
+        disposable: false,
+      }),
+    });
+
+    process.env.EMAIL_VALIDATION_ENABLED = "true";
+    process.env.KICKBOX_API_KEY = "kickbox-test-key";
+    globalThis.fetch = fetchImplementation;
+
+    try {
+      process.env.EMAIL_VALIDATION_ENABLED = "false";
+      const auth = await registerAndLogin("profile-kickbox@example.com");
+      process.env.EMAIL_VALIDATION_ENABLED = "true";
+
+      const response = await request(app)
+        .put("/api/account/me")
+        .set("Authorization", `Bearer ${auth.accessToken}`)
+        .send({
+          name: "Profile Kickbox",
+          email: "  PROFILE-KICKBOX-UPDATED@example.com ",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.user.email).toBe("profile-kickbox-updated@example.com");
+      expect(fetchImplementation).toHaveBeenCalledWith(
+        expect.stringContaining("email=profile-kickbox-updated%40example.com"),
+        expect.objectContaining({ method: "GET" }),
+      );
+    } finally {
+      process.env.EMAIL_VALIDATION_ENABLED = originalEnabled;
+      process.env.KICKBOX_API_KEY = originalApiKey;
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("deletes account data and revokes refresh tokens for authenticated users", async () => {
