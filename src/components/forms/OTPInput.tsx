@@ -10,7 +10,8 @@ const RESEND_SECONDS = 60;
 
 interface OTPInputProps {
   value: string;
-  email: string;
+  email?: string;
+  destination?: string;
   loading?: boolean;
   error?: string | undefined;
   autoFocus?: boolean;
@@ -21,6 +22,7 @@ interface OTPInputProps {
 
 export function OTPInput({
   autoFocus = true,
+  destination,
   email,
   error,
   loading = false,
@@ -129,7 +131,7 @@ export function OTPInput({
   return (
     <div className="space-y-4">
       <fieldset className="space-y-3" disabled={loading}>
-        <legend className="text-sm font-medium text-foreground">Enter the 6-digit code sent to {email}</legend>
+        <legend className="text-sm font-medium text-foreground">Enter the 6-digit code sent to {destination ?? email}</legend>
         <div className="grid grid-cols-6 gap-2" role="group" aria-label="One-time verification code">
           {digits.map((digit, index) => (
             <Input

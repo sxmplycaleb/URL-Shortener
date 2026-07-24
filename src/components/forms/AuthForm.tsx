@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useId, useState } from "react";
-import { ArrowLeft, CheckCircle2, Loader2, Mail, TriangleAlert } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Mail, Phone, TriangleAlert } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { OTPInput } from "@/components/forms/OTPInput";
@@ -9,7 +9,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
-import { MAX_PASSWORD_LENGTH, MIN_NAME_LENGTH, MIN_PASSWORD_LENGTH, validateEmail, validatePassword } from "@/lib/utils";
+import {
+  MAX_PASSWORD_LENGTH,
+  MIN_NAME_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  normalizePhoneNumber,
+  validateEmail,
+  validatePassword,
+  validatePhoneNumber,
+} from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
 import {
   type AuthResponse,
@@ -17,7 +25,9 @@ import {
   loginWithGoogle,
   registerUser,
   requestEmailOtp,
+  requestPhoneOtp,
   verifyEmailOtp,
+  verifyPhoneOtp,
 } from "@/services/auth";
 import { saveAuthSession } from "@/services/authStorage";
 import { getGoogleIdToken } from "@/services/firebase";
@@ -33,6 +43,7 @@ interface AuthFormErrors {
   email?: string;
   password?: string;
   confirm?: string;
+  phone?: string;
   otp?: string;
   form?: string;
 }
@@ -42,6 +53,7 @@ interface AuthFormValues {
   email: string;
   password: string;
   confirm: string;
+  phone: string;
 }
 
 interface AuthToast {
@@ -49,14 +61,16 @@ interface AuthToast {
   message: string;
 }
 
-type LoginStep = "login-options" | "login-email" | "login-method" | "login-password" | "login-otp";
+type LoginStep = "login-options" | "login-email" | "login-phone" | "login-method" | "login-password" | "login-otp" | "login-phone-otp";
 type RegisterStep = "register-form" | "register-otp";
+type PhoneChannel = "sms" | "whatsapp";
 
 const initialValues: AuthFormValues = {
   name: "",
   email: "",
   password: "",
   confirm: "",
+  phone: "",
 };
 const SUCCESS_TOAST_DURATION_MS = 600;
 
@@ -81,6 +95,8 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const [values, setValues] = useState<AuthFormValues>(initialValues);
   const [otp, setOtp] = useState("");
   const [rememberDevice, setRememberDevice] = useState(false);
+  const [phoneChannel, setPhoneChannel] = useState<PhoneChannel>("sms");
+  const [registerVerificationTarget, setRegisterVerificationTarget] = useState<"email" | "phone">("email");
   const [errors, setErrors] = useState<AuthFormErrors>({});
   const [success, setSuccess] = useState(initialMessage ?? locationState?.message ?? "");
   const [toast, setToast] = useState<AuthToast | null>(
@@ -92,6 +108,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const isRegister = mode === "register";
   const authenticating = loading || googleLoading;
   const trimmedEmail = values.email.trim().toLowerCase();
+  const normalizedPhone = normalizePhoneNumber(values.phone);
   const fieldClassName = "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive";
 
   function validate(nextValues: AuthFormValues, scope: "email" | "password" | "register") {
@@ -249,6 +266,37 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     }
   }
 
+  async function requestPhoneOtpCode(purpose: "LOGIN" | "REGISTER" | "RESET_PASSWORD" = isRegister ? "REGISTER" : "LOGIN") {
+    const phoneError = validatePhoneNumber(values.phone);
+    if (phoneError) {
+      showValidationErrors({ phone: phoneError });
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+    setOtp("");
+    setToast(null);
+
+    try {
+      const response = await requestPhoneOtp({ phone: normalizedPhone, purpose, channel: phoneChannel });
+      const channelLabel = phoneChannel === "whatsapp" ? "WhatsApp" : "SMS";
+      setSuccess(response.otp ? `Development code: ${response.otp}` : `We sent a one-time code by ${channelLabel}.`);
+      if (purpose === "LOGIN") {
+        setLoginStep("login-phone-otp");
+      } else {
+        setRegisterVerificationTarget("phone");
+        setRegisterStep("register-otp");
+      }
+    } catch (error) {
+      const message = getApiErrorMessage(error, "Unable to send a phone verification code. Please try again.");
+      setErrors({ form: message });
+      setToast({ tone: "error", message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleOtpVerification(code = otp) {
     if (loading || code.length !== 6) return;
 
@@ -288,6 +336,47 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     }
   }
 
+  async function handlePhoneOtpVerification(code = otp) {
+    if (loading || code.length !== 6) return;
+
+    setLoading(true);
+    setErrors({});
+    setToast(null);
+
+    try {
+      const purpose = isRegister ? "REGISTER" : "LOGIN";
+      const response = await verifyPhoneOtp({
+        phone: normalizedPhone,
+        purpose,
+        channel: phoneChannel,
+        otp: code,
+        rememberDevice: !isRegister && rememberDevice,
+      });
+
+      if (!isRegister) {
+        if (!isAuthResponse(response)) {
+          throw new Error("Phone OTP login did not return an authenticated session.");
+        }
+        await finishWithSession(response, "Logged in with a phone code.");
+        return;
+      }
+
+      const authSession = await registerUser({
+        name: values.name.trim(),
+        email: trimmedEmail,
+        password: values.password,
+        phone: normalizedPhone,
+      });
+      await finishWithSession(authSession, "Phone verified. Account created successfully.");
+    } catch (error) {
+      const message = getApiErrorMessage(error, "Unable to verify that code. Please try again.");
+      setErrors({ otp: message });
+      setToast({ tone: "error", message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleRegistrationSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (authenticating) return;
@@ -297,6 +386,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
       email: trimmedEmail,
       password: values.password.trim(),
       confirm: values.confirm.trim(),
+      phone: values.phone.trim(),
     };
     const validationErrors = validate(trimmedValues, "register");
 
@@ -306,6 +396,11 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     }
 
     setValues(trimmedValues);
+    if (trimmedValues.phone) {
+      await requestPhoneOtpCode("REGISTER");
+      return;
+    }
+
     await requestOtpCode("REGISTER");
   }
 
@@ -393,6 +488,57 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     );
   }
 
+  function renderPhoneField(disabled = authenticating, required = true) {
+    return (
+      <div className="space-y-2">
+        <Label htmlFor="phone">{required ? "Phone number" : "Phone number (optional)"}</Label>
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          value={values.phone}
+          placeholder="+15551234567"
+          autoComplete="tel"
+          className={fieldClassName}
+          aria-describedby={errors.phone ? "phone-error" : undefined}
+          aria-invalid={errors.phone ? "true" : undefined}
+          disabled={disabled}
+          inputMode="tel"
+          onChange={handleChange("phone")}
+          required={required}
+        />
+        {errors.phone ? (
+          <p className="text-sm text-destructive" id="phone-error">
+            {errors.phone}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderPhoneChannelPicker() {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          disabled={authenticating}
+          type="button"
+          variant={phoneChannel === "sms" ? "default" : "outline"}
+          onClick={() => setPhoneChannel("sms")}
+        >
+          SMS
+        </Button>
+        <Button
+          disabled={authenticating}
+          type="button"
+          variant={phoneChannel === "whatsapp" ? "default" : "outline"}
+          onClick={() => setPhoneChannel("whatsapp")}
+        >
+          WhatsApp
+        </Button>
+      </div>
+    );
+  }
+
   function renderPasswordField(autoComplete: "current-password" | "new-password") {
     return (
       <div className="space-y-2">
@@ -448,6 +594,10 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
             <Mail className="h-4 w-4" aria-hidden="true" />
             Continue with Email
           </Button>
+          <Button className="w-full" disabled={authenticating} type="button" variant="outline" onClick={() => setLoginStep("login-phone")}>
+            <Phone className="h-4 w-4" aria-hidden="true" />
+            Continue with Phone Number
+          </Button>
         </div>
       );
     }
@@ -458,6 +608,26 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
           {renderEmailField()}
           <Button className="w-full" disabled={authenticating} type="submit">
             Continue
+          </Button>
+        </form>
+      );
+    }
+
+    if (loginStep === "login-phone") {
+      return (
+        <form
+          className="space-y-4"
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void requestPhoneOtpCode("LOGIN");
+          }}
+        >
+          {renderPhoneField()}
+          {renderPhoneChannelPicker()}
+          <Button className="w-full" disabled={authenticating} type="submit">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            Send phone code
           </Button>
         </form>
       );
@@ -496,16 +666,47 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
       );
     }
 
+    if (loginStep === "login-otp") {
+      return (
+        <div className="space-y-4">
+          <OTPInput
+            destination={trimmedEmail}
+            error={errors.otp}
+            loading={loading}
+            value={otp}
+            onChange={setOtp}
+            onComplete={(code) => void handleOtpVerification(code)}
+            onResend={() => requestOtpCode("LOGIN")}
+          />
+          <label className="flex items-start gap-2 text-sm text-muted-foreground" htmlFor={rememberId}>
+            <input
+              id={rememberId}
+              checked={rememberDevice}
+              className="mt-1 h-4 w-4 rounded border-input accent-primary"
+              disabled={loading}
+              type="checkbox"
+              onChange={(event) => setRememberDevice(event.target.checked)}
+            />
+            <span>Remember this device</span>
+          </label>
+          <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void handleOtpVerification()}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            Verify and log in
+          </Button>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-4">
         <OTPInput
-          email={trimmedEmail}
+          destination={normalizedPhone}
           error={errors.otp}
           loading={loading}
           value={otp}
           onChange={setOtp}
-          onComplete={(code) => void handleOtpVerification(code)}
-          onResend={() => requestOtpCode("LOGIN")}
+          onComplete={(code) => void handlePhoneOtpVerification(code)}
+          onResend={() => requestPhoneOtpCode("LOGIN")}
         />
         <label className="flex items-start gap-2 text-sm text-muted-foreground" htmlFor={rememberId}>
           <input
@@ -518,7 +719,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
           />
           <span>Remember this device</span>
         </label>
-        <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void handleOtpVerification()}>
+        <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void handlePhoneOtpVerification()}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
           Verify and log in
         </Button>
@@ -531,15 +732,28 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
       return (
         <div className="space-y-4">
           <OTPInput
-            email={trimmedEmail}
+            destination={registerVerificationTarget === "phone" ? normalizedPhone : trimmedEmail}
             error={errors.otp}
             loading={loading}
             value={otp}
             onChange={setOtp}
-            onComplete={(code) => void handleOtpVerification(code)}
-            onResend={() => requestOtpCode("REGISTER")}
+            onComplete={(code) =>
+              registerVerificationTarget === "phone"
+                ? void handlePhoneOtpVerification(code)
+                : void handleOtpVerification(code)
+            }
+            onResend={() =>
+              registerVerificationTarget === "phone" ? requestPhoneOtpCode("REGISTER") : requestOtpCode("REGISTER")
+            }
           />
-          <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void handleOtpVerification()}>
+          <Button
+            className="w-full"
+            disabled={loading || otp.length !== 6}
+            type="button"
+            onClick={() =>
+              registerVerificationTarget === "phone" ? void handlePhoneOtpVerification() : void handleOtpVerification()
+            }
+          >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             Verify and create account
           </Button>
@@ -574,6 +788,10 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
             ) : null}
           </div>
           {renderEmailField()}
+          <div className="space-y-3">
+            {renderPhoneField(false, false)}
+            {renderPhoneChannelPicker()}
+          </div>
           {renderPasswordField("new-password")}
           <div className="space-y-2">
             <Label htmlFor="confirm">Confirm password</Label>
@@ -625,7 +843,11 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
                 setRegisterStep("register-form");
               } else if (loginStep === "login-method") {
                 setLoginStep("login-email");
+              } else if (loginStep === "login-phone-otp") {
+                setLoginStep("login-phone");
               } else if (loginStep === "login-email") {
+                setLoginStep("login-options");
+              } else if (loginStep === "login-phone") {
                 setLoginStep("login-options");
               } else {
                 setLoginStep("login-method");

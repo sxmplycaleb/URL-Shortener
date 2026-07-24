@@ -8,19 +8,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { validateEmail } from "@/lib/utils";
+import { normalizePhoneNumber, validateEmail, validatePhoneNumber } from "@/lib/utils";
 import { getApiErrorMessage } from "@/services/api";
-import { requestEmailOtp, requestPasswordReset, verifyEmailOtp } from "@/services/auth";
+import { requestEmailOtp, requestPasswordReset, requestPhoneOtp, verifyEmailOtp, verifyPhoneOtp } from "@/services/auth";
 
-type ResetMode = "link" | "otp";
-type OtpStep = "email" | "code";
+type ResetMode = "link" | "email-otp" | "phone-otp";
+type OtpStep = "target" | "code";
+type PhoneChannel = "sms" | "whatsapp";
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<ResetMode>("link");
-  const [otpStep, setOtpStep] = useState<OtpStep>("email");
+  const [otpStep, setOtpStep] = useState<OtpStep>("target");
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [phoneChannel, setPhoneChannel] = useState<PhoneChannel>("sms");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [otpError, setOtpError] = useState("");
@@ -31,6 +34,10 @@ export function ForgotPasswordPage() {
 
   function normalizedEmail() {
     return email.trim().toLowerCase();
+  }
+
+  function normalizedPhone() {
+    return normalizePhoneNumber(phone);
   }
 
   function validateSubmittedEmail() {
@@ -84,6 +91,38 @@ export function ForgotPasswordPage() {
     }
   }
 
+  async function requestPhoneResetOtp() {
+    if (loading) return;
+
+    const phoneError = validatePhoneNumber(phone);
+    if (phoneError) {
+      setError(phoneError);
+      setSuccess("");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setOtpError("");
+    setOtp("");
+    setSuccess("");
+
+    try {
+      const response = await requestPhoneOtp({
+        phone: normalizedPhone(),
+        purpose: "RESET_PASSWORD",
+        channel: phoneChannel,
+      });
+      const channelLabel = phoneChannel === "whatsapp" ? "WhatsApp" : "SMS";
+      setSuccess(response.otp ? `Development code: ${response.otp}` : `We sent a reset code by ${channelLabel}.`);
+      setOtpStep("code");
+    } catch (error) {
+      setError(getApiErrorMessage(error, "Unable to send a reset code. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function verifyResetOtp(code = otp) {
     if (loading || code.length !== 6) return;
 
@@ -113,6 +152,36 @@ export function ForgotPasswordPage() {
     }
   }
 
+  async function verifyPhoneResetOtp(code = otp) {
+    if (loading || code.length !== 6) return;
+
+    setLoading(true);
+    setError("");
+    setOtpError("");
+
+    try {
+      const response = await verifyPhoneOtp({
+        phone: normalizedPhone(),
+        purpose: "RESET_PASSWORD",
+        channel: phoneChannel,
+        otp: code,
+      });
+
+      if (!("resetUrl" in response) || !response.resetUrl) {
+        throw new Error("Phone reset OTP did not return a reset URL.");
+      }
+
+      const reset = new URL(response.resetUrl);
+      navigate(`${reset.pathname}${reset.search}`, {
+        state: { message: response.message ?? "Verification complete. Choose a new password." },
+      });
+    } catch (error) {
+      setOtpError(getApiErrorMessage(error, "Unable to verify that code. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function renderModeButton(nextMode: ResetMode, label: string) {
     return (
       <Button
@@ -126,6 +195,7 @@ export function ForgotPasswordPage() {
           setOtpError("");
           setSuccess("");
           setResetUrl("");
+          setOtpStep("target");
         }}
       >
         {label}
@@ -145,12 +215,13 @@ export function ForgotPasswordPage() {
         <Card className="shadow-soft">
           <CardHeader>
             <CardTitle>Reset your password</CardTitle>
-            <CardDescription>Choose a reset link or a one-time code sent to your email.</CardDescription>
+            <CardDescription>Choose a reset link, email code, or phone code.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 grid grid-cols-2 gap-2">
+            <div className="mb-4 grid grid-cols-3 gap-2">
               {renderModeButton("link", "Email link")}
-              {renderModeButton("otp", "One-time code")}
+              {renderModeButton("email-otp", "Email code")}
+              {renderModeButton("phone-otp", "Phone code")}
             </div>
             <div className="space-y-4" aria-describedby={error ? errorId : success ? successId : undefined}>
               {error ? <Alert id={errorId}>{error}</Alert> : null}
@@ -191,7 +262,7 @@ export function ForgotPasswordPage() {
                     Send reset link
                   </Button>
                 </form>
-              ) : otpStep === "email" ? (
+              ) : mode === "email-otp" && otpStep === "target" ? (
                 <form
                   className="space-y-4"
                   noValidate
@@ -219,18 +290,60 @@ export function ForgotPasswordPage() {
                     Send reset code
                   </Button>
                 </form>
+              ) : mode === "phone-otp" && otpStep === "target" ? (
+                <form
+                  className="space-y-4"
+                  noValidate
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void requestPhoneResetOtp();
+                  }}
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="otp-phone">Phone number</Label>
+                    <Input
+                      id="otp-phone"
+                      name="phone"
+                      type="tel"
+                      value={phone}
+                      autoComplete="tel"
+                      disabled={loading}
+                      inputMode="tel"
+                      placeholder="+15551234567"
+                      required
+                      onChange={(event) => setPhone(event.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button disabled={loading} type="button" variant={phoneChannel === "sms" ? "default" : "outline"} onClick={() => setPhoneChannel("sms")}>
+                      SMS
+                    </Button>
+                    <Button disabled={loading} type="button" variant={phoneChannel === "whatsapp" ? "default" : "outline"} onClick={() => setPhoneChannel("whatsapp")}>
+                      WhatsApp
+                    </Button>
+                  </div>
+                  <Button className="w-full" disabled={loading} type="submit">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                    Send reset code
+                  </Button>
+                </form>
               ) : (
                 <div className="space-y-4">
                   <OTPInput
-                    email={normalizedEmail()}
+                    destination={mode === "phone-otp" ? normalizedPhone() : normalizedEmail()}
                     error={otpError}
                     loading={loading}
                     value={otp}
                     onChange={setOtp}
-                    onComplete={(code) => void verifyResetOtp(code)}
-                    onResend={requestResetOtp}
+                    onComplete={(code) => (mode === "phone-otp" ? void verifyPhoneResetOtp(code) : void verifyResetOtp(code))}
+                    onResend={mode === "phone-otp" ? requestPhoneResetOtp : requestResetOtp}
                   />
-                  <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void verifyResetOtp()}>
+                  <Button
+                    className="w-full"
+                    disabled={loading || otp.length !== 6}
+                    type="button"
+                    onClick={() => (mode === "phone-otp" ? void verifyPhoneResetOtp() : void verifyResetOtp())}
+                  >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                     Verify reset code
                   </Button>

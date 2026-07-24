@@ -10,6 +10,7 @@ import { connectDatabase, disconnectDatabase } from "../config/database.js";
 import { getEnv } from "../config/env.js";
 import Click from "../models/Click.js";
 import RefreshToken from "../models/RefreshToken.js";
+import OTP from "../models/OTP.js";
 import URLModel from "../models/URL.js";
 import User from "../models/User.js";
 
@@ -25,7 +26,7 @@ let app;
 let mongoServer;
 
 async function syncModelIndexes() {
-  await Promise.all([User.syncIndexes(), URLModel.syncIndexes(), Click.syncIndexes(), RefreshToken.syncIndexes()]);
+  await Promise.all([User.syncIndexes(), URLModel.syncIndexes(), Click.syncIndexes(), RefreshToken.syncIndexes(), OTP.syncIndexes()]);
 }
 
 async function registerAndLogin(email = "api@example.com") {
@@ -52,6 +53,12 @@ describe("backend API", () => {
     process.env.RATE_LIMIT_MAX = "1000";
     process.env.AUTH_RATE_LIMIT_MAX = "1000";
     process.env.PASSWORD_RATE_LIMIT_MAX = "1000";
+    process.env.OTP_VERIFICATION_RATE_LIMIT_MAX = "5";
+    process.env.BREVO_API_KEY = "";
+    process.env.BREVO_SENDER_EMAIL = "";
+    process.env.TWILIO_ACCOUNT_SID = "";
+    process.env.TWILIO_AUTH_TOKEN = "";
+    process.env.TWILIO_VERIFY_SERVICE_SID = "";
     process.env.CLIENT_URL = "http://localhost:5173";
     process.env.SHORT_URL_BASE = "https://short.ly";
     process.env.FIREBASE_PROJECT_ID = "url-shortener-test";
@@ -71,7 +78,7 @@ describe("backend API", () => {
   }, 900_000);
 
   beforeEach(async () => {
-    await Promise.all([Click.deleteMany({}), URLModel.deleteMany({}), RefreshToken.deleteMany({}), User.deleteMany({})]);
+    await Promise.all([Click.deleteMany({}), URLModel.deleteMany({}), RefreshToken.deleteMany({}), OTP.deleteMany({}), User.deleteMany({})]);
     verifyGoogleIdTokenMock.mockReset();
   });
 
@@ -394,6 +401,76 @@ describe("backend API", () => {
     expect(oldLogin.status).toBe(401);
     expect(newLogin.status).toBe(200);
     expect(reuse.status).toBe(400);
+  });
+
+  it("supports phone OTP registration, login, and password reset", async () => {
+    const phoneRequest = await request(app).post("/api/auth/phone/request").send({
+      phone: "+1 (555) 123-4567",
+      purpose: "REGISTER",
+      channel: "sms",
+    });
+
+    expect(phoneRequest.status).toBe(202);
+    expect(phoneRequest.body.phone).toBeUndefined();
+    expect(phoneRequest.body.otp).toMatch(/^\d{6}$/);
+
+    const phoneVerify = await request(app).post("/api/auth/phone/verify").send({
+      phone: "+15551234567",
+      purpose: "REGISTER",
+      otp: phoneRequest.body.otp,
+    });
+
+    expect(phoneVerify.status).toBe(200);
+    expect(phoneVerify.body).toMatchObject({
+      verified: true,
+      phone: "+15551234567",
+      purpose: "REGISTER",
+    });
+
+    const registerResponse = await request(app).post("/api/auth/register").send({
+      name: "Phone User",
+      email: "phone@example.com",
+      password: "Password123!",
+      phone: "+15551234567",
+    });
+
+    expect(registerResponse.status).toBe(201);
+    expect(registerResponse.body.user).toMatchObject({
+      email: "phone@example.com",
+      phone: "+15551234567",
+      phoneVerified: true,
+    });
+
+    const loginRequest = await request(app).post("/api/auth/phone/request").send({
+      phone: "+15551234567",
+      purpose: "LOGIN",
+      channel: "whatsapp",
+    });
+    expect(loginRequest.status).toBe(202);
+
+    const loginVerify = await request(app).post("/api/auth/phone/verify").send({
+      phone: "+15551234567",
+      purpose: "LOGIN",
+      otp: loginRequest.body.otp,
+    });
+    expect(loginVerify.status).toBe(200);
+    expect(loginVerify.body.accessToken).toEqual(expect.any(String));
+    expect(loginVerify.body.user.email).toBe("phone@example.com");
+
+    const resetRequest = await request(app).post("/api/auth/phone/request").send({
+      phone: "+15551234567",
+      purpose: "RESET_PASSWORD",
+      channel: "sms",
+    });
+    expect(resetRequest.status).toBe(202);
+
+    const resetVerify = await request(app).post("/api/auth/phone/verify").send({
+      phone: "+15551234567",
+      purpose: "RESET_PASSWORD",
+      otp: resetRequest.body.otp,
+    });
+    expect(resetVerify.status).toBe(200);
+    expect(resetVerify.body.resetUrl).toEqual(expect.stringContaining("/reset-password?token="));
   });
 
   it("returns analytics for the authenticated URL owner", async () => {

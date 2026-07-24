@@ -1,6 +1,8 @@
 import {
   createPasswordResetFromOtp,
+  createPasswordResetFromPhoneOtp,
   loginUser,
+  loginUserWithPhoneOtp,
   loginUserWithOtp,
   loginWithGoogle,
   logoutUser,
@@ -96,11 +98,34 @@ export async function verifyOtp(request, response) {
     return;
   }
 
+  if (payload.purpose === "LOGIN" && payload.phone) {
+    const authPayload = await loginUserWithPhoneOtp({
+      phone: payload.phone,
+      rememberDevice: request.validatedBody.rememberDevice,
+    });
+    sendAuthResponse(response, 200, authPayload);
+    return;
+  }
+
   if (payload.purpose === "RESET_PASSWORD" && payload.email) {
     const resetPayload = await createPasswordResetFromOtp({ email: payload.email });
     response.json({ ...payload, ...resetPayload });
     return;
   }
 
+  if (payload.purpose === "RESET_PASSWORD" && payload.phone) {
+    const resetPayload = await createPasswordResetFromPhoneOtp({ phone: payload.phone });
+    response.json({ ...payload, ...resetPayload });
+    return;
+  }
+
   response.json(payload);
+}
+
+export async function requestPhoneOtp(request, response) {
+  return requestOtp(request, response);
+}
+
+export async function verifyPhoneOtp(request, response) {
+  return verifyOtp(request, response);
 }

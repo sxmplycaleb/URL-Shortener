@@ -9,6 +9,7 @@ import RefreshToken from "../models/RefreshToken.js";
 import { verifyGoogleIdToken } from "./firebaseAdmin.js";
 import OTP from "../models/OTP.js";
 import { BrevoEmailProvider } from "./otpProviders.js";
+import { normalizePhoneNumber } from "../utils/phone.js";
 
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -29,7 +30,10 @@ function publicUser(user) {
       email: user.provider === "email" || Boolean(user.password),
       google: Boolean(user.googleId),
       googleLinkedAt: user.googleLinkedAt,
+      phone: Boolean(user.phone),
     },
+    phone: user.phone,
+    phoneVerified: user.phoneVerified,
     accountSettings: {
       notificationsEnabled: user.accountSettings?.notificationsEnabled ?? true,
     },
@@ -63,9 +67,10 @@ function googleTokenErrorMessage(error) {
   return "Google sign-in could not be verified. Please try again.";
 }
 
-export async function registerUser({ name, email, password }) {
+export async function registerUser({ name, email, password, phone }) {
   try {
     const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedPhone = normalizePhoneNumber(phone);
     const verifiedRegistrationOtp = await OTP.findOne({
       email: normalizedEmail,
       purpose: "REGISTER",
@@ -73,12 +78,28 @@ export async function registerUser({ name, email, password }) {
       verifiedAt: { $ne: null },
       expiresAt: { $gt: new Date() },
     });
+    const verifiedPhoneRegistrationOtp = normalizedPhone
+      ? await OTP.findOne({
+          phone: normalizedPhone,
+          purpose: "REGISTER",
+          used: true,
+          verifiedAt: { $ne: null },
+          expiresAt: { $gt: new Date() },
+        })
+      : null;
+
+    if (normalizedPhone && !verifiedPhoneRegistrationOtp) {
+      throw new AppError("Phone number must be verified before registration.", 400);
+    }
+
     const user = await User.create({
       name,
       email: normalizedEmail,
       password,
+      phone: normalizedPhone ?? undefined,
+      phoneVerified: Boolean(verifiedPhoneRegistrationOtp),
       emailVerified: Boolean(verifiedRegistrationOtp),
-      isVerified: Boolean(verifiedRegistrationOtp),
+      isVerified: Boolean(verifiedRegistrationOtp || verifiedPhoneRegistrationOtp),
     });
     const tokens = await issueTokenPair(user);
 
@@ -88,7 +109,7 @@ export async function registerUser({ name, email, password }) {
     };
   } catch (error) {
     if (error.code === 11000) {
-      throw new AppError("An account with that email already exists.", 409);
+      throw new AppError("An account with that email or phone number already exists.", 409);
     }
 
     throw error;
@@ -269,6 +290,25 @@ export async function loginUserWithOtp({ email }) {
   };
 }
 
+export async function loginUserWithPhoneOtp({ phone }) {
+  const normalizedPhone = normalizePhoneNumber(phone);
+  const user = await User.findOne({ phone: normalizedPhone });
+
+  if (!user) {
+    throw new AppError("No account exists for that phone number.", 404);
+  }
+
+  user.lastLogin = new Date();
+  await user.save({ validateModifiedOnly: true });
+
+  const tokens = await issueTokenPair(user);
+
+  return {
+    user: publicUser(user),
+    ...tokens,
+  };
+}
+
 export async function createPasswordResetFromOtp({ email }) {
   const user = await User.findOne({ email: email?.trim().toLowerCase() }).select(
     "+passwordResetTokenHash +passwordResetExpiresAt",
@@ -276,6 +316,27 @@ export async function createPasswordResetFromOtp({ email }) {
 
   if (!user) {
     throw new AppError("No account exists for that email address.", 404);
+  }
+
+  const token = crypto.randomBytes(PASSWORD_RESET_TOKEN_BYTES).toString("hex");
+  user.passwordResetTokenHash = hashToken(token);
+  user.passwordResetExpiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS);
+  await user.save({ validateModifiedOnly: true });
+
+  return {
+    message: "Verification complete. Choose a new password to finish resetting your account.",
+    resetUrl: buildPasswordResetUrl(token),
+  };
+}
+
+export async function createPasswordResetFromPhoneOtp({ phone }) {
+  const normalizedPhone = normalizePhoneNumber(phone);
+  const user = await User.findOne({ phone: normalizedPhone }).select(
+    "+passwordResetTokenHash +passwordResetExpiresAt",
+  );
+
+  if (!user) {
+    throw new AppError("No account exists for that phone number.", 404);
   }
 
   const token = crypto.randomBytes(PASSWORD_RESET_TOKEN_BYTES).toString("hex");

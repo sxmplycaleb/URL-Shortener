@@ -62,6 +62,23 @@ export function validateEmail(value: string) {
   return "";
 }
 
+export function normalizePhoneNumber(value: string) {
+  const phone = value.replace(/[\s().-]/g, "").trim();
+  return /^\+[1-9]\d{7,14}$/.test(phone) ? phone : "";
+}
+
+export function validatePhoneNumber(value: string) {
+  if (!value.trim()) {
+    return "Phone number is required.";
+  }
+
+  if (!normalizePhoneNumber(value)) {
+    return "Enter a valid international phone number, like +15551234567.";
+  }
+
+  return "";
+}
+
 export interface PasswordRequirement {
   key: string;
   label: string;

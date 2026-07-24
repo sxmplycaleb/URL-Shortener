@@ -9,11 +9,14 @@ export interface AuthUser {
   emailVerified: boolean;
   provider: "email" | "google";
   avatar?: string;
+  phone?: string;
+  phoneVerified?: boolean;
   lastLogin?: string;
   authProviders?: {
     email: boolean;
     google: boolean;
     googleLinkedAt?: string;
+    phone?: boolean;
   };
   accountSettings?: {
     notificationsEnabled: boolean;
@@ -32,6 +35,7 @@ export interface RegisterRequest {
   name: string;
   email: string;
   password: string;
+  phone?: string;
 }
 
 export interface LoginRequest {
@@ -54,11 +58,18 @@ export interface ResetPasswordRequest {
 }
 
 export type OtpPurpose = "LOGIN" | "REGISTER" | "RESET_PASSWORD";
+export type PhoneOtpChannel = "sms" | "whatsapp";
 
 export interface OtpRequest {
   email: string;
   purpose: OtpPurpose;
   channel?: "email";
+}
+
+export interface PhoneOtpRequest {
+  phone: string;
+  purpose: OtpPurpose;
+  channel: PhoneOtpChannel;
 }
 
 export interface OtpRequestResponse {
@@ -73,6 +84,11 @@ export interface OtpRequestResponse {
 }
 
 export interface OtpVerifyRequest extends OtpRequest {
+  otp: string;
+  rememberDevice?: boolean;
+}
+
+export interface PhoneOtpVerifyRequest extends PhoneOtpRequest {
   otp: string;
   rememberDevice?: boolean;
 }
@@ -118,4 +134,12 @@ export function requestEmailOtp(body: OtpRequest) {
 
 export function verifyEmailOtp(body: OtpVerifyRequest) {
   return apiRequest<AuthResponse | OtpVerifyResponse, OtpVerifyRequest>("/api/auth/otp/verify", body);
+}
+
+export function requestPhoneOtp(body: PhoneOtpRequest) {
+  return apiRequest<OtpRequestResponse, PhoneOtpRequest>("/api/auth/phone/request", body);
+}
+
+export function verifyPhoneOtp(body: PhoneOtpVerifyRequest) {
+  return apiRequest<AuthResponse | OtpVerifyResponse, PhoneOtpVerifyRequest>("/api/auth/phone/verify", body);
 }

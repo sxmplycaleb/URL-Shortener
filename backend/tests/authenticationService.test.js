@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { connectDatabase, disconnectDatabase } from "../config/database.js";
 import OTP from "../models/OTP.js";
 import { AuthenticationService } from "../services/authenticationService.js";
-import { BrevoEmailProvider } from "../services/otpProviders.js";
+import { BrevoEmailProvider, TwilioVerifyProvider } from "../services/otpProviders.js";
 
 let mongoServer;
 let now;
@@ -27,6 +27,7 @@ function createService(overrides = {}) {
     },
     phoneProvider: {
       sendOtp: vi.fn().mockResolvedValue({ provider: "twilio_verify", delivered: true }),
+      verifyOtp: vi.fn().mockResolvedValue({ provider: "twilio_verify", verified: false }),
     },
     auditLogger: {
       info: vi.fn(),
@@ -131,6 +132,35 @@ describe("AuthenticationService OTP foundation", () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
+  it("delegates configured phone verification checks to Twilio Verify", async () => {
+    const phoneProvider = {
+      sendOtp: vi.fn().mockResolvedValue({ provider: "twilio_verify", delivered: true }),
+      verifyOtp: vi.fn().mockResolvedValue({ provider: "twilio_verify", verified: true }),
+    };
+    const service = createService();
+    service.phoneProvider = phoneProvider;
+
+    await service.requestOtp({ phone: "+15551234567", purpose: "LOGIN", channel: "whatsapp" });
+
+    await expect(
+      service.verifyOtp({
+        phone: "+15551234567",
+        purpose: "LOGIN",
+        otp: "000000",
+      }),
+    ).resolves.toMatchObject({
+      verified: true,
+      phone: "+15551234567",
+      purpose: "LOGIN",
+    });
+
+    expect(phoneProvider.verifyOtp).toHaveBeenCalledWith({
+      phone: "+15551234567",
+      otp: "000000",
+      purpose: "LOGIN",
+    });
+  });
+
   it("rejects expired OTPs", async () => {
     const service = createService();
 
@@ -199,6 +229,44 @@ describe("AuthenticationService OTP foundation", () => {
     await expect(
       service.verifyOtp({ email: "verify-limited@example.com", purpose: "LOGIN", otp: "000000" }),
     ).rejects.toMatchObject({ statusCode: 429 });
+  });
+});
+
+describe("TwilioVerifyProvider", () => {
+  it("requests and verifies OTPs through Twilio Verify", async () => {
+    const fetchImplementation = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue({ status: "approved" }) });
+    const provider = new TwilioVerifyProvider({
+      accountSid: "AC123",
+      authToken: "token",
+      serviceSid: "VA123",
+      fetchImplementation,
+    });
+
+    await expect(
+      provider.sendOtp({
+        phone: "+15551234567",
+        otp: "123456",
+        channel: "sms",
+        purpose: "LOGIN",
+      }),
+    ).resolves.toEqual({ provider: "twilio_verify", channel: "sms", delivered: true });
+
+    await expect(provider.verifyOtp({ phone: "+15551234567", otp: "123456" })).resolves.toEqual({
+      provider: "twilio_verify",
+      verified: true,
+    });
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      "https://verify.twilio.com/v2/Services/VA123/Verifications",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      "https://verify.twilio.com/v2/Services/VA123/VerificationCheck",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 });
 
