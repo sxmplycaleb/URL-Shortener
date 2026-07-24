@@ -43,7 +43,7 @@ export async function resolveRedirect(shortCode, request) {
     referrer: request.get("referer") ?? request.get("referrer"),
   });
 
-  await URLModel.updateOne({ _id: url._id }, { $inc: { clickCount: 1 } });
+  await URLModel.updateOne({ _id: url._id }, { $inc: { clickCount: 1 }, $set: { lastClickedAt: new Date() } });
 
   return url.originalUrl;
 }

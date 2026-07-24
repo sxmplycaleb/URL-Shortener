@@ -47,6 +47,11 @@ const urlSchema = new Schema(
         message: "Custom alias must start with a letter or number and only contain letters, numbers, underscores, and hyphens.",
       },
     },
+    title: {
+      type: String,
+      trim: true,
+      maxlength: [140, "Title cannot exceed 140 characters."],
+    },
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -70,6 +75,30 @@ const urlSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    isFavorite: {
+      type: Boolean,
+      default: false,
+    },
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+    hasQrCode: {
+      type: Boolean,
+      default: false,
+    },
+    shareCount: {
+      type: Number,
+      default: 0,
+      min: [0, "Share count cannot be negative."],
+    },
+    lastClickedAt: {
+      type: Date,
+    },
+    tags: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -79,6 +108,7 @@ const urlSchema = new Schema(
 urlSchema.index({ shortCode: 1 }, { unique: true });
 urlSchema.index({ customAlias: 1 }, { unique: true, sparse: true });
 urlSchema.index({ user: 1, createdAt: -1 });
+urlSchema.index({ user: 1, isFavorite: 1, isArchived: 1 });
 urlSchema.index({ createdAt: -1 });
 urlSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, partialFilterExpression: { expiresAt: { $type: "date" } } });
 urlSchema.index({ isActive: 1, expiresAt: 1 });

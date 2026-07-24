@@ -576,6 +576,61 @@ describe("backend API", () => {
     expect(getResponse.body.url.shortCode).toBe("article1");
   });
 
+  it("persists advanced URL management metadata", async () => {
+    const auth = await registerAndLogin("advanced-url@example.com");
+
+    const createResponse = await request(app)
+      .post("/api/urls")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        originalUrl: "https://example.com/advanced",
+        customAlias: "advanced1",
+        title: "Advanced campaign",
+      });
+
+    expect(createResponse.status).toBe(201);
+    expect(createResponse.body.url).toMatchObject({
+      title: "Advanced campaign",
+      isFavorite: false,
+      isArchived: false,
+      hasQrCode: false,
+      shareCount: 0,
+      tags: [],
+    });
+
+    const updateResponse = await request(app)
+      .put(`/api/urls/${createResponse.body.url.id}`)
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        isFavorite: true,
+        isArchived: true,
+        hasQrCode: true,
+        shareCount: 2,
+        tags: ["launch", "social"],
+      });
+
+    expect(updateResponse.status).toBe(200);
+    expect(updateResponse.body.url).toMatchObject({
+      title: "Advanced campaign",
+      isFavorite: true,
+      isArchived: true,
+      hasQrCode: true,
+      shareCount: 2,
+      tags: ["launch", "social"],
+    });
+
+    const listResponse = await request(app).get("/api/urls").set("Authorization", `Bearer ${auth.accessToken}`);
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body.urls[0]).toMatchObject({
+      isFavorite: true,
+      isArchived: true,
+      hasQrCode: true,
+      shareCount: 2,
+      tags: ["launch", "social"],
+    });
+  });
+
   it("redirects active short URLs and tracks clicks", async () => {
     const auth = await registerAndLogin("redirect@example.com");
     const createResponse = await request(app)
