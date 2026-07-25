@@ -7,18 +7,12 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "@/App";
 import "@/styles/globals.css";
 
-const isProduction = import.meta.env.PROD;
-
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <App />
-      {isProduction ? (
-        <>
-          <Analytics />
-          <SpeedInsights />
-        </>
-      ) : null}
+      <Analytics />
+      <SpeedInsights />
     </BrowserRouter>
   </React.StrictMode>,
 );
