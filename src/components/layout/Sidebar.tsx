@@ -73,7 +73,7 @@ export function Sidebar({ collapsed, open = false, user, onClose, onCollapsedCha
     <>
       <aside
         className={cn(
-          "hidden shrink-0 border-r bg-card/50 p-4 transition-[width] duration-300 ease-out lg:block",
+          "sticky top-[4.25rem] hidden h-[calc(100vh-4.25rem)] shrink-0 border-r bg-background/80 p-3 transition-[width] duration-300 ease-out lg:block",
           collapsed ? "w-20" : "w-64",
         )}
         aria-label="Dashboard sidebar"
@@ -100,7 +100,7 @@ export function Sidebar({ collapsed, open = false, user, onClose, onCollapsedCha
               ref={mobilePanelRef}
               aria-labelledby={labelId}
               aria-modal="true"
-              className="flex h-full w-72 max-w-[85vw] flex-col border-r bg-card p-4 shadow-panel"
+              className="flex h-full w-80 max-w-[88vw] flex-col border-r bg-background p-4 shadow-panel"
               role="dialog"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
@@ -153,7 +153,7 @@ function SidebarContent({
 
   return (
     <div className="flex h-full flex-col">
-      <div className={cn("mb-8 hidden items-center lg:flex", collapsed ? "justify-center" : "justify-between")}>
+      <div className={cn("mb-6 hidden min-h-11 items-center lg:flex", collapsed ? "flex-col justify-center gap-2" : "justify-between")}>
         {collapsed ? (
           <Tooltip label="Shortly">
             <BrandLogo className="font-semibold" to="/dashboard" showText={false} />
@@ -163,7 +163,7 @@ function SidebarContent({
         )}
         <Button
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={cn(collapsed ? "mt-4" : "")}
+          className="rounded-full transition-transform duration-200 ease-out hover:scale-105"
           size="icon"
           variant="ghost"
           onClick={() => onCollapsedChange?.(!collapsed)}
@@ -171,9 +171,9 @@ function SidebarContent({
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
-      <div className={cn("mb-6 rounded-md border bg-background p-3", collapsed && !mobile ? "px-2" : "")}>
+      <div className={cn("mb-6 rounded-lg border bg-card p-3 shadow-xs", collapsed && !mobile ? "px-2" : "")}>
         <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-accent text-sm font-bold text-accent-foreground">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-1 ring-border">
             {initials || "U"}
           </span>
           <div className={cn("min-w-0 transition-opacity", collapsed && !mobile ? "sr-only" : "")}>
@@ -182,21 +182,44 @@ function SidebarContent({
           </div>
         </div>
       </div>
-      <nav className="space-y-1" aria-label="Dashboard navigation">
-        {items.map((item) => (
-          <SidebarLink
-            key={item.href}
-            collapsed={collapsed && !mobile}
-            href={item.href}
-            icon={item.icon}
-            label={item.label}
-            onNavigate={onNavigate}
-          />
-        ))}
+      <nav className="space-y-6" aria-label="Dashboard navigation">
+        <div>
+          <SidebarSectionLabel collapsed={collapsed && !mobile}>Workspace</SidebarSectionLabel>
+          <div className="space-y-1.5">
+            {items.slice(0, 2).map((item) => (
+              <SidebarLink
+                key={item.href}
+                collapsed={collapsed && !mobile}
+                href={item.href}
+                icon={item.icon}
+                label={item.label}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        </div>
+        <div>
+          <SidebarSectionLabel collapsed={collapsed && !mobile}>Administration</SidebarSectionLabel>
+          <div className="space-y-1.5">
+            {items.slice(2).map((item) => (
+              <SidebarLink
+                key={item.href}
+                collapsed={collapsed && !mobile}
+                href={item.href}
+                icon={item.icon}
+                label={item.label}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        </div>
       </nav>
       <Button
         aria-label="Logout"
-        className={cn("mt-auto", collapsed && !mobile ? "justify-center px-0" : "justify-start")}
+        className={cn(
+          "mt-auto rounded-full text-muted-foreground transition-all duration-200 ease-out hover:text-foreground",
+          collapsed && !mobile ? "justify-center px-0" : "justify-start",
+        )}
         variant="ghost"
         onClick={onLogout}
       >
@@ -204,6 +227,14 @@ function SidebarContent({
         <span className={cn(collapsed && !mobile ? "sr-only" : "")}>Logout</span>
       </Button>
     </div>
+  );
+}
+
+function SidebarSectionLabel({ children, collapsed }: { children: string; collapsed: boolean }) {
+  return (
+    <p className={cn("mb-2 px-3 text-xs font-semibold uppercase text-muted-foreground", collapsed ? "sr-only" : "")}>
+      {children}
+    </p>
   );
 }
 
@@ -226,9 +257,11 @@ function SidebarLink({
       aria-label={collapsed || label === "Dashboard Settings" ? accessibleLabel : undefined}
       className={({ isActive }) =>
         cn(
-          "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
+          "group flex min-h-11 items-center gap-3 rounded-full px-3 text-sm font-medium transition-all duration-200 ease-out",
           collapsed ? "justify-center px-0" : "",
-          isActive ? "bg-primary text-primary-foreground shadow-soft" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          isActive
+            ? "bg-primary text-primary-foreground shadow-soft"
+            : "text-muted-foreground hover:translate-x-0.5 hover:bg-muted hover:text-foreground",
         )
       }
       to={href}

@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 
 interface CommandPaletteProps {
   onLogout: () => void;
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
 }
 
 interface CommandItem {
@@ -20,8 +22,8 @@ interface CommandItem {
   action: () => void;
 }
 
-export function CommandPalette({ onLogout }: CommandPaletteProps) {
-  const [open, setOpen] = useState(false);
+export function CommandPalette({ onLogout, onOpenChange, open: controlledOpen }: CommandPaletteProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -29,6 +31,14 @@ export function CommandPalette({ onLogout }: CommandPaletteProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = useCallback(
+    (nextOpen: boolean) => {
+      onOpenChange?.(nextOpen);
+      if (controlledOpen === undefined) setUncontrolledOpen(nextOpen);
+    },
+    [controlledOpen, onOpenChange],
+  );
 
   const commands = useMemo<CommandItem[]>(
     () => [
@@ -124,7 +134,7 @@ export function CommandPalette({ onLogout }: CommandPaletteProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [setOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -145,7 +155,7 @@ export function CommandPalette({ onLogout }: CommandPaletteProps) {
       localStorage.setItem("shortly.commandPalette.recent", JSON.stringify(nextRecent));
       setOpen(false);
     },
-    [recentIds],
+    [recentIds, setOpen],
   );
 
   function handlePaletteKeyDown(event: ReactKeyboardEvent) {
