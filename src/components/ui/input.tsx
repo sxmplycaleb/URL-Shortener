@@ -1,18 +1,37 @@
 import * as React from "react";
+import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
+type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  loading?: boolean;
+};
 
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, ...props }, ref) => (
-  <input
-    ref={ref}
-    className={cn(
-      "flex min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
-      className,
-    )}
-    {...props}
-  />
-));
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, disabled, loading = false, ...props }, ref) => {
+    const input = (
+      <input
+        ref={ref}
+        className={cn(
+          "flex min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs transition-colors placeholder:text-muted-foreground hover:border-primary/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:bg-muted/70 disabled:opacity-60",
+          loading ? "pr-10" : "",
+          className,
+        )}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
+        {...props}
+      />
+    );
+
+    if (!loading) return input;
+
+    return (
+      <span className="relative block">
+        {input}
+        <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden="true" />
+      </span>
+    );
+  },
+);
 
 Input.displayName = "Input";

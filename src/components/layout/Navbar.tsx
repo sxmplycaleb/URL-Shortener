@@ -4,6 +4,7 @@ import { Bell, ChevronDown, Command, LogOut, Menu, Search, Settings, Shuffle, Us
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/services/auth";
@@ -45,12 +46,7 @@ export function Navbar({
             <NavLink
               key={item.href}
               className={({ isActive }) =>
-                cn(
-                  "rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 ease-out",
-                  isActive
-                    ? "bg-card text-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
-                )
+                `rounded-md px-3 py-2 text-sm font-medium ${isActive ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`
               }
               to={item.href}
             >
@@ -152,7 +148,7 @@ function ProfileDropdown({
         variant="ghost"
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/10 text-xs font-bold text-primary ring-1 ring-border">
+        <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-md bg-accent text-xs font-bold text-accent-foreground">
           {user.avatar ? <img className="h-full w-full object-cover" src={user.avatar} alt="" /> : initials || "U"}
         </span>
         <span className="hidden min-w-0 text-left lg:block">
@@ -169,7 +165,7 @@ function ProfileDropdown({
           aria-label="Profile menu"
         >
           <div className="mb-2 flex items-center gap-3 rounded-md bg-muted/70 p-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-primary/10 text-sm font-bold text-primary ring-1 ring-border">
+            <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md bg-accent text-sm font-bold text-accent-foreground">
               {user.avatar ? <img className="h-full w-full object-cover" src={user.avatar} alt="" /> : initials || "U"}
             </span>
             <div className="min-w-0">
@@ -199,7 +195,7 @@ function MenuButton({
 }) {
   return (
     <button
-      className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-muted-foreground transition-all duration-200 ease-out hover:bg-muted hover:text-foreground hover:translate-x-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       role="menuitem"
       type="button"
       onClick={onClick}
