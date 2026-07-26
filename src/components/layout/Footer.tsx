@@ -35,16 +35,20 @@ const footerSections = [
 
 interface FooterProps {
   compact?: boolean;
+  variant?: "default" | "landing";
 }
 
-export function Footer({ compact = false }: FooterProps) {
+export function Footer({ compact = false, variant = "default" }: FooterProps) {
   const year = new Date().getFullYear();
+  const landing = variant === "landing";
 
   return (
-    <footer className="mt-auto border-t bg-background/80 text-sm text-muted-foreground">
+    <footer className={landing ? "mt-auto border-t bg-card/70 text-sm text-muted-foreground" : "mt-auto border-t bg-background/80 text-sm text-muted-foreground"}>
       <div
         className={
-          compact
+          landing
+            ? "mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_0.8fr_0.9fr_1fr_1fr] lg:px-8"
+            : compact
             ? "mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.3fr_0.8fr_0.9fr_1fr_0.8fr] lg:px-8 xl:px-10"
             : "mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_0.8fr_0.9fr_1fr_1fr] lg:px-8"
         }
@@ -62,7 +66,7 @@ export function Footer({ compact = false }: FooterProps) {
             <ul className="space-y-2">
               {section.links.map((link) => (
                 <li key={link.href}>
-                  <Link className="transition-colors hover:text-foreground" to={link.href}>
+                  <Link className="transition-colors duration-200 ease-out hover:text-foreground" to={link.href}>
                     {link.label}
                   </Link>
                 </li>
@@ -73,7 +77,7 @@ export function Footer({ compact = false }: FooterProps) {
 
         <address className="space-y-3 not-italic">
           <h2 className="text-sm font-semibold text-foreground">Contact</h2>
-          <a className="flex items-center gap-2 transition-colors hover:text-foreground" href={`tel:${CONTACT_PHONE}`}>
+          <a className="flex items-center gap-2 transition-colors duration-200 ease-out hover:text-foreground" href={`tel:${CONTACT_PHONE}`}>
             <Phone className="h-4 w-4" aria-hidden="true" />
             {CONTACT_PHONE}
           </a>
@@ -115,7 +119,7 @@ export function Footer({ compact = false }: FooterProps) {
         </nav>
       </div>
 
-      <div className="border-t bg-background/60">
+      <div className={landing ? "border-t bg-background/70" : "border-t bg-background/60"}>
         <div
           className={
             compact
