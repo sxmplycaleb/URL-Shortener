@@ -1,5 +1,5 @@
-import { ClipboardEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ClipboardEvent, KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +33,10 @@ export function OTPInput({
 }: OTPInputProps) {
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
   const [secondsRemaining, setSecondsRemaining] = useState(RESEND_SECONDS);
+  const errorId = useId();
   const digits = useMemo(() => value.padEnd(OTP_LENGTH, " ").slice(0, OTP_LENGTH).split(""), [value]);
   const canResend = secondsRemaining === 0 && !loading;
+  const isComplete = value.length === OTP_LENGTH && !error;
 
   useEffect(() => {
     if (autoFocus) {
@@ -132,6 +134,7 @@ export function OTPInput({
     <div className="space-y-4">
       <fieldset className="space-y-3" disabled={loading}>
         <legend className="text-sm font-medium text-foreground">Enter the 6-digit code sent to {destination ?? email}</legend>
+        <p className="text-sm text-muted-foreground">Paste the full code or type each digit. Verification starts automatically when all six digits are filled.</p>
         <div className="grid grid-cols-6 gap-2" role="group" aria-label="One-time verification code">
           {digits.map((digit, index) => (
             <Input
@@ -140,10 +143,13 @@ export function OTPInput({
                 inputsRef.current[index] = input;
               }}
               aria-label={`Digit ${index + 1}`}
+              aria-describedby={error ? errorId : undefined}
               aria-invalid={error ? "true" : undefined}
               autoComplete={index === 0 ? "one-time-code" : "off"}
               className={cn(
-                "aspect-square min-h-0 p-0 text-center text-lg font-semibold sm:text-xl",
+                "aspect-square min-h-0 bg-card/80 p-0 text-center text-lg font-semibold transition-transform duration-base ease-standard sm:text-xl",
+                digit.trim() ? "border-primary/60 shadow-xs" : "",
+                loading ? "animate-pulse" : "",
                 error ? "border-destructive focus-visible:ring-destructive" : "",
               )}
               inputMode="numeric"
@@ -159,11 +165,17 @@ export function OTPInput({
         </div>
       </fieldset>
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-sm text-destructive" id={errorId} role="alert">
           {error}
         </p>
       ) : null}
-      <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      {isComplete ? (
+        <p className="flex items-center gap-2 text-sm text-success" role="status">
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          Code complete. Verifying now.
+        </p>
+      ) : null}
+      <div className="flex flex-col gap-2 rounded-md border border-border bg-secondary/60 p-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span aria-live="polite">
           {secondsRemaining > 0 ? `You can request another code in ${secondsRemaining}s.` : "You can request a new code now."}
         </span>

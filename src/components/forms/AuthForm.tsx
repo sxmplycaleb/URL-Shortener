@@ -1,11 +1,13 @@
 import { ChangeEvent, FormEvent, useId, useState } from "react";
-import { ArrowLeft, CheckCircle2, Loader2, Mail, Phone } from "lucide-react";
+import { ArrowLeft, CheckCircle2, KeyRound, Loader2, Mail, Phone } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { OTPInput } from "@/components/forms/OTPInput";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -111,7 +113,10 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   const authenticating = loading || googleLoading;
   const trimmedEmail = values.email.trim().toLowerCase();
   const normalizedPhone = normalizePhoneNumber(values.phone);
-  const fieldClassName = "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive";
+  const confirmMatches = values.confirm.length > 0 && values.password === values.confirm;
+  const emailLooksValid = values.email.length > 0 && !validateEmail(values.email);
+  const fieldClassName =
+    "bg-card/80 aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive";
 
   function validate(nextValues: AuthFormValues, scope: "email" | "password" | "register") {
     const nextErrors: AuthFormErrors = {};
@@ -411,7 +416,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   function renderToast() {
     return toast && toast.tone === "success" ? (
       <div
-        className="fixed right-4 top-4 z-50 flex max-w-sm items-center gap-2 rounded-md border border-success/40 bg-background px-4 py-3 text-sm text-foreground shadow-lg"
+        className="fixed right-4 top-4 z-toast flex max-w-sm items-center gap-2 rounded-md border border-success/40 bg-card px-4 py-3 text-sm text-foreground shadow-lg"
         role="status"
       >
         <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
@@ -439,7 +444,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
   function renderGoogleButton() {
     return (
       <Button
-        className="w-full border-input bg-background text-foreground hover:bg-muted"
+        className="w-full justify-center border-input bg-card text-foreground shadow-xs hover:bg-muted"
         disabled={authenticating}
         type="button"
         variant="outline"
@@ -484,6 +489,11 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
         {errors.email ? (
           <p className="text-sm text-destructive" id="email-error">
             {errors.email}
+          </p>
+        ) : emailLooksValid ? (
+          <p className="flex items-center gap-1.5 text-sm text-success">
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+            Email format looks good.
           </p>
         ) : null}
       </div>
@@ -580,10 +590,35 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     );
   }
 
+  function renderRememberDevice() {
+    return (
+      <label
+        className="flex items-start gap-3 rounded-md border border-border bg-secondary/70 p-3 text-sm text-muted-foreground"
+        htmlFor={rememberId}
+      >
+        <Checkbox
+          id={rememberId}
+          checked={rememberDevice}
+          disabled={loading}
+          name="remember-device"
+          onChange={(event) => setRememberDevice(event.target.checked)}
+        />
+        <span>
+          <span className="block font-medium text-foreground">Remember this device</span>
+          <span className="block">Keep trusted-device checks quieter on this browser.</span>
+        </span>
+      </label>
+    );
+  }
+
   function renderLoginContent() {
     if (loginStep === "login-options") {
       return (
         <div className="space-y-4">
+          <div className="rounded-md border border-border bg-secondary/60 p-4">
+            <p className="text-sm font-medium text-foreground">Choose how you want to continue</p>
+            <p className="mt-1 text-sm text-muted-foreground">All sign-in methods use the same protected account flow.</p>
+          </div>
           {renderGoogleButton()}
           {renderDivider()}
           <Button className="w-full" disabled={authenticating} type="button" variant="outline" onClick={() => setLoginStep("login-email")}>
@@ -603,6 +638,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
         <form className="space-y-4" noValidate onSubmit={handleLoginEmailSubmit}>
           {renderEmailField()}
           <Button className="w-full" disabled={authenticating} type="submit">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Mail className="h-4 w-4" aria-hidden="true" />}
             Continue
           </Button>
         </form>
@@ -632,8 +668,14 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     if (loginStep === "login-method") {
       return (
         <div className="space-y-4">
-          <Alert className="border-success/30 bg-success/10">Continue as {trimmedEmail}.</Alert>
+          <Alert className="border-success/30 bg-success/10">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
+              Continue as {trimmedEmail}.
+            </span>
+          </Alert>
           <Button className="w-full" disabled={authenticating} type="button" onClick={() => setLoginStep("login-password")}>
+            <KeyRound className="h-4 w-4" aria-hidden="true" />
             Sign in with Password
           </Button>
           <Button className="w-full" disabled={authenticating} type="button" variant="outline" onClick={() => void requestOtpCode("LOGIN")}>
@@ -654,17 +696,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
               Forgot password?
             </Link>
           </div>
-          <label className="flex items-start gap-2 text-sm text-muted-foreground" htmlFor={rememberId}>
-            <input
-              id={rememberId}
-              checked={rememberDevice}
-              className="mt-1 h-4 w-4 rounded border-input accent-primary"
-              disabled={loading}
-              type="checkbox"
-              onChange={(event) => setRememberDevice(event.target.checked)}
-            />
-            <span>Remember this device</span>
-          </label>
+          {renderRememberDevice()}
           <Button className="w-full" disabled={authenticating} type="submit">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             Log in
@@ -685,17 +717,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
             onComplete={(code) => void handleOtpVerification(code)}
             onResend={() => requestOtpCode("LOGIN")}
           />
-          <label className="flex items-start gap-2 text-sm text-muted-foreground" htmlFor={rememberId}>
-            <input
-              id={rememberId}
-              checked={rememberDevice}
-              className="mt-1 h-4 w-4 rounded border-input accent-primary"
-              disabled={loading}
-              type="checkbox"
-              onChange={(event) => setRememberDevice(event.target.checked)}
-            />
-            <span>Remember this device</span>
-          </label>
+          {renderRememberDevice()}
           <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void handleOtpVerification()}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             Verify and log in
@@ -715,17 +737,7 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
           onComplete={(code) => void handlePhoneOtpVerification(code)}
           onResend={() => requestPhoneOtpCode("LOGIN")}
         />
-        <label className="flex items-start gap-2 text-sm text-muted-foreground" htmlFor={rememberId}>
-          <input
-            id={rememberId}
-            checked={rememberDevice}
-            className="mt-1 h-4 w-4 rounded border-input accent-primary"
-            disabled={loading}
-            type="checkbox"
-            onChange={(event) => setRememberDevice(event.target.checked)}
-          />
-          <span>Remember this device</span>
-        </label>
+        {renderRememberDevice()}
         <Button className="w-full" disabled={loading || otp.length !== 6} type="button" onClick={() => void handlePhoneOtpVerification()}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
           Verify and log in
@@ -773,32 +785,32 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
         {renderGoogleButton()}
         {renderDivider()}
         <form className="space-y-4" noValidate onSubmit={handleRegistrationSubmit}>
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              name="name"
-              value={values.name}
-              placeholder="Caleb Ongau"
-              autoComplete="name"
-              className={fieldClassName}
-              aria-describedby={errors.name ? "name-error" : undefined}
-              aria-invalid={errors.name ? "true" : undefined}
-              disabled={authenticating}
-              onChange={handleChange("name")}
-              required
-            />
-            {errors.name ? (
-              <p className="text-sm text-destructive" id="name-error">
-                {errors.name}
-              </p>
-            ) : null}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={values.name}
+                placeholder="Caleb Ongau"
+                autoComplete="name"
+                className={fieldClassName}
+                aria-describedby={errors.name ? "name-error" : undefined}
+                aria-invalid={errors.name ? "true" : undefined}
+                disabled={authenticating}
+                onChange={handleChange("name")}
+                required
+              />
+              {errors.name ? (
+                <p className="text-sm text-destructive" id="name-error">
+                  {errors.name}
+                </p>
+              ) : null}
+            </div>
+            {renderPhoneField(false, false)}
           </div>
           {renderEmailField()}
-          <div className="space-y-3">
-            {renderPhoneField(false, false)}
-            {renderPhoneChannelPicker()}
-          </div>
+          {renderPhoneChannelPicker()}
           {renderPasswordField("new-password")}
           <div className="space-y-2">
             <Label htmlFor="confirm">Confirm password</Label>
@@ -820,7 +832,23 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
               <p className="text-sm text-destructive" id="confirm-error">
                 {errors.confirm}
               </p>
+            ) : confirmMatches ? (
+              <p className="flex items-center gap-1.5 text-sm text-success">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                Passwords match.
+              </p>
             ) : null}
+          </div>
+          <div className="rounded-md border border-border bg-secondary/60 p-3 text-sm text-muted-foreground">
+            By creating an account, you agree to Shortly's{" "}
+            <Link className="font-semibold text-primary hover:underline" to="/terms">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link className="font-semibold text-primary hover:underline" to="/privacy">
+              Privacy Policy
+            </Link>
+            .
           </div>
           <Button className="w-full" disabled={authenticating} type="submit">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
@@ -835,8 +863,11 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
     (!isRegister && loginStep !== "login-options") || (isRegister && registerStep !== "register-form");
 
   return (
-    <Card className="w-full max-w-md shadow-soft">
-      <CardHeader>
+    <Card className="w-full shadow-panel">
+      <CardHeader className="space-y-3">
+        <Badge className="w-fit" variant="muted">
+          {isRegister ? "Verify email or phone" : "Secure sign in"}
+        </Badge>
         {canGoBack ? (
           <Button
             className="mb-2 w-fit px-0 text-muted-foreground"
@@ -865,14 +896,18 @@ export function AuthForm({ initialMessage, mode }: AuthFormProps) {
             Back
           </Button>
         ) : null}
-        <CardTitle>{isRegister ? "Create your workspace" : "Welcome back"}</CardTitle>
-        <CardDescription>
-          {isRegister ? "Verify your email before activating your account." : "Sign in to manage your short links."}
+        <CardTitle className="text-2xl">{isRegister ? "Create your workspace" : "Welcome back"}</CardTitle>
+        <CardDescription className="text-sm leading-6">
+          {isRegister ? "Verify your email or phone before activating your account." : "Sign in to manage your short links."}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {renderToast()}
-        <div className="space-y-4" aria-describedby={errors.form ? errorId : success ? successId : undefined}>
+        <div
+          className="space-y-5"
+          aria-describedby={errors.form ? errorId : success ? successId : undefined}
+          aria-live={authenticating ? "polite" : undefined}
+        >
           {renderMessages()}
           {isRegister ? renderRegisterContent() : renderLoginContent()}
         </div>

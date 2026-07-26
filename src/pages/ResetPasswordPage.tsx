@@ -1,9 +1,8 @@
 import { FormEvent, useId, useMemo, useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, LockKeyhole } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { BrandLogo } from "@/components/brand/BrandLogo";
-import { Footer } from "@/components/layout/Footer";
+import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,14 +62,15 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <main className="grid flex-1 place-items-center px-4 py-10" id="main-content">
-        <div className="w-full max-w-md">
-        <BrandLogo className="mb-6" to="/" />
-        <Card className="shadow-soft">
-          <CardHeader>
-            <CardTitle>Choose a new password</CardTitle>
-            <CardDescription>Use a strong password to finish recovering your account.</CardDescription>
+    <AuthLayout
+      eyebrow="Secure reset"
+      title="Set a stronger password and step back into your account."
+      description="The reset token and account update flow stay unchanged while the form gives clearer strength and confirmation feedback."
+    >
+        <Card className="w-full shadow-panel">
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-2xl">Choose a new password</CardTitle>
+            <CardDescription className="text-sm leading-6">Use a strong password to finish recovering your account.</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" aria-describedby={error ? errorId : success ? successId : undefined} noValidate onSubmit={handleSubmit}>
@@ -113,7 +113,7 @@ export function ResetPasswordPage() {
                 />
               </div>
               <Button className="w-full" disabled={loading || !token || Boolean(success)} type="submit">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <LockKeyhole className="h-4 w-4" aria-hidden="true" />}
                 Reset password
               </Button>
             </form>
@@ -125,9 +125,6 @@ export function ResetPasswordPage() {
             </p>
           </CardContent>
         </Card>
-        </div>
-      </main>
-      <Footer />
-    </div>
+    </AuthLayout>
   );
 }
