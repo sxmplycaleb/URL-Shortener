@@ -1,10 +1,9 @@
 import { FormEvent, useId, useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, MailCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { BrandLogo } from "@/components/brand/BrandLogo";
 import { OTPInput } from "@/components/forms/OTPInput";
-import { Footer } from "@/components/layout/Footer";
+import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -204,28 +203,30 @@ export function ForgotPasswordPage() {
           setOtpStep("target");
         }}
       >
+        {nextMode === "link" ? <MailCheck className="h-4 w-4" aria-hidden="true" /> : <KeyRound className="h-4 w-4" aria-hidden="true" />}
         {label}
       </Button>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <main className="grid flex-1 place-items-center px-4 py-10" id="main-content">
-        <div className="w-full max-w-md">
-        <BrandLogo className="mb-6" to="/" />
-        <Card className="shadow-soft">
-          <CardHeader>
-            <CardTitle>Reset your password</CardTitle>
-            <CardDescription>Choose a reset link, email code, or phone code.</CardDescription>
+    <AuthLayout
+      eyebrow="Account recovery"
+      title="Recover access with the method that fits the moment."
+      description="Use a reset link or verify a one-time code without changing how password recovery works behind the scenes."
+    >
+        <Card className="w-full shadow-panel">
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-2xl">Reset your password</CardTitle>
+            <CardDescription className="text-sm leading-6">Choose a reset link, email code, or phone code. We will guide you to the next secure step.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 grid grid-cols-3 gap-2">
+            <div className="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
               {renderModeButton("link", "Email link")}
               {renderModeButton("email-otp", "Email code")}
               {renderModeButton("phone-otp", "Phone code")}
             </div>
-            <div className="space-y-4" aria-describedby={error ? errorId : success ? successId : undefined}>
+            <div className="space-y-5" aria-describedby={error ? errorId : success ? successId : undefined} aria-live={loading ? "polite" : undefined}>
               {error ? <Alert id={errorId}>{error}</Alert> : null}
               {success ? (
                 <Alert className="border-success/30 bg-success/10" id={successId}>
@@ -260,7 +261,7 @@ export function ForgotPasswordPage() {
                     />
                   </div>
                   <Button className="w-full" disabled={loading} type="submit">
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <MailCheck className="h-4 w-4" aria-hidden="true" />}
                     Send reset link
                   </Button>
                 </form>
@@ -288,7 +289,7 @@ export function ForgotPasswordPage() {
                     />
                   </div>
                   <Button className="w-full" disabled={loading} type="submit">
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <KeyRound className="h-4 w-4" aria-hidden="true" />}
                     Send reset code
                   </Button>
                 </form>
@@ -326,7 +327,7 @@ export function ForgotPasswordPage() {
                     </Button>
                   </div> */}
                   <Button className="w-full" disabled={loading} type="submit">
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <KeyRound className="h-4 w-4" aria-hidden="true" />}
                     Send reset code
                   </Button>
                 </form>
@@ -361,9 +362,6 @@ export function ForgotPasswordPage() {
             </p>
           </CardContent>
         </Card>
-        </div>
-      </main>
-      <Footer />
-    </div>
+    </AuthLayout>
   );
 }

@@ -22,6 +22,8 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
     const requirementsId = React.useId();
     const passwordValue = String(value ?? "");
     const requirements = getPasswordRequirements(passwordValue);
+    const metRequirements = requirements.filter((requirement) => requirement.met).length;
+    const strengthLabel = metRequirements < 3 ? "Needs work" : metRequirements < requirements.length ? "Almost there" : "Strong";
 
     const describedBy =
       [ariaDescribedBy, showRequirements ? requirementsId : undefined].filter(Boolean).join(" ") || undefined;
@@ -105,11 +107,34 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
     return (
       <div className="space-y-2">
         {input}
-        <ul id={requirementsId} className="space-y-1 text-sm" aria-live="polite">
+        <div className="space-y-2" aria-hidden="true">
+          <div className="grid grid-cols-5 gap-1">
+            {requirements.map((requirement, index) => (
+              <span
+                key={requirement.key}
+                className={cn(
+                  "h-1.5 rounded-full transition-colors duration-slow ease-standard",
+                  index < metRequirements
+                    ? metRequirements < 3
+                      ? "bg-warning"
+                      : metRequirements < requirements.length
+                        ? "bg-primary"
+                        : "bg-success"
+                    : "bg-muted",
+                )}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">Password strength: {strengthLabel}</p>
+        </div>
+        <ul id={requirementsId} className="grid gap-1 text-sm sm:grid-cols-2" aria-live="polite">
           {requirements.map((requirement) => (
             <li
               key={requirement.key}
-              className={cn("flex items-center gap-2", requirement.met ? "text-success" : "text-muted-foreground")}
+              className={cn(
+                "flex items-center gap-2 rounded-sm transition-colors duration-slow ease-standard",
+                requirement.met ? "text-success" : "text-muted-foreground",
+              )}
             >
               {requirement.met ? (
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />

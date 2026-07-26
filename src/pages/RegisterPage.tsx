@@ -1,9 +1,7 @@
 import { Navigate } from "react-router-dom";
 
-import { BrandLogo } from "@/components/brand/BrandLogo";
-import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { AuthForm } from "@/components/forms/AuthForm";
-import { Footer } from "@/components/layout/Footer";
+import { AuthLayout } from "@/components/layout/AuthLayout";
 import { getAuthSession } from "@/services/authStorage";
 
 export function RegisterPage() {
@@ -12,17 +10,12 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <main className="grid flex-1 place-items-center px-4 py-10" id="main-content">
-        <div className="w-full max-w-md">
-          <div className="mb-6 flex items-center justify-between">
-            <BrandLogo to="/" />
-            <ThemeToggle />
-          </div>
-          <AuthForm mode="register" />
-        </div>
-      </main>
-      <Footer />
-    </div>
+    <AuthLayout
+      eyebrow="New workspace"
+      title="Create a link command center that feels calm from day one."
+      description="Verify your email or phone number, choose a resilient password, and start with a secure account foundation."
+    >
+      <AuthForm mode="register" />
+    </AuthLayout>
   );
 }
