@@ -148,9 +148,7 @@ function ProfileDropdown({
         variant="ghost"
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-md bg-accent text-xs font-bold text-accent-foreground">
-          {user.avatar ? <img className="h-full w-full object-cover" src={user.avatar} alt="" /> : initials || "U"}
-        </span>
+        <Avatar className="h-9 w-9 text-xs" src={user.avatar} fallback={initials || "U"} />
         <span className="hidden min-w-0 text-left lg:block">
           <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
           <span className="block max-w-36 truncate text-xs text-muted-foreground">{user.email}</span>
@@ -165,9 +163,7 @@ function ProfileDropdown({
           aria-label="Profile menu"
         >
           <div className="mb-2 flex items-center gap-3 rounded-md bg-muted/70 p-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md bg-accent text-sm font-bold text-accent-foreground">
-              {user.avatar ? <img className="h-full w-full object-cover" src={user.avatar} alt="" /> : initials || "U"}
-            </span>
+            <Avatar src={user.avatar} fallback={initials || "U"} />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{user.name}</p>
               <p className="truncate text-xs text-muted-foreground">{user.email}</p>
