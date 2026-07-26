@@ -4,6 +4,7 @@ import { ChevronDown, LogOut, Menu, Settings, Shuffle, UserCircle } from "lucide
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/services/auth";
@@ -40,7 +41,10 @@ export function Navbar({
             <NavLink
               key={item.href}
               className={({ isActive }) =>
-                `rounded-md px-3 py-2 text-sm font-medium ${isActive ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`
+                cn(
+                  "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  isActive ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )
               }
               to={item.href}
             >
@@ -127,9 +131,7 @@ function ProfileDropdown({
         variant="ghost"
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-md bg-accent text-xs font-bold text-accent-foreground">
-          {user.avatar ? <img className="h-full w-full object-cover" src={user.avatar} alt="" /> : initials || "U"}
-        </span>
+        <Avatar src={user.avatar} fallback={initials || "U"} className="h-9 w-9 text-xs" />
         <span className="hidden min-w-0 text-left lg:block">
           <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
           <span className="block max-w-36 truncate text-xs text-muted-foreground">{user.email}</span>
@@ -144,9 +146,7 @@ function ProfileDropdown({
           aria-label="Profile menu"
         >
           <div className="mb-2 flex items-center gap-3 rounded-md bg-muted/70 p-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md bg-accent text-sm font-bold text-accent-foreground">
-              {user.avatar ? <img className="h-full w-full object-cover" src={user.avatar} alt="" /> : initials || "U"}
-            </span>
+            <Avatar src={user.avatar} fallback={initials || "U"} />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{user.name}</p>
               <p className="truncate text-xs text-muted-foreground">{user.email}</p>
@@ -174,7 +174,7 @@ function MenuButton({
 }) {
   return (
     <button
-      className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60"
       role="menuitem"
       type="button"
       onClick={onClick}

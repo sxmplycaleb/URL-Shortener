@@ -4,6 +4,7 @@ import { NavLink } from "react-router-dom";
 import { BarChart3, ChevronLeft, ChevronRight, Home, LogOut, Settings, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -173,9 +174,7 @@ function SidebarContent({
       </div>
       <div className={cn("mb-6 rounded-md border bg-background p-3", collapsed && !mobile ? "px-2" : "")}>
         <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-accent text-sm font-bold text-accent-foreground">
-            {initials || "U"}
-          </span>
+          <Avatar fallback={initials || "U"} />
           <div className={cn("min-w-0 transition-opacity", collapsed && !mobile ? "sr-only" : "")}>
             <p className="truncate text-sm font-semibold">{user.name}</p>
             <p className="truncate text-xs text-muted-foreground">{user.email}</p>
@@ -228,7 +227,7 @@ function SidebarLink({
         cn(
           "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
           collapsed ? "justify-center px-0" : "",
-          isActive ? "bg-primary text-primary-foreground shadow-soft" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          isActive ? "bg-primary text-primary-foreground shadow-soft hover:bg-primary-hover" : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )
       }
       to={href}
