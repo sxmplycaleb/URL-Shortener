@@ -9,10 +9,12 @@ interface DialogProps {
   title: string;
   description?: string;
   children: React.ReactNode;
+  className?: string;
+  loading?: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function Dialog({ open, title, description, children, onOpenChange }: DialogProps) {
+export function Dialog({ open, title, description, children, className, loading = false, onOpenChange }: DialogProps) {
   const titleId = React.useId();
   const descriptionId = React.useId();
   const dialogRef = React.useRef<HTMLElement>(null);
@@ -67,8 +69,14 @@ export function Dialog({ open, title, description, children, onOpenChange }: Dia
         aria-describedby={description ? descriptionId : undefined}
         aria-modal="true"
         aria-labelledby={titleId}
-        className={cn("max-h-[90vh] w-full max-w-xl overflow-auto rounded-lg border bg-card p-6 shadow-panel")}
+        aria-busy={loading || undefined}
+        className={cn(
+          "max-h-[90vh] w-full max-w-xl overflow-auto rounded-lg border bg-card p-6 text-card-foreground shadow-panel transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          loading ? "animate-pulse" : "",
+          className,
+        )}
         role="dialog"
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">

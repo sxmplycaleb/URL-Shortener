@@ -2,18 +2,32 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
+interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> {
+  disabled?: boolean;
+  loading?: boolean;
+}
+
+export function Table({ className, disabled = false, loading = false, ...props }: TableProps) {
   return (
-    <div className="w-full overflow-x-auto">
-      <table className={cn("w-full min-w-[720px] caption-bottom text-sm", className)} {...props} />
+    <div
+      className={cn("w-full overflow-x-auto rounded-lg border bg-card shadow-xs", disabled ? "opacity-60" : "", loading ? "animate-pulse" : "")}
+      aria-disabled={disabled || undefined}
+      aria-busy={loading || undefined}
+    >
+      <table className={cn("w-full min-w-[720px] caption-bottom text-sm text-card-foreground", className)} {...props} />
     </div>
   );
 }
 
 export function Th({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
-  return <th className={cn("h-12 px-4 text-left align-middle font-medium text-muted-foreground", className)} {...props} />;
+  return (
+    <th
+      className={cn("h-12 border-b bg-muted/60 px-4 text-left align-middle font-semibold text-muted-foreground", className)}
+      {...props}
+    />
+  );
 }
 
 export function Td({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("p-4 align-middle", className)} {...props} />;
+  return <td className={cn("border-b border-border/70 p-4 align-middle transition-colors", className)} {...props} />;
 }
