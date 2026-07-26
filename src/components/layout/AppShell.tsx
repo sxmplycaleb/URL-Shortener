@@ -13,6 +13,7 @@ import { signOutOfFirebase } from "@/services/firebase";
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const session = getAuthSession();
   const location = useLocation();
   const navigate = useNavigate();
@@ -55,16 +56,17 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-muted/25">
       <Navbar
         user={session.user}
+        onCommandClick={() => setCommandOpen(true)}
         onLogout={handleLogout}
         onMenuClick={openMobileNav}
         onNavigateToDashboardSettings={() => navigate("/settings/dashboard")}
         onNavigateToProfile={() => navigate("/settings")}
         onSwitchAccount={handleSwitchAccount}
       />
-      <div className="mx-auto flex w-full max-w-7xl flex-1">
+      <div className="mx-auto flex w-full max-w-[1480px] flex-1">
         <Sidebar
           collapsed={preferences.sidebarCollapsed}
           open={mobileOpen}
@@ -73,12 +75,16 @@ export function AppShell() {
           onCollapsedChange={setSidebarCollapsed}
           onLogout={handleLogout}
         />
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8" id="main-content" tabIndex={-1}>
-          <Outlet />
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 xl:px-10" id="main-content" tabIndex={-1}>
+            <div className="mx-auto w-full max-w-6xl">
+              <Outlet />
+            </div>
+          </main>
+          <Footer compact />
+        </div>
       </div>
-      <Footer />
-      <CommandPalette onLogout={handleLogout} />
+      <CommandPalette open={commandOpen} onLogout={handleLogout} onOpenChange={setCommandOpen} />
       <BackToTop />
     </div>
   );

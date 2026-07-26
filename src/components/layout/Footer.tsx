@@ -33,15 +33,27 @@ const footerSections = [
   },
 ];
 
-export function Footer() {
+interface FooterProps {
+  compact?: boolean;
+}
+
+export function Footer({ compact = false }: FooterProps) {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t bg-card/70 text-sm text-muted-foreground">
-      <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_0.8fr_0.9fr_1fr_1fr] lg:px-8">
+    <footer className="mt-auto border-t bg-background/80 text-sm text-muted-foreground">
+      <div
+        className={
+          compact
+            ? "mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.3fr_0.8fr_0.9fr_1fr_0.8fr] lg:px-8 xl:px-10"
+            : "mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_0.8fr_0.9fr_1fr_1fr] lg:px-8"
+        }
+      >
         <div className="space-y-4">
-          <BrandLogo iconClassName="h-9 w-9" to="/" />
-          <p className="max-w-sm leading-6">{APP_DESCRIPTION}</p>
+          <BrandLogo iconClassName={compact ? "h-8 w-8" : "h-9 w-9"} to="/" />
+          <p className="max-w-sm leading-6">
+            {compact ? "Short links, analytics, and account tools in one workspace." : APP_DESCRIPTION}
+          </p>
         </div>
 
         {footerSections.map((section) => (
@@ -90,7 +102,7 @@ export function Footer() {
             {SOCIAL_LINKS.map((link) => (
               <a
                 aria-label={`Follow Shortly on ${link.label}`}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-input text-muted-foreground transition hover:-translate-y-0.5 hover:bg-muted hover:text-foreground"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-input text-muted-foreground transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-muted hover:text-foreground"
                 href={link.href}
                 key={link.id}
                 rel="noreferrer"
@@ -104,12 +116,18 @@ export function Footer() {
       </div>
 
       <div className="border-t bg-background/60">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+        <div
+          className={
+            compact
+              ? "mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8 xl:px-10"
+              : "mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8"
+          }
+        >
           <p>&copy; {year} {APP_NAME}. All rights reserved.</p>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>v{APP_VERSION}</span>
             <span aria-hidden="true">/</span>
-            <span>Made with <span aria-label="love">♥</span></span>
+            <span>Built for fast routing</span>
           </p>
         </div>
       </div>

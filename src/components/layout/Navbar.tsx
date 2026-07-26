@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { ChevronDown, LogOut, Menu, Settings, Shuffle, UserCircle } from "lucide-react";
+import { Bell, ChevronDown, Command, LogOut, Menu, Search, Settings, Shuffle, UserCircle } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
@@ -11,6 +11,7 @@ import type { AuthUser } from "@/services/auth";
 
 interface NavbarProps {
   user?: AuthUser;
+  onCommandClick?: () => void;
   onMenuClick?: () => void;
   onLogout?: () => void;
   onNavigateToDashboardSettings?: () => void;
@@ -26,6 +27,7 @@ const navItems = [
 
 export function Navbar({
   user,
+  onCommandClick,
   onMenuClick,
   onLogout,
   onNavigateToDashboardSettings,
@@ -33,18 +35,18 @@ export function Navbar({
   onSwitchAccount,
 }: NavbarProps) {
   return (
-    <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <BrandLogo to="/" />
-        <nav className="hidden items-center gap-2 lg:flex" aria-label="Main navigation">
+    <header className="sticky top-0 z-30 border-b bg-background/90 shadow-xs backdrop-blur">
+      <div className="mx-auto flex h-[4.25rem] w-full max-w-[1480px] items-center gap-3 px-4 sm:px-6 lg:px-8 xl:px-10">
+        <Button aria-label="Open navigation menu" className="shrink-0 lg:hidden" size="icon" variant="ghost" onClick={onMenuClick}>
+          <Menu className="h-5 w-5" />
+        </Button>
+        <BrandLogo className="shrink-0" to="/" />
+        <nav className="ml-2 hidden items-center gap-1 rounded-full border bg-muted/45 p-1 lg:flex" aria-label="Main navigation">
           {navItems.map((item) => (
             <NavLink
               key={item.href}
               className={({ isActive }) =>
-                cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  isActive ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )
+                `rounded-md px-3 py-2 text-sm font-medium ${isActive ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`
               }
               to={item.href}
             >
@@ -52,7 +54,25 @@ export function Navbar({
             </NavLink>
           ))}
         </nav>
-        <div className="flex items-center gap-2">
+        <button
+          className="ml-auto hidden min-w-0 max-w-xl flex-1 items-center gap-3 rounded-full border bg-background px-4 py-2.5 text-left text-sm text-muted-foreground shadow-xs transition-all duration-200 ease-out hover:border-primary/35 hover:bg-card hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:flex"
+          type="button"
+          onClick={onCommandClick}
+        >
+          <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate">Search or run a command</span>
+          <kbd className="hidden rounded-md border bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground lg:inline-flex">
+            Ctrl K
+          </kbd>
+        </button>
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <Button aria-label="Open command palette" className="md:hidden" size="icon" variant="ghost" onClick={onCommandClick}>
+            <Command className="h-5 w-5" />
+          </Button>
+          <Button aria-label="View notifications" className="relative" size="icon" variant="ghost">
+            <Bell className="h-5 w-5" />
+            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+          </Button>
           <ThemeToggle />
           {user ? (
             <ProfileDropdown
@@ -63,9 +83,6 @@ export function Navbar({
               onSwitchAccount={onSwitchAccount}
             />
           ) : null}
-          <Button aria-label="Open navigation menu" className="lg:hidden" size="icon" variant="ghost" onClick={onMenuClick}>
-            <Menu className="h-5 w-5" />
-          </Button>
         </div>
       </div>
     </header>
@@ -127,11 +144,13 @@ function ProfileDropdown({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Open profile menu"
-        className="gap-2 px-2"
+        className="gap-2 rounded-full px-1.5 transition-all duration-200 ease-out hover:shadow-xs lg:px-2"
         variant="ghost"
         onClick={() => setOpen((current) => !current)}
       >
-        <Avatar src={user.avatar} fallback={initials || "U"} className="h-9 w-9 text-xs" />
+        <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-md bg-accent text-xs font-bold text-accent-foreground">
+          {user.avatar ? <img className="h-full w-full object-cover" src={user.avatar} alt="" /> : initials || "U"}
+        </span>
         <span className="hidden min-w-0 text-left lg:block">
           <span className="block max-w-36 truncate text-sm font-medium">{user.name}</span>
           <span className="block max-w-36 truncate text-xs text-muted-foreground">{user.email}</span>
@@ -141,12 +160,14 @@ function ProfileDropdown({
 
       {open ? (
         <div
-          className="absolute right-0 top-full z-50 mt-2 w-72 origin-top-right animate-in rounded-md border bg-card p-2 shadow-panel"
+          className="absolute right-0 top-full z-50 mt-3 w-72 origin-top-right animate-in rounded-lg border bg-card p-2 shadow-panel"
           role="menu"
           aria-label="Profile menu"
         >
           <div className="mb-2 flex items-center gap-3 rounded-md bg-muted/70 p-3">
-            <Avatar src={user.avatar} fallback={initials || "U"} />
+            <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md bg-accent text-sm font-bold text-accent-foreground">
+              {user.avatar ? <img className="h-full w-full object-cover" src={user.avatar} alt="" /> : initials || "U"}
+            </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{user.name}</p>
               <p className="truncate text-xs text-muted-foreground">{user.email}</p>
@@ -174,7 +195,7 @@ function MenuButton({
 }) {
   return (
     <button
-      className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       role="menuitem"
       type="button"
       onClick={onClick}
