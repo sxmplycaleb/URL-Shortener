@@ -1,13 +1,12 @@
 import { useEffect, useId, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { BarChart3, ChevronLeft, ChevronRight, Home, LogOut, Settings, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
-import { dialogOverlayVariants, drawerVariants, pageTransition, reducedMotionTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/services/auth";
 
@@ -32,7 +31,6 @@ export function Sidebar({ collapsed, open = false, user, onClose, onCollapsedCha
   const labelId = useId();
   const mobilePanelRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!open) return undefined;

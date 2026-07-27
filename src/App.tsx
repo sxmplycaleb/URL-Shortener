@@ -1,12 +1,11 @@
 import { lazy, Suspense, type KeyboardEvent, type MouseEvent } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Route, Routes, useLocation } from "react-router-dom";
 
 import { LoadingState } from "@/components/common/LoadingState";
 import { AppShell } from "@/components/layout/AppShell";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { pageTransition, pageVariants, reducedMotionTransition } from "@/lib/motion";
 
 const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
@@ -23,7 +22,6 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((module) => 
 
 export function App() {
   const location = useLocation();
-  const reduceMotion = useReducedMotion();
   const pageTitle = getRoutePageTitle(location.pathname);
   useDocumentTitle(pageTitle);
 

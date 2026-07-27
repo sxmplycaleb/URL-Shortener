@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Bell, ChevronDown, Command, LogOut, Menu, Search, Settings, Shuffle, UserCircle } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
