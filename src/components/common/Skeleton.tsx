@@ -7,17 +7,29 @@ export function Skeleton({ className }: { className?: string }) {
 export function DashboardSkeleton() {
   return (
     <div className="space-y-6" role="status" aria-live="polite" aria-label="Loading dashboard">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-3">
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="h-5 w-72 max-w-full" />
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-11 w-40" />
-          <Skeleton className="h-11 w-28" />
+      <div className="rounded-lg border bg-card p-6 shadow-xs">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-3">
+            <Skeleton className="h-7 w-36" />
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-5 w-72 max-w-full" />
+            <div className="flex gap-2">
+              <Skeleton className="h-7 w-32" />
+              <Skeleton className="h-7 w-32" />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-11 w-28" />
+            <Skeleton className="h-11 w-40" />
+            <Skeleton className="h-11 w-28" />
+            <Skeleton className="h-11 w-28" />
+          </div>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
         <Skeleton className="h-28" />
         <Skeleton className="h-28" />
         <Skeleton className="h-28" />
