@@ -11,7 +11,8 @@ interface AnimatedCounterProps {
 export function AnimatedCounter({ formatter = formatCompactNumber, value }: AnimatedCounterProps) {
   const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
-  const animatedValue = useAnimatedCounter(value, { enabled: visible });
+  const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const animatedValue = useAnimatedCounter(value, { enabled: visible && !reduceMotion });
 
   useEffect(() => {
     const element = ref.current;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Bell, ChevronDown, Command, LogOut, Menu, Search, Settings, Shuffle, UserCircle } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -36,13 +36,15 @@ export function Navbar({
   onNavigateToProfile,
   onSwitchAccount,
 }: NavbarProps) {
+  const navigate = useNavigate();
+
   return (
     <header className="sticky top-0 z-30 border-b bg-background/90 shadow-xs backdrop-blur">
       <div className="mx-auto flex h-[4.25rem] w-full max-w-[1480px] items-center gap-3 px-4 sm:px-6 lg:px-8 xl:px-10">
+        <BrandLogo className="shrink-0" to="/" />
         <Button aria-label="Open navigation menu" className="shrink-0 lg:hidden" size="icon" variant="ghost" onClick={onMenuClick}>
           <Menu className="h-5 w-5" />
         </Button>
-        <BrandLogo className="shrink-0" to="/" />
         <nav className="ml-2 hidden items-center gap-1 rounded-full border bg-muted/45 p-1 lg:flex" aria-label="Main navigation">
           {navItems.map((item) => (
             <NavLink
@@ -51,6 +53,10 @@ export function Navbar({
                 `rounded-md px-3 py-2 text-sm font-medium ${isActive ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`
               }
               to={item.href}
+              onClick={(event) => {
+                event.preventDefault();
+                navigate(item.href);
+              }}
             >
               {item.label}
             </NavLink>

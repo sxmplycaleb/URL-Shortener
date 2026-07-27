@@ -374,7 +374,7 @@ export function SettingsPage() {
             Manage profile details, account preferences, notification channels, security entry points, and account actions.
           </p>
         </div>
-        <div className="flex min-w-0 items-center gap-3 rounded-md border bg-card p-3 shadow-xs sm:max-w-sm">
+        <div className="flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-md border bg-card p-3 shadow-xs sm:max-w-sm xl:w-auto">
           {user?.avatar ? (
             <img className="h-12 w-12 shrink-0 rounded-md object-cover" src={user.avatar} alt="" referrerPolicy="no-referrer" />
           ) : (
@@ -382,7 +382,7 @@ export function SettingsPage() {
               {initials || "U"}
             </span>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 overflow-hidden">
             <p className="truncate font-semibold">{profile.name || "Shortly user"}</p>
             <p className="truncate text-sm text-muted-foreground">{profile.email || "No email set"}</p>
             <p className="mt-1 text-xs text-muted-foreground">Member since {memberSince}</p>
@@ -412,8 +412,8 @@ export function SettingsPage() {
         <StatusCard icon={Bell} label="Notifications" value={notificationsEnabled ? "Email enabled" : "Paused"} tone={notificationsEnabled ? "success" : "muted"} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.42fr)]">
-        <div className="space-y-6">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.42fr)]">
+        <div className="min-w-0 space-y-6">
           <SettingsSection
             description="Update the core identity information used across your account."
             icon={User}
@@ -467,7 +467,7 @@ export function SettingsPage() {
                 <ReadOnlyProfileItem icon={Globe2} label="Account role" value={user?.role ?? "User"} />
               </div>
 
-              <SaveRow dirty={profileDirty} loading={savingProfile} submitLabel="Save profile" />
+              <SaveRow dirty={profileDirty} loading={savingProfile} submitLabel="Update profile" />
             </form>
           </SettingsSection>
 
@@ -741,7 +741,7 @@ function SettingsSection({
   title: string;
 }) {
   return (
-    <Card className={className}>
+    <Card className={cn("min-w-0 overflow-hidden", className)}>
       <CardHeader>
         <div className="flex items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-accent text-accent-foreground">
@@ -814,7 +814,7 @@ function ReadOnlyProfileItem({
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
         <p className="mt-1 truncate text-sm font-medium">{value}</p>
       </div>
@@ -876,7 +876,7 @@ function NotificationToggle({
         <p className="text-xs text-muted-foreground">{connected ? "Uses existing notification preference" : "No backend support yet"}</p>
         <Switch
           checked={checked}
-          aria-label={`Toggle ${label} notifications`}
+          aria-label={connected ? "Toggle notification preferences" : `Toggle ${label.toLowerCase()} placeholder notifications`}
           aria-busy={loading || undefined}
           disabled={disabled}
           onClick={onClick}

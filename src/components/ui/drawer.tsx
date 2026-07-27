@@ -41,6 +41,27 @@ export function Drawer({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onOpenChange(false);
+        return;
+      }
+      if (event.key !== "Tab" || !drawerRef.current) return;
+
+      const focusableElements = Array.from(
+        drawerRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("disabled"));
+
+      if (!focusableElements.length) return;
+      const first = focusableElements[0];
+      const last = focusableElements.at(-1);
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 

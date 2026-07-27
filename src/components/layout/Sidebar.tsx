@@ -1,13 +1,12 @@
 import { useEffect, useId, useRef } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { NavLink } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { NavLink, useNavigate } from "react-router-dom";
 import { BarChart3, ChevronLeft, ChevronRight, Home, LogOut, Settings, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
-import { dialogOverlayVariants, drawerVariants, pageTransition, reducedMotionTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/services/auth";
 
@@ -32,7 +31,6 @@ export function Sidebar({ collapsed, open = false, user, onClose, onCollapsedCha
   const labelId = useId();
   const mobilePanelRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -93,11 +91,10 @@ export function Sidebar({ collapsed, open = false, user, onClose, onCollapsedCha
           <motion.div
             className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
             role="presentation"
-            initial={reduceMotion ? false : "initial"}
-            animate="animate"
-            exit={reduceMotion ? {} : "exit"}
-            variants={dialogOverlayVariants}
-            transition={reduceMotion ? reducedMotionTransition : pageTransition}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
             onMouseDown={onClose}
           >
             <motion.aside
@@ -106,11 +103,10 @@ export function Sidebar({ collapsed, open = false, user, onClose, onCollapsedCha
               aria-modal="true"
               className="flex h-full w-80 max-w-[88vw] flex-col border-r bg-background p-4 shadow-panel"
               role="dialog"
-              initial={reduceMotion ? false : "initial"}
-              animate="animate"
-              exit={reduceMotion ? {} : "exit"}
-              variants={drawerVariants("left")}
-              transition={reduceMotion ? reducedMotionTransition : pageTransition}
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
               onMouseDown={(event) => event.stopPropagation()}
             >
               <div className="mb-4 flex items-center justify-between">
@@ -254,7 +250,8 @@ function SidebarLink({
   label: string;
   onNavigate?: (() => void) | undefined;
 }) {
-  const accessibleLabel = label === "Dashboard Settings" ? "Dashboard preferences" : label;
+  const navigate = useNavigate();
+  const accessibleLabel = label === "Dashboard Settings" ? "Widget preferences" : label;
   const link = (
     <NavLink
       aria-label={collapsed || label === "Dashboard Settings" ? accessibleLabel : undefined}
@@ -266,7 +263,11 @@ function SidebarLink({
         )
       }
       to={href}
-      onClick={onNavigate}
+      onClick={(event) => {
+        event.preventDefault();
+        onNavigate?.();
+        navigate(href);
+      }}
     >
       <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span className={cn(collapsed ? "sr-only" : "")}>{label}</span>
