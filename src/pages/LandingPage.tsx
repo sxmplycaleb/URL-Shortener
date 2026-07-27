@@ -5,7 +5,6 @@ import {
   BarChart3,
   ChartNoAxesColumnIncreasing,
   Check,
-  Clock3,
   Copy,
   Gauge,
   Link2,
@@ -212,10 +211,6 @@ export function LandingPage() {
           />
           <div className="relative mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:py-24">
             <div className="flex flex-col justify-center">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border bg-card px-3 py-1 text-sm font-medium text-muted-foreground shadow-xs">
-                <Clock3 className="h-4 w-4 text-primary" aria-hidden="true" />
-                Fast short links for focused teams
-              </div>
               <h1 className="mt-6 max-w-3xl text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
                 Short links that feel polished from the first click.
               </h1>

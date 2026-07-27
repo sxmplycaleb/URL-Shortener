@@ -1,4 +1,4 @@
-import { CircleAlert } from "lucide-react";
+import { ArrowUpDown, CircleAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -38,23 +38,43 @@ export function AnalyticsTable({ links }: { links: LinkAnalyticsItem[] }) {
           <caption className="sr-only">URL analytics by link</caption>
           <thead>
             <tr className="border-b">
-              <Th>Short URL</Th>
-              <Th>Original URL</Th>
-              <Th>Total Clicks</Th>
-              <Th>Created Date</Th>
+              <Th aria-sort="none">
+                <span className="inline-flex items-center gap-2">
+                  Short URL
+                  <ArrowUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+                </span>
+              </Th>
+              <Th aria-sort="none">
+                <span className="inline-flex items-center gap-2">
+                  Original URL
+                  <ArrowUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+                </span>
+              </Th>
+              <Th aria-sort="none">
+                <span className="inline-flex items-center gap-2">
+                  Total Clicks
+                  <ArrowUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+                </span>
+              </Th>
+              <Th aria-sort="none">
+                <span className="inline-flex items-center gap-2">
+                  Created Date
+                  <ArrowUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+                </span>
+              </Th>
               <Th>Status</Th>
             </tr>
           </thead>
           <tbody>
             {links.map((link) => (
               <tr className="border-b transition-colors last:border-0 hover:bg-muted/45" key={link.id}>
-                <Td className="font-mono text-xs text-primary">{link.shortUrl}</Td>
+                <Td className="font-mono text-xs font-semibold text-primary">{link.shortUrl}</Td>
                 <Td>
                   <p className="max-w-md truncate font-medium" title={link.originalUrl}>
                     {link.originalUrl}
                   </p>
                 </Td>
-                <Td className="font-mono">{formatNumber(link.totalClicks)}</Td>
+                <Td className="font-mono font-semibold">{formatNumber(link.totalClicks)}</Td>
                 <Td>{formatDate(link.createdAt)}</Td>
                 <Td>
                   <Badge className="capitalize" variant={statusVariant[link.status]}>
@@ -71,16 +91,22 @@ export function AnalyticsTable({ links }: { links: LinkAnalyticsItem[] }) {
           <article className="rounded-md border p-4 transition-colors hover:bg-muted/40" key={link.id}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="break-all font-mono text-xs text-primary">{link.shortUrl}</p>
+                <p className="break-all font-mono text-xs font-semibold text-primary">{link.shortUrl}</p>
                 <p className="mt-2 break-all text-sm font-medium">{link.originalUrl}</p>
               </div>
               <Badge className="shrink-0 capitalize" variant={statusVariant[link.status]}>
                 {link.status}
               </Badge>
             </div>
-            <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-              <span className="font-mono">{formatNumber(link.totalClicks)} clicks</span>
-              <span className="text-muted-foreground">{formatDate(link.createdAt)}</span>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-md bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Clicks</p>
+                <p className="mt-1 font-mono font-semibold">{formatNumber(link.totalClicks)}</p>
+              </div>
+              <div className="rounded-md bg-muted p-3">
+                <p className="text-xs text-muted-foreground">Created</p>
+                <p className="mt-1 text-sm font-medium">{formatDate(link.createdAt)}</p>
+              </div>
             </div>
           </article>
         ))}

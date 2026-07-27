@@ -227,7 +227,7 @@ The header profile menu displays the signed-in user's avatar or initials, name, 
 
 ## Footer, Legal Pages, and Contact
 
-The global footer uses a responsive SaaS layout with brand copy, product links, legal resources, contact details, official social icons, and a bottom bar showing copyright, the current year, app version, and "Made with love." Social links open in new tabs with accessible labels and hover motion. Contact details currently include phone and WhatsApp for `+254790321533`, plus placeholder email and future office location fields.
+The global footer uses a responsive SaaS layout with brand copy, product links, legal resources, contact details, official social icons, and a bottom bar showing copyright, the current year, app version, and "Made with love." Social links open in new tabs with accessible labels and hover motion. Contact details currently include phone and WhatsApp for `+254790321533`, plus email fields.
 
 Legal pages are available at:
 

@@ -18,11 +18,12 @@ export function BreakdownList({
   return (
     <div className="space-y-4">
       {items.map((item) => (
-        <div key={item.name}>
-          <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate">{item.name}</span>
-            <span className="shrink-0 font-mono text-muted-foreground">
-              {formatNumber(item.clicks)} clicks - {item.share}%
+        <div className="rounded-md border p-3 transition-colors hover:bg-muted/40" key={item.name}>
+          <div className="mb-2 flex items-start justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate font-medium">{item.name}</span>
+            <span className="shrink-0 text-right font-mono text-muted-foreground">
+              {formatNumber(item.clicks)} clicks
+              <span className="ml-2 font-semibold text-foreground">{item.share}%</span>
             </span>
           </div>
           <div
@@ -30,7 +31,7 @@ export function BreakdownList({
             aria-valuemax={100}
             aria-valuemin={0}
             aria-valuenow={item.share}
-            className="h-2 rounded-full bg-muted"
+            className="h-2.5 rounded-full bg-muted"
             role="progressbar"
           >
             <div className="h-full rounded-full bg-primary" style={{ width: `${item.share}%` }} />

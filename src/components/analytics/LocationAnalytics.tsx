@@ -32,7 +32,14 @@ export function LocationAnalytics({ items }: { items: LocationAnalyticsItem[] })
               <p className="text-xs text-muted-foreground">{item.share}%</p>
             </div>
           </div>
-          <div className="mt-3 h-2 rounded-full bg-muted">
+          <div
+            aria-label={`${item.place}, ${item.country}: ${item.share}%`}
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={item.share}
+            className="mt-3 h-2.5 rounded-full bg-muted"
+            role="progressbar"
+          >
             <div className="h-full rounded-full bg-accent" style={{ width: `${item.share}%` }} />
           </div>
         </div>
