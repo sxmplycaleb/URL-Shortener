@@ -1,10 +1,22 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { CircleAlert } from "lucide-react";
 
+import { EmptyState } from "@/components/common/EmptyState";
 import type { DeviceAnalyticsItem } from "@/services/analyticsService";
 
-const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--secondary))"];
+const COLORS = ["hsl(var(--primary))", "hsl(var(--success))", "hsl(var(--info))"];
 
 export function DeviceChart({ data }: { data: DeviceAnalyticsItem[] }) {
+  if (!data.length || data.every((item) => item.value === 0)) {
+    return (
+      <EmptyState
+        description="Device share appears after your short URLs receive visits with device details."
+        icon={CircleAlert}
+        title="No device data yet"
+      />
+    );
+  }
+
   return (
     <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_150px] sm:items-center">
       <figure className="h-56 w-full" aria-label="Device analytics doughnut chart">
@@ -27,14 +39,14 @@ export function DeviceChart({ data }: { data: DeviceAnalyticsItem[] }) {
           </PieChart>
         </ResponsiveContainer>
       </figure>
-      <div className="space-y-3">
+      <div className="space-y-3" aria-label="Device analytics legend">
         {data.map((item, index) => (
-          <div className="flex items-center justify-between gap-3 text-sm" key={item.name}>
+          <div className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm" key={item.name}>
             <span className="inline-flex min-w-0 items-center gap-2">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
               {item.name}
             </span>
-            <span className="font-mono text-muted-foreground">{item.value}%</span>
+            <span className="shrink-0 font-mono font-semibold text-muted-foreground">{item.value}%</span>
           </div>
         ))}
       </div>

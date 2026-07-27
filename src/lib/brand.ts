@@ -17,8 +17,8 @@ export const APP_VERSION = "0.1.0";
 export const GITHUB_URL = "https://github.com/sxmplycaleb";
 export const CONTACT_PHONE = "+254790321533";
 export const CONTACT_WHATSAPP_URL = "https://wa.me/254790321533";
-export const CONTACT_EMAIL_PLACEHOLDER = "support@shortly.example";
-export const OFFICE_LOCATION_PLACEHOLDER = "Future office location";
+export const CONTACT_EMAIL_PLACEHOLDER = "support.omanutro@gmail.com";
+export const OFFICE_LOCATION_PLACEHOLDER = "Nairobi, Kenya";
 export const SOCIAL_IMAGE_PATH = "/social-preview.png";
 
 export const SOCIAL_LINKS = [
