@@ -69,7 +69,7 @@ test.describe('Sprint 5 footer, UX, and accessibility', () => {
     await expect(page.getByRole('heading', { name: 'Accessibility Preferences' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Legal Links' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'About Application' })).toBeVisible();
-    await expect(page.getByText('Version: v0.1.0')).toBeVisible();
+    await expect(page.getByText('Version: v1.0.0')).toBeVisible();
     await expect(page.locator('#main-content').getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
   });
 
