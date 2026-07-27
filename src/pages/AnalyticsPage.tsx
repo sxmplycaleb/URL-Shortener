@@ -70,8 +70,8 @@ function AnalyticsSkeleton() {
       <div className="rounded-lg border bg-card p-6 shadow-xs">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-9 w-52" />
+            <Badge variant="muted">Phase 7 workspace</Badge>
+            <h1 className="text-3xl font-bold">Analytics</h1>
             <Skeleton className="h-5 w-80 max-w-full" />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -87,7 +87,22 @@ function AnalyticsSkeleton() {
         <Skeleton className="h-36" />
         <Skeleton className="h-36" />
       </div>
+      <div className="rounded-lg border bg-card p-6 shadow-xs">
+        <div className="flex flex-wrap gap-2" aria-label="Analytics date range">
+          <Button className="h-10 min-h-10 px-3" disabled variant="ghost">
+            Last 30 days
+          </Button>
+        </div>
+      </div>
       <Skeleton className="h-96" />
+      <Card>
+        <CardHeader>
+          <SectionHeader title="Link performance" description="Per-link analytics for your shortened URLs." />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-48 w-full" />
+        </CardContent>
+      </Card>
       <div className="grid gap-4 xl:grid-cols-3">
         <Skeleton className="h-72" />
         <Skeleton className="h-72" />

@@ -10,11 +10,11 @@ interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> {
 export function Table({ className, disabled = false, loading = false, ...props }: TableProps) {
   return (
     <div
-      className={cn("w-full overflow-x-auto rounded-lg border bg-card shadow-xs", disabled ? "opacity-60" : "", loading ? "animate-pulse" : "")}
+      className={cn("w-full max-w-full overflow-hidden rounded-lg border bg-card shadow-xs", disabled ? "opacity-60" : "", loading ? "animate-pulse" : "")}
       aria-disabled={disabled || undefined}
       aria-busy={loading || undefined}
     >
-      <table className={cn("w-full min-w-[720px] caption-bottom text-sm text-card-foreground", className)} {...props} />
+      <table className={cn("w-full table-fixed caption-bottom text-sm text-card-foreground", className)} {...props} />
     </div>
   );
 }
@@ -29,5 +29,5 @@ export function Th({ className, ...props }: React.ThHTMLAttributes<HTMLTableCell
 }
 
 export function Td({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("border-b border-border/70 p-4 align-middle transition-colors", className)} {...props} />;
+  return <td className={cn("min-w-0 overflow-hidden border-b border-border/70 p-4 align-middle transition-colors", className)} {...props} />;
 }

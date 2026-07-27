@@ -734,10 +734,10 @@ export function DashboardPage() {
           <div className="min-w-0">
             <Badge variant="muted">Dashboard overview</Badge>
             <h1 id="dashboard-title" className="mt-3 text-3xl font-bold">
-              Welcome back{session?.user.name ? `, ${session.user.name.split(" ")[0]}` : ""}
+              Dashboard
             </h1>
             <p className="mt-2 max-w-2xl text-muted-foreground">
-              Create, monitor, and organize your short links from one focused workspace.
+              Welcome back{session?.user.name ? `, ${session.user.name.split(" ")[0]}` : ""}. Create, monitor, and organize your short links from one focused workspace.
             </p>
             <div className="mt-4 flex flex-wrap gap-2 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1">
@@ -862,7 +862,7 @@ export function DashboardPage() {
             ) : null}
 
             {widgetId === "url-list" ? (
-              <Card id="recent-links" className="scroll-mt-24">
+              <Card id="recent-links" className="min-w-0 overflow-hidden scroll-mt-24">
                 <CardHeader className="gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <CardTitle>Your URLs</CardTitle>
@@ -870,7 +870,7 @@ export function DashboardPage() {
                   </div>
                   <Badge variant="muted">{formatNumber(filteredUrls.length)} shown</Badge>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="min-w-0 space-y-4">
                   {listError ? <Alert>{listError}</Alert> : null}
                   <UrlControls
                     allCount={urls.length}
@@ -1204,17 +1204,17 @@ function UrlList(props: {
 
   return (
     <>
-      <div className="hidden xl:block">
+      <div className="hidden min-w-0 xl:block">
         <Table>
           <caption className="sr-only">Shortened URLs</caption>
           <thead>
             <tr className="border-b">
               <Th className="w-12">Select</Th>
-              <Th>URL</Th>
-              <Th>Short URL</Th>
-              <Th>Activity</Th>
-              <Th>Dates</Th>
-              <Th className="text-right">Actions</Th>
+              <Th className="w-[30%]">URL</Th>
+              <Th className="w-[18%]">Short URL</Th>
+              <Th className="w-[15%]">Activity</Th>
+              <Th className="w-[15%]">Dates</Th>
+              <Th className="w-[22%] text-right">Actions</Th>
             </tr>
           </thead>
           <tbody>
@@ -1224,7 +1224,7 @@ function UrlList(props: {
           </tbody>
         </Table>
       </div>
-      <div className="grid gap-3 xl:hidden">
+      <div className="grid min-w-0 gap-3 xl:hidden">
         {props.urls.map((url) => (
           <UrlCard key={url.id} url={url} {...props} />
         ))}
@@ -1244,7 +1244,7 @@ function UrlRow(props: Parameters<typeof UrlCard>[0]) {
         <UrlIdentity query={query} url={url} />
       </Td>
       <Td>
-        <p className="max-w-xs truncate font-mono text-xs text-muted-foreground"><Highlight query={query} text={url.shortUrl} /></p>
+        <p className="max-w-full truncate font-mono text-xs text-muted-foreground"><Highlight query={query} text={url.shortUrl} /></p>
       </Td>
       <Td>
         <Activity url={url} />
@@ -1279,7 +1279,7 @@ function UrlCard(props: {
 }) {
   const { query, selectedIds, url, workingIds, onSelect } = props;
   return (
-    <Card className={cn("p-4 transition-all duration-base hover:-translate-y-0.5 hover:shadow-soft", selectedIds.includes(url.id) && "border-primary/50 bg-primary/5", url.isArchived && "opacity-70")}>
+    <Card className={cn("min-w-0 overflow-hidden p-4 transition-all duration-base hover:-translate-y-0.5 hover:shadow-soft", selectedIds.includes(url.id) && "border-primary/50 bg-primary/5", url.isArchived && "opacity-70")}>
       <div className="flex items-start gap-3">
         <input className="mt-1" aria-label={`Select ${url.shortUrl}`} checked={selectedIds.includes(url.id)} type="checkbox" onChange={(event) => onSelect(url, event.target.checked)} />
         <div className="min-w-0 flex-1 space-y-3">
@@ -1301,13 +1301,13 @@ function UrlIdentity({ query, url }: { query: string; url: ShortenedUrl }) {
   const hostname = getHostname(url.originalUrl);
 
   return (
-    <div className="flex min-w-0 gap-3">
+    <div className="flex min-w-0 max-w-full gap-3 overflow-hidden">
       <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted text-xs font-semibold text-muted-foreground">
         {faviconUrl ? <img alt="" className="h-5 w-5" src={faviconUrl} loading="lazy" referrerPolicy="no-referrer" /> : hostname.slice(0, 2).toUpperCase()}
       </div>
-      <div className="min-w-0 space-y-2">
+      <div className="min-w-0 max-w-full flex-1 space-y-2 overflow-hidden">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-medium"><Highlight query={query} text={getUrlTitle(url)} /></p>
+          <p className="min-w-0 max-w-full break-all font-medium"><Highlight query={query} text={getUrlTitle(url)} /></p>
           {url.isFavorite ? <Badge variant="warning">Favorite</Badge> : null}
           {url.isArchived ? <Badge variant="muted">Archived</Badge> : null}
           {isExpired(url) ? <Badge variant="destructive">Expired</Badge> : url.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="warning">Inactive</Badge>}
@@ -1316,7 +1316,7 @@ function UrlIdentity({ query, url }: { query: string; url: ShortenedUrl }) {
           {url.hasQrCode ? <Badge variant="default">QR</Badge> : null}
         </div>
         <div className="space-y-1">
-          <p className="max-w-lg truncate text-sm text-muted-foreground" title={url.originalUrl}>
+          <p className="max-w-full truncate text-sm text-muted-foreground lg:max-w-lg" title={url.originalUrl}>
             <Highlight query={query} text={url.originalUrl} />
           </p>
           <p className="text-xs text-muted-foreground">{hostname}</p>
@@ -1338,10 +1338,10 @@ function UrlIdentity({ query, url }: { query: string; url: ShortenedUrl }) {
 
 function Activity({ url }: { url: ShortenedUrl }) {
   return (
-    <div className="flex flex-wrap gap-2 text-xs">
+    <div className="flex min-w-0 flex-wrap gap-2 text-xs">
       <Badge variant="muted">{formatNumber(url.clickCount)} clicks</Badge>
       <Badge variant="muted">{formatNumber(url.shareCount)} shares</Badge>
-      <span className="text-muted-foreground">Last clicked {formatDate(url.lastClickedAt)}</span>
+      <span className="min-w-0 break-words text-muted-foreground">Last clicked {formatDate(url.lastClickedAt)}</span>
     </div>
   );
 }
@@ -1374,7 +1374,7 @@ const UrlActions = memo(function UrlActions({
 }: Parameters<typeof UrlCard>[0] & { busy: boolean }) {
   const menuOpen = openMenuId === url.id;
   return (
-    <div className="flex flex-wrap justify-end gap-1">
+    <div className="flex max-w-full flex-wrap justify-end gap-1">
       <Tooltip label={url.isFavorite ? "Remove favorite" : "Favorite URL"}>
         <Button aria-label={url.isFavorite ? "Remove favorite" : "Favorite URL"} disabled={busy} size="icon" variant="ghost" onClick={() => onToggleFavorite(url)}>
           <Star className={cn("h-4 w-4", url.isFavorite && "fill-warning text-warning")} />
