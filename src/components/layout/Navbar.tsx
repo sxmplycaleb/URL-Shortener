@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { Bell, ChevronDown, Command, LogOut, Menu, Search, Settings, Shuffle, UserCircle } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { pageTransition, popoverVariants, reducedMotionTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/services/auth";
 
@@ -77,7 +78,7 @@ export function Navbar({
           </Button>
           <Button aria-label="View notifications" className="relative" size="icon" variant="ghost">
             <Bell className="h-5 w-5" />
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary ring-2 ring-background motion-safe:animate-pulse" />
           </Button>
           <ThemeToggle />
           {user ? (
@@ -110,6 +111,7 @@ function ProfileDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
   const initials = user.name
     .split(" ")
     .map((part) => part[0])
@@ -162,26 +164,33 @@ function ProfileDropdown({
         <ChevronDown className={cn("hidden h-4 w-4 transition-transform lg:block", open ? "rotate-180" : "")} />
       </Button>
 
-      {open ? (
-        <div
-          className="absolute right-0 top-full z-50 mt-3 w-72 origin-top-right animate-in rounded-lg border bg-card p-2 shadow-panel"
-          role="menu"
-          aria-label="Profile menu"
-        >
-          <div className="mb-2 flex items-center gap-3 rounded-md bg-muted/70 p-3">
-            <Avatar src={user.avatar} fallback={initials || "U"} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{user.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            className="absolute right-0 top-full z-50 mt-3 w-72 origin-top-right rounded-lg border bg-card p-2 shadow-panel"
+            role="menu"
+            aria-label="Profile menu"
+            initial={reduceMotion ? false : "initial"}
+            animate="animate"
+            exit={reduceMotion ? {} : "exit"}
+            variants={popoverVariants}
+            transition={reduceMotion ? reducedMotionTransition : pageTransition}
+          >
+            <div className="mb-2 flex items-center gap-3 rounded-md bg-muted/70 p-3">
+              <Avatar src={user.avatar} fallback={initials || "U"} />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{user.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              </div>
             </div>
-          </div>
-          <MenuButton icon={UserCircle} label="My Profile" onClick={() => run(onNavigateToProfile)} />
-          <MenuButton icon={Settings} label="Settings" onClick={() => run(onNavigateToDashboardSettings)} />
-          <MenuButton icon={Shuffle} label="Switch Account" onClick={() => run(onSwitchAccount)} />
-          <div className="my-2 h-px bg-border" />
-          <MenuButton icon={LogOut} label="Logout" onClick={() => run(onLogout)} />
-        </div>
-      ) : null}
+            <MenuButton icon={UserCircle} label="My Profile" onClick={() => run(onNavigateToProfile)} />
+            <MenuButton icon={Settings} label="Settings" onClick={() => run(onNavigateToDashboardSettings)} />
+            <MenuButton icon={Shuffle} label="Switch Account" onClick={() => run(onSwitchAccount)} />
+            <div className="my-2 h-px bg-border" />
+            <MenuButton icon={LogOut} label="Logout" onClick={() => run(onLogout)} />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -197,7 +206,7 @@ function MenuButton({
 }) {
   return (
     <button
-      className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm text-muted-foreground transition-[background-color,color,transform] duration-base ease-standard hover:bg-muted hover:text-foreground motion-safe:active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       role="menuitem"
       type="button"
       onClick={onClick}

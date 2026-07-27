@@ -962,7 +962,7 @@ export function DashboardPage() {
           {notices.map((notice) => (
             <div
               className={cn(
-                "rounded-lg border bg-card p-4 text-sm shadow-panel",
+                "motion-enter rounded-lg border bg-card p-4 text-sm shadow-panel transition-[border-color,box-shadow,opacity,transform] duration-base ease-standard",
                 notice.tone === "success" && "border-success/30",
                 notice.tone === "info" && "border-primary/30",
                 notice.tone === "warning" && "border-warning/40",
@@ -1147,8 +1147,8 @@ function DashboardEmptyState({
   title: string;
 }) {
   return (
-    <Card className="flex min-h-72 flex-col items-center justify-center p-6 text-center sm:p-8" role="status">
-      <span className="grid h-12 w-12 place-items-center rounded-md border bg-accent text-accent-foreground">
+    <Card className="group motion-enter flex min-h-72 flex-col items-center justify-center p-6 text-center sm:p-8" role="status">
+      <span className="grid h-12 w-12 place-items-center rounded-md border bg-accent text-accent-foreground transition-transform duration-base ease-standard motion-safe:group-hover:scale-105">
         <Icon className="h-6 w-6" aria-hidden="true" />
       </span>
       <h3 className="mt-4 text-lg font-semibold">{title}</h3>
@@ -1235,8 +1235,16 @@ function UrlList(props: {
 
 function UrlRow(props: Parameters<typeof UrlCard>[0]) {
   const { query, selectedIds, url, workingIds, onSelect } = props;
+  const selected = selectedIds.includes(url.id);
   return (
-    <tr className={cn("border-b transition-colors last:border-0 hover:bg-muted/40", selectedIds.includes(url.id) && "bg-primary/5", url.isArchived && "opacity-70")}>
+    <tr
+      className={cn(
+        "border-b transition-[background-color,box-shadow,opacity] duration-base ease-standard last:border-0 hover:bg-muted/40",
+        selected && "bg-primary/5 shadow-[inset_3px_0_0_hsl(var(--primary))]",
+        url.isArchived && "opacity-70",
+      )}
+      aria-selected={selected}
+    >
       <Td>
         <input aria-label={`Select ${url.shortUrl}`} checked={selectedIds.includes(url.id)} type="checkbox" onChange={(event) => onSelect(url, event.target.checked)} />
       </Td>
@@ -1279,7 +1287,7 @@ function UrlCard(props: {
 }) {
   const { query, selectedIds, url, workingIds, onSelect } = props;
   return (
-    <Card className={cn("min-w-0 overflow-hidden p-4 transition-all duration-base hover:-translate-y-0.5 hover:shadow-soft", selectedIds.includes(url.id) && "border-primary/50 bg-primary/5", url.isArchived && "opacity-70")}>
+    <Card className={cn("p-4 transition-all duration-base hover:-translate-y-0.5 hover:shadow-soft", selectedIds.includes(url.id) && "border-primary/50 bg-primary/5", url.isArchived && "opacity-70")}>
       <div className="flex items-start gap-3">
         <input className="mt-1" aria-label={`Select ${url.shortUrl}`} checked={selectedIds.includes(url.id)} type="checkbox" onChange={(event) => onSelect(url, event.target.checked)} />
         <div className="min-w-0 flex-1 space-y-3">
