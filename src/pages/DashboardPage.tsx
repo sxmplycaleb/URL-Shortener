@@ -13,11 +13,14 @@ import {
   Archive,
   ArchiveRestore,
   BarChart3,
+  CalendarClock,
   Check,
   CircleAlert,
   Copy,
   Download,
+  Edit3,
   ExternalLink,
+  Globe2,
   GripVertical,
   Info,
   Link2,
@@ -33,6 +36,7 @@ import {
   Search,
   Share2,
   SlidersHorizontal,
+  Sparkles,
   Star,
   Trash2,
   X,
@@ -41,7 +45,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { CopyButton } from "@/components/common/CopyButton";
 import { DashboardSkeleton } from "@/components/common/Skeleton";
-import { EmptyState } from "@/components/common/EmptyState";
 import { StatCard } from "@/components/common/StatCard";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -131,6 +134,19 @@ function getErrorMessage(error: unknown) {
 
 function getUrlTitle(url: ShortenedUrl) {
   return url.title || url.customAlias || url.shortCode;
+}
+
+function getHostname(value: string) {
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return value;
+  }
+}
+
+function getFaviconUrl(value: string) {
+  const hostname = getHostname(value);
+  return hostname ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64` : "";
 }
 
 function isExpired(url: ShortenedUrl) {
@@ -244,6 +260,8 @@ export function DashboardPage() {
   const [pinFavorites, setPinFavorites] = useState(() => localStorage.getItem(PIN_FAVORITES_KEY) === "true");
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
   const [qrPreviewUrl, setQrPreviewUrl] = useState<ShortenedUrl | null>(null);
+  const [editingUrl, setEditingUrl] = useState<ShortenedUrl | null>(null);
+  const [editing, setEditing] = useState(false);
   const [openMenuId, setOpenMenuId] = useState("");
   const { preferences, setWidgetOrder } = useDashboardPreferences();
   const errorId = useId();
@@ -251,6 +269,18 @@ export function DashboardPage() {
 
   const totalClicks = useMemo(() => urls.reduce((total, url) => total + url.clickCount, 0), [urls]);
   const activeCount = useMemo(() => urls.filter((url) => url.isActive && !url.isArchived && !isExpired(url)).length, [urls]);
+  const qrCount = useMemo(() => urls.filter((url) => url.hasQrCode).length, [urls]);
+  const favoriteCount = useMemo(() => urls.filter((url) => url.isFavorite).length, [urls]);
+  const clickRate = urls.length ? Math.round((totalClicks / urls.length) * 10) / 10 : 0;
+  const recentActivityCount = useMemo(() => {
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return urls.filter((url) => new Date(url.updatedAt).getTime() >= sevenDaysAgo || (url.lastClickedAt && new Date(url.lastClickedAt).getTime() >= sevenDaysAgo)).length;
+  }, [urls]);
+  const expiringSoonCount = useMemo(() => {
+    const now = Date.now();
+    const nextWeek = now + 7 * 24 * 60 * 60 * 1000;
+    return urls.filter((url) => url.expiresAt && new Date(url.expiresAt).getTime() >= now && new Date(url.expiresAt).getTime() <= nextWeek).length;
+  }, [urls]);
   const selectedUrls = useMemo(() => urls.filter((url) => selectedIds.includes(url.id)), [selectedIds, urls]);
   const visibleWidgets = useMemo(
     () => preferences.widgetOrder.filter((widgetId) => !preferences.hiddenWidgets.includes(widgetId)),
@@ -368,6 +398,11 @@ export function DashboardPage() {
       const target = event.target as HTMLElement | null;
       const typing = target?.matches("input, textarea, select, [contenteditable=true]");
       if (typing) return;
+      if (event.key === "/") {
+        event.preventDefault();
+        document.querySelector<HTMLInputElement>('[aria-label="Search URLs"]')?.focus();
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
         event.preventDefault();
         setSelectedIds(filteredUrls.map((url) => url.id));
@@ -478,6 +513,55 @@ export function DashboardPage() {
       showNotice({ tone: "error", message: getErrorMessage(error) });
     } finally {
       setWorkingIds((current) => current.filter((id) => id !== url.id));
+    }
+  }
+
+  async function handleEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingUrl || !accessToken || editing) return;
+
+    const form = new FormData(event.currentTarget);
+    const originalUrl = String(form.get("originalUrl") ?? "").trim();
+    const customAlias = String(form.get("customAlias") ?? "").trim();
+    const title = String(form.get("title") ?? "").trim();
+    const notes = String(form.get("notes") ?? "").trim();
+    const expiresAt = String(form.get("expiresAt") ?? "");
+    const activatesAt = String(form.get("activatesAt") ?? "");
+    const deactivatesAt = String(form.get("deactivatesAt") ?? "");
+    const password = String(form.get("password") ?? "");
+    const validationErrors = validateForm(originalUrl, customAlias, title, notes, password);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setEditing(true);
+    setErrors({});
+
+    try {
+      const response = await updateShortenedUrl(accessToken, editingUrl.id, {
+        originalUrl,
+        ...(customAlias ? { customAlias } : {}),
+        ...(title ? { title } : {}),
+        ...(notes ? { notes } : {}),
+        ...(expiresAt ? { expiresAt } : {}),
+        ...(activatesAt ? { activatesAt } : {}),
+        ...(deactivatesAt ? { deactivatesAt } : {}),
+        ...(password ? { password } : {}),
+      });
+      setUrls((current) => current.map((url) => (url.id === editingUrl.id ? normalizeUrl(response.url) : url)));
+      setEditingUrl(null);
+      showNotice({ tone: "success", message: "URL updated" });
+    } catch (error) {
+      if (isAuthorizationError(error)) {
+        endSession();
+        return;
+      }
+
+      setErrors({ form: getErrorMessage(error) });
+    } finally {
+      setEditing(false);
     }
   }
 
@@ -645,12 +729,32 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="mt-1 text-muted-foreground">Create and manage your shortened URLs.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <section className="rounded-lg border bg-card p-5 shadow-xs sm:p-6" aria-labelledby="dashboard-title">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+          <div className="min-w-0">
+            <Badge variant="muted">Dashboard overview</Badge>
+            <h1 id="dashboard-title" className="mt-3 text-3xl font-bold">
+              Welcome back{session?.user.name ? `, ${session.user.name.split(" ")[0]}` : ""}
+            </h1>
+            <p className="mt-2 max-w-2xl text-muted-foreground">
+              Create, monitor, and organize your short links from one focused workspace.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1">
+                <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+                {formatNumber(favoriteCount)} favorites pinned
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1">
+                <CalendarClock className="h-4 w-4 text-warning" aria-hidden="true" />
+                {formatNumber(expiringSoonCount)} expiring soon
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <Button onClick={() => document.getElementById("create-link")?.scrollIntoView({ block: "start", behavior: "smooth" })}>
+              <Plus className="h-4 w-4" />
+              New URL
+            </Button>
           {(["csv", "excel", "json"] as const).map((format) => (
             <Button disabled={Boolean(exporting)} key={format} variant="outline" onClick={() => void exportUrls(format)}>
               <Download className="h-4 w-4" />
@@ -665,8 +769,9 @@ export function DashboardPage() {
             {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh
           </Button>
+          </div>
         </div>
-      </div>
+      </section>
 
       <div className="space-y-4" aria-label="Customizable dashboard widgets">
         {visibleWidgets.map((widgetId) => (
@@ -680,34 +785,42 @@ export function DashboardPage() {
             onDrop={() => moveWidget(widgetId)}
           >
             {widgetId === "stats" ? (
-              <div className="grid gap-4 md:grid-cols-3">
-                <StatCard detail="Owned by your account" icon={Link2} label="Total URLs" value={urls.length} />
-                <StatCard detail="Available for redirects" icon={Plus} label="Active URLs" value={activeCount} />
-                <StatCard detail="Across your short links" icon={BarChart3} label="Total clicks" value={totalClicks} />
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                <StatCard detail="Owned by your account" icon={Link2} label="Total Links" meta={`${favoriteCount} favorite`} value={urls.length} />
+                <StatCard detail="Across all short links" icon={BarChart3} label="Total Clicks" meta="Lifetime" tone="info" value={totalClicks} />
+                <StatCard detail="Available for redirects" icon={Check} label="Active Links" meta={`${urls.length - activeCount} inactive`} tone="success" value={activeCount} />
+                <StatCard detail="Ready to share offline" icon={QrCode} label="QR Codes" meta={`${Math.round((qrCount / Math.max(urls.length, 1)) * 100)}% coverage`} tone="warning" value={qrCount} />
+                <StatCard detail="Average clicks per link" icon={Globe2} label="Click Rate" meta="Per URL" value={clickRate.toLocaleString()} />
+                <StatCard detail="Updated or clicked this week" icon={RefreshCw} label="Recent Activity" meta="7 days" tone="muted" value={recentActivityCount} />
               </div>
             ) : null}
 
             {widgetId === "create-link" ? (
-              <Card id="create-link" className="scroll-mt-24">
-                <CardHeader>
-                  <CardTitle>Create short URL</CardTitle>
-                  <CardDescription>Paste a long URL and optionally reserve a readable alias.</CardDescription>
+              <Card id="create-link" className="scroll-mt-24 overflow-hidden">
+                <CardHeader className="border-b bg-muted/30">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <CardTitle>Create short URL</CardTitle>
+                      <CardDescription>Paste a destination, add context, and configure optional controls before publishing.</CardDescription>
+                    </div>
+                    <Badge variant="default">Advanced options included</Badge>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <form className="space-y-4" aria-describedby={errors.form ? errorId : undefined} noValidate onSubmit={handleCreate}>
+                  <form className="space-y-5 pt-6" aria-describedby={errors.form ? errorId : undefined} noValidate onSubmit={handleCreate}>
                     {errors.form ? <Alert id={errorId}>{errors.form}</Alert> : null}
                     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px_220px_auto] xl:items-start">
-                      <Field label="Long URL" error={errors.originalUrl} id="dashboard-original-url">
+                      <Field label="Long URL" error={errors.originalUrl} id="dashboard-original-url" hint="Use a full http or https URL.">
                         <div className="relative">
                           <Link2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                           <Input className="pl-9" id="dashboard-original-url" name="originalUrl" type="url" placeholder="https://example.com/very/long/url" autoComplete="url" disabled={creating} inputMode="url" required />
                         </div>
                       </Field>
-                      <Field label="Custom alias" error={errors.customAlias} id="dashboard-custom-alias">
+                      <Field label="Custom alias" error={errors.customAlias} id="dashboard-custom-alias" hint="Optional, 3-64 characters.">
                         <Input id="dashboard-custom-alias" name="customAlias" placeholder="launch" disabled={creating} maxLength={64} pattern="[A-Za-z0-9_-]{3,64}" />
                       </Field>
-                      <Field label="Title" error={errors.title} id="dashboard-title">
-                        <Input id="dashboard-title" name="title" placeholder="Campaign launch" disabled={creating} maxLength={140} />
+                      <Field label="Title" error={errors.title} id="dashboard-title-input" hint="Helps identify the link later.">
+                        <Input id="dashboard-title-input" name="title" placeholder="Campaign launch" disabled={creating} maxLength={140} />
                       </Field>
                       <Button className="w-full xl:mt-7 xl:w-auto" disabled={creating} type="submit">
                         {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -715,20 +828,20 @@ export function DashboardPage() {
                       </Button>
                     </div>
                     <div className="grid gap-4 lg:grid-cols-3">
-                      <Field label="Scheduled activation" error={undefined} id="dashboard-activates-at">
+                      <Field label="Scheduled activation" error={undefined} id="dashboard-activates-at" hint="Keep blank to activate immediately.">
                         <Input id="dashboard-activates-at" name="activatesAt" type="datetime-local" disabled={creating} />
                       </Field>
-                      <Field label="Scheduled deactivation" error={undefined} id="dashboard-deactivates-at">
+                      <Field label="Scheduled deactivation" error={undefined} id="dashboard-deactivates-at" hint="Pause access after a campaign window.">
                         <Input id="dashboard-deactivates-at" name="deactivatesAt" type="datetime-local" disabled={creating} />
                       </Field>
-                      <Field label="Expiration" error={undefined} id="dashboard-expires-at">
+                      <Field label="Expiration" error={undefined} id="dashboard-expires-at" hint="Expire the short URL automatically.">
                         <Input id="dashboard-expires-at" name="expiresAt" type="datetime-local" disabled={creating} />
                       </Field>
                     </div>
                     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-                      <Field label="Link notes" error={errors.notes} id="dashboard-notes">
+                      <Field label="Link notes" error={errors.notes} id="dashboard-notes" hint="Private notes for teammates and future you.">
                         <textarea
-                          className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                          className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground hover:border-primary/60 focus-visible:border-ring"
                           id="dashboard-notes"
                           name="notes"
                           placeholder="Internal campaign notes"
@@ -736,7 +849,7 @@ export function DashboardPage() {
                           disabled={creating}
                         />
                       </Field>
-                      <Field label="Password protection" error={errors.password} id="dashboard-password">
+                      <Field label="Password protection" error={errors.password} id="dashboard-password" hint="Optional, minimum 6 characters.">
                         <div className="relative">
                           <Lock className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
                           <Input className="pl-9" id="dashboard-password" name="password" type="password" placeholder="Optional password" minLength={6} maxLength={128} disabled={creating} />
@@ -790,9 +903,16 @@ export function DashboardPage() {
                     urls={filteredUrls}
                     workingIds={workingIds}
                     onArchive={(url) => setConfirm({ type: "archive", urls: [url] })}
+                    onAnalytics={(url) => navigate(`/analytics?url=${encodeURIComponent(url.id)}`)}
                     onCopy={bulkCopy}
                     onDelete={(url) => setConfirm({ type: "delete", urls: [url] })}
+                    onEdit={(url) => {
+                      setErrors({});
+                      setEditingUrl(url);
+                    }}
                     onGenerateQr={generateQr}
+                    onCreate={() => document.getElementById("create-link")?.scrollIntoView({ block: "start", behavior: "smooth" })}
+                    onReset={resetControls}
                     onRestore={(url) => setConfirm({ type: "restore", urls: [url] })}
                     onSelect={(url, selected) => setSelectedIds((current) => (selected ? [...new Set([...current, url.id])] : current.filter((id) => id !== url.id)))}
                     onShare={handleShare}
@@ -817,6 +937,17 @@ export function DashboardPage() {
           if (confirm.type === "restore") void bulkUpdate(confirm.urls, { isArchived: false }, confirm.urls.length > 1 ? "URLs restored" : "URL restored");
           setConfirm(null);
         }}
+      />
+
+      <EditUrlDialog
+        editing={editing}
+        errors={errors}
+        url={editingUrl}
+        onCancel={() => {
+          setEditingUrl(null);
+          setErrors({});
+        }}
+        onSubmit={handleEdit}
       />
 
       <QrDialog
@@ -852,13 +983,20 @@ export function DashboardPage() {
   );
 }
 
-function Field({ children, error, id, label }: { children: ReactNode; error: string | undefined; id: string; label: string }) {
+function Field({ children, error, hint, id, label }: { children: ReactNode; error: string | undefined; hint?: string; id: string; label: string }) {
+  const descriptionId = hint || error ? `${id}-description` : undefined;
+
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
       {children}
+      {hint && !error ? (
+        <p className="text-xs text-muted-foreground" id={descriptionId}>
+          {hint}
+        </p>
+      ) : null}
       {error ? (
-        <p className="text-sm text-destructive" id={`${id}-error`}>
+        <p className="text-sm text-destructive" id={descriptionId}>
           {error}
         </p>
       ) : null}
@@ -902,14 +1040,17 @@ function UrlControls({
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px_auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-          <Input className="pr-11 pl-9" value={search} placeholder="Search original, short URL, alias, title, or tags" aria-label="Search URLs" onChange={(event) => onSearch(event.target.value)} />
+          <Input className="pl-9 pr-24" value={search} placeholder="Search original, short URL, alias, title, or tags" aria-label="Search URLs" onChange={(event) => onSearch(event.target.value)} />
+          <kbd className="pointer-events-none absolute right-12 top-1/2 hidden -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 text-[0.7rem] font-medium text-muted-foreground sm:inline-flex">
+            /
+          </kbd>
           {search ? (
             <Button className="absolute right-1 top-1 h-9 w-9" size="icon" variant="ghost" aria-label="Clear search" onClick={() => onSearch("")}>
               <X className="h-4 w-4" />
             </Button>
           ) : null}
         </div>
-        <select className="min-h-11 rounded-md border border-input bg-background px-3 text-sm shadow-sm" aria-label="Sort URLs" value={sort} onChange={(event) => onSort(event.target.value as SortKey)}>
+        <select className="min-h-11 rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors hover:border-primary/60 focus-visible:border-ring" aria-label="Sort URLs" value={sort} onChange={(event) => onSort(event.target.value as SortKey)}>
           {sortOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -921,6 +1062,26 @@ function UrlControls({
           Reset
         </Button>
       </div>
+      {filters.length || search ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/25 p-2 text-sm" aria-live="polite">
+          <span className="px-1 font-medium text-muted-foreground">Active filters</span>
+          {search ? <Badge variant="muted">Search: {search}</Badge> : null}
+          {filters.map((filter) => (
+            <button
+              className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              key={filter}
+              type="button"
+              onClick={() => onFilter(filter)}
+            >
+              {filterOptions.find((option) => option.value === filter)?.label}
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          ))}
+          <Button size="sm" variant="ghost" onClick={onReset}>
+            Clear filters
+          </Button>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         {filterOptions.map((filter) => (
           <button
@@ -958,15 +1119,51 @@ function UrlControls({
 
 function BulkToolbar({ disabled, selectedCount, onArchive, onCopy, onDelete, onRestore }: { disabled: boolean; selectedCount: number; onArchive: () => void; onCopy: () => void; onDelete: () => void; onRestore: () => void }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
-      <p className="text-sm font-medium">{selectedCount} selected</p>
+    <div className={cn("flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 transition-colors", selectedCount ? "bg-primary/5 border-primary/20" : "bg-muted/30")}>
+      <p className="text-sm font-medium" aria-live="polite">
+        {selectedCount ? `${selectedCount} selected` : "Select URLs to unlock bulk actions"}
+      </p>
       <div className="flex flex-wrap gap-2">
-        <Button disabled={disabled} size="sm" variant="outline" onClick={onCopy}><Copy className="h-4 w-4" />Bulk Copy</Button>
-        <Button disabled={disabled} size="sm" variant="outline" onClick={onArchive}><Archive className="h-4 w-4" />Bulk Archive</Button>
-        <Button disabled={disabled} size="sm" variant="outline" onClick={onRestore}><ArchiveRestore className="h-4 w-4" />Bulk Restore</Button>
-        <Button disabled={disabled} size="sm" variant="destructive" onClick={onDelete}><Trash2 className="h-4 w-4" />Bulk Delete</Button>
+        <Button disabled={disabled} size="sm" variant="outline" onClick={onCopy}><Copy className="h-4 w-4" />Copy</Button>
+        <Button disabled={disabled} size="sm" variant="outline" onClick={onArchive}><Archive className="h-4 w-4" />Archive</Button>
+        <Button disabled={disabled} size="sm" variant="outline" onClick={onRestore}><ArchiveRestore className="h-4 w-4" />Restore</Button>
+        <Button disabled={disabled} size="sm" variant="destructive" onClick={onDelete}><Trash2 className="h-4 w-4" />Delete</Button>
       </div>
     </div>
+  );
+}
+
+function DashboardEmptyState({
+  description,
+  icon: Icon,
+  primaryAction,
+  secondaryAction,
+  title,
+}: {
+  description: string;
+  icon: typeof CircleAlert;
+  primaryAction?: { label: string; onClick: () => void } | undefined;
+  secondaryAction?: { label: string; onClick: () => void } | undefined;
+  title: string;
+}) {
+  return (
+    <Card className="flex min-h-72 flex-col items-center justify-center p-6 text-center sm:p-8" role="status">
+      <span className="grid h-12 w-12 place-items-center rounded-md border bg-accent text-accent-foreground">
+        <Icon className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <h3 className="mt-4 text-lg font-semibold">{title}</h3>
+      <p className="mt-2 max-w-md text-sm text-muted-foreground">{description}</p>
+      {primaryAction || secondaryAction ? (
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          {primaryAction ? <Button onClick={primaryAction.onClick}>{primaryAction.label}</Button> : null}
+          {secondaryAction ? (
+            <Button variant="outline" onClick={secondaryAction.onClick}>
+              {secondaryAction.label}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </Card>
   );
 }
 
@@ -979,9 +1176,13 @@ function UrlList(props: {
   openMenuId: string;
   setOpenMenuId: (id: string) => void;
   onArchive: (url: ShortenedUrl) => void;
+  onAnalytics: (url: ShortenedUrl) => void;
   onCopy: (urls: ShortenedUrl[]) => void;
   onDelete: (url: ShortenedUrl) => void;
+  onEdit: (url: ShortenedUrl) => void;
   onGenerateQr: (url: ShortenedUrl) => void;
+  onCreate: () => void;
+  onReset: () => void;
   onRestore: (url: ShortenedUrl) => void;
   onSelect: (url: ShortenedUrl, selected: boolean) => void;
   onShare: (url: ShortenedUrl, channel: string) => Promise<void>;
@@ -991,9 +1192,11 @@ function UrlList(props: {
     const favoriteOnly = props.filters.includes("favorites");
     const archiveOnly = props.filters.includes("archived");
     return (
-      <EmptyState
+      <DashboardEmptyState
         description={props.query ? "Adjust your search or clear filters to see more URLs." : favoriteOnly ? "Star a URL to collect it here." : archiveOnly ? "Archived URLs remain recoverable and will appear here." : "Create your first short URL to see it appear here immediately."}
         icon={CircleAlert}
+        primaryAction={!props.query && !favoriteOnly && !archiveOnly ? { label: "Create URL", onClick: props.onCreate } : undefined}
+        secondaryAction={props.query || props.filters.length ? { label: "Clear filters", onClick: props.onReset } : undefined}
         title={props.query ? "No search results" : favoriteOnly ? "No favorites yet" : archiveOnly ? "No archived URLs" : "No URLs yet"}
       />
     );
@@ -1033,7 +1236,7 @@ function UrlList(props: {
 function UrlRow(props: Parameters<typeof UrlCard>[0]) {
   const { query, selectedIds, url, workingIds, onSelect } = props;
   return (
-    <tr className={cn("border-b transition-colors last:border-0 hover:bg-muted/40", url.isArchived && "opacity-70")}>
+    <tr className={cn("border-b transition-colors last:border-0 hover:bg-muted/40", selectedIds.includes(url.id) && "bg-primary/5", url.isArchived && "opacity-70")}>
       <Td>
         <input aria-label={`Select ${url.shortUrl}`} checked={selectedIds.includes(url.id)} type="checkbox" onChange={(event) => onSelect(url, event.target.checked)} />
       </Td>
@@ -1064,8 +1267,10 @@ function UrlCard(props: {
   openMenuId: string;
   setOpenMenuId: (id: string) => void;
   onArchive: (url: ShortenedUrl) => void;
+  onAnalytics: (url: ShortenedUrl) => void;
   onCopy: (urls: ShortenedUrl[]) => void;
   onDelete: (url: ShortenedUrl) => void;
+  onEdit: (url: ShortenedUrl) => void;
   onGenerateQr: (url: ShortenedUrl) => void;
   onRestore: (url: ShortenedUrl) => void;
   onSelect: (url: ShortenedUrl, selected: boolean) => void;
@@ -1074,12 +1279,12 @@ function UrlCard(props: {
 }) {
   const { query, selectedIds, url, workingIds, onSelect } = props;
   return (
-    <Card className={cn("p-4 transition-transform hover:-translate-y-0.5", url.isArchived && "opacity-70")}>
+    <Card className={cn("p-4 transition-all duration-base hover:-translate-y-0.5 hover:shadow-soft", selectedIds.includes(url.id) && "border-primary/50 bg-primary/5", url.isArchived && "opacity-70")}>
       <div className="flex items-start gap-3">
         <input className="mt-1" aria-label={`Select ${url.shortUrl}`} checked={selectedIds.includes(url.id)} type="checkbox" onChange={(event) => onSelect(url, event.target.checked)} />
         <div className="min-w-0 flex-1 space-y-3">
           <UrlIdentity query={query} url={url} />
-          <p className="break-all font-mono text-xs text-muted-foreground"><Highlight query={query} text={url.shortUrl} /></p>
+          <p className="break-all rounded-md bg-muted px-3 py-2 font-mono text-xs text-muted-foreground"><Highlight query={query} text={url.shortUrl} /></p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Activity url={url} />
             <Dates url={url} />
@@ -1092,20 +1297,41 @@ function UrlCard(props: {
 }
 
 function UrlIdentity({ query, url }: { query: string; url: ShortenedUrl }) {
+  const faviconUrl = getFaviconUrl(url.originalUrl);
+  const hostname = getHostname(url.originalUrl);
+
   return (
-    <div className="min-w-0 space-y-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="font-medium"><Highlight query={query} text={getUrlTitle(url)} /></p>
-        {url.isFavorite ? <Badge variant="warning">Favorite</Badge> : null}
-        {url.isArchived ? <Badge variant="muted">Archived</Badge> : null}
-        {isExpired(url) ? <Badge variant="destructive">Expired</Badge> : url.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="warning">Inactive</Badge>}
-        {url.activatesAt && new Date(url.activatesAt) > new Date() ? <Badge variant="warning">Scheduled</Badge> : null}
-        {url.isPasswordProtected ? <Badge variant="muted">Protected</Badge> : null}
-        {url.hasQrCode ? <Badge variant="default">QR</Badge> : null}
+    <div className="flex min-w-0 gap-3">
+      <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted text-xs font-semibold text-muted-foreground">
+        {faviconUrl ? <img alt="" className="h-5 w-5" src={faviconUrl} loading="lazy" referrerPolicy="no-referrer" /> : hostname.slice(0, 2).toUpperCase()}
       </div>
-      <p className="max-w-lg truncate text-sm text-muted-foreground" title={url.originalUrl}>
-        <Highlight query={query} text={url.originalUrl} />
-      </p>
+      <div className="min-w-0 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium"><Highlight query={query} text={getUrlTitle(url)} /></p>
+          {url.isFavorite ? <Badge variant="warning">Favorite</Badge> : null}
+          {url.isArchived ? <Badge variant="muted">Archived</Badge> : null}
+          {isExpired(url) ? <Badge variant="destructive">Expired</Badge> : url.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="warning">Inactive</Badge>}
+          {url.activatesAt && new Date(url.activatesAt) > new Date() ? <Badge variant="warning">Scheduled</Badge> : null}
+          {url.isPasswordProtected ? <Badge variant="muted">Protected</Badge> : null}
+          {url.hasQrCode ? <Badge variant="default">QR</Badge> : null}
+        </div>
+        <div className="space-y-1">
+          <p className="max-w-lg truncate text-sm text-muted-foreground" title={url.originalUrl}>
+            <Highlight query={query} text={url.originalUrl} />
+          </p>
+          <p className="text-xs text-muted-foreground">{hostname}</p>
+        </div>
+        {url.tags.length ? (
+          <div className="flex flex-wrap gap-1">
+            {url.tags.slice(0, 4).map((tag) => (
+              <Badge key={tag} variant="muted">
+                <Highlight query={query} text={tag} />
+              </Badge>
+            ))}
+            {url.tags.length > 4 ? <Badge variant="muted">+{url.tags.length - 4}</Badge> : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1138,7 +1364,9 @@ const UrlActions = memo(function UrlActions({
   setOpenMenuId,
   url,
   onArchive,
+  onAnalytics,
   onDelete,
+  onEdit,
   onGenerateQr,
   onRestore,
   onShare,
@@ -1161,6 +1389,16 @@ const UrlActions = memo(function UrlActions({
       <Tooltip label="Preview QR">
         <Button aria-label={url.hasQrCode ? "Preview QR" : "Generate QR Code"} disabled={busy} size="icon" variant="ghost" onClick={() => void onGenerateQr(url)}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+        </Button>
+      </Tooltip>
+      <Tooltip label="View analytics">
+        <Button aria-label={`View analytics for ${url.shortUrl}`} size="icon" variant="ghost" onClick={() => onAnalytics(url)}>
+          <BarChart3 className="h-4 w-4" />
+        </Button>
+      </Tooltip>
+      <Tooltip label="Edit URL">
+        <Button aria-label={`Edit ${url.shortUrl}`} disabled={busy} size="icon" variant="ghost" onClick={() => onEdit(url)}>
+          <Edit3 className="h-4 w-4" />
         </Button>
       </Tooltip>
       <div className="relative">
@@ -1215,6 +1453,80 @@ function ConfirmationDialog({ confirm, onCancel, onConfirm }: { confirm: Pending
         <Button variant="ghost" onClick={onCancel}>Cancel</Button>
         <Button variant={confirm?.type === "delete" ? "destructive" : "default"} onClick={onConfirm}>{verb}</Button>
       </div>
+    </Dialog>
+  );
+}
+
+function toDateTimeInput(value?: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 16);
+}
+
+function EditUrlDialog({
+  editing,
+  errors,
+  url,
+  onCancel,
+  onSubmit,
+}: {
+  editing: boolean;
+  errors: FormErrors;
+  url: ShortenedUrl | null;
+  onCancel: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <Dialog open={Boolean(url)} title="Edit URL" description={url?.shortUrl ?? "Update URL details."} onOpenChange={(open) => (!open ? onCancel() : undefined)}>
+      {url ? (
+        <form className="space-y-4" noValidate onSubmit={onSubmit}>
+          {errors.form ? <Alert>{errors.form}</Alert> : null}
+          <Field label="Long URL" error={errors.originalUrl} id="edit-original-url" hint="Keep this as a full http or https URL.">
+            <Input id="edit-original-url" name="originalUrl" type="url" defaultValue={url.originalUrl} disabled={editing} inputMode="url" required />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Custom alias" error={errors.customAlias} id="edit-custom-alias" hint="Optional readable slug.">
+              <Input id="edit-custom-alias" name="customAlias" defaultValue={url.customAlias ?? ""} disabled={editing} maxLength={64} pattern="[A-Za-z0-9_-]{3,64}" />
+            </Field>
+            <Field label="Title" error={errors.title} id="edit-title" hint="Visible only in your dashboard.">
+              <Input id="edit-title" name="title" defaultValue={url.title ?? ""} disabled={editing} maxLength={140} />
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Activates" error={undefined} id="edit-activates-at">
+              <Input id="edit-activates-at" name="activatesAt" type="datetime-local" defaultValue={toDateTimeInput(url.activatesAt)} disabled={editing} />
+            </Field>
+            <Field label="Deactivates" error={undefined} id="edit-deactivates-at">
+              <Input id="edit-deactivates-at" name="deactivatesAt" type="datetime-local" defaultValue={toDateTimeInput(url.deactivatesAt)} disabled={editing} />
+            </Field>
+            <Field label="Expires" error={undefined} id="edit-expires-at">
+              <Input id="edit-expires-at" name="expiresAt" type="datetime-local" defaultValue={toDateTimeInput(url.expiresAt)} disabled={editing} />
+            </Field>
+          </div>
+          <Field label="Notes" error={errors.notes} id="edit-notes">
+            <textarea
+              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground hover:border-primary/60 focus-visible:border-ring"
+              id="edit-notes"
+              name="notes"
+              defaultValue={url.notes ?? ""}
+              disabled={editing}
+              maxLength={1000}
+            />
+          </Field>
+          <Field label="Change password" error={errors.password} id="edit-password" hint="Leave blank to keep the current password setting.">
+            <Input id="edit-password" name="password" type="password" disabled={editing} minLength={6} maxLength={128} placeholder={url.isPasswordProtected ? "Protected" : "Optional password"} />
+          </Field>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button loading={editing} type="submit">
+              Save changes
+            </Button>
+          </div>
+        </form>
+      ) : null}
     </Dialog>
   );
 }
