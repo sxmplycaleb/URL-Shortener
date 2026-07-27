@@ -6,7 +6,10 @@ export function Alert({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
   return (
     <div
       role="alert"
-      className={cn("rounded-md border border-warning/30 bg-warning/10 p-4 text-sm text-foreground", className)}
+      className={cn(
+        "motion-enter rounded-md border border-warning/30 bg-warning/10 p-4 text-sm text-foreground transition-[background-color,border-color,box-shadow,opacity,transform] duration-base ease-standard",
+        className,
+      )}
       {...props}
     />
   );

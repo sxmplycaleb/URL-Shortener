@@ -13,7 +13,7 @@ export const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(
       <select
         ref={ref}
         className={cn(
-          "min-h-11 w-full appearance-none rounded-md border border-input bg-background py-2 pl-3 pr-10 text-sm text-foreground shadow-xs transition-colors hover:border-primary/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:bg-muted/70 disabled:opacity-60",
+          "min-h-11 w-full appearance-none rounded-md border border-input bg-background py-2 pl-3 pr-10 text-sm text-foreground shadow-xs transition-[border-color,background-color,box-shadow,opacity] duration-base ease-standard hover:border-primary/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive disabled:cursor-not-allowed disabled:bg-muted/70 disabled:opacity-60",
           className,
         )}
         disabled={disabled || loading}

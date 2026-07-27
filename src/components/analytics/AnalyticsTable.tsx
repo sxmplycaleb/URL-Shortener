@@ -67,7 +67,7 @@ export function AnalyticsTable({ links }: { links: LinkAnalyticsItem[] }) {
           </thead>
           <tbody>
             {links.map((link) => (
-              <tr className="border-b transition-colors last:border-0 hover:bg-muted/45" key={link.id}>
+              <tr className="border-b transition-[background-color,box-shadow] duration-base ease-standard last:border-0 hover:bg-muted/45" key={link.id}>
                 <Td className="font-mono text-xs font-semibold text-primary">{link.shortUrl}</Td>
                 <Td>
                   <p className="max-w-md truncate font-medium" title={link.originalUrl}>
@@ -88,7 +88,7 @@ export function AnalyticsTable({ links }: { links: LinkAnalyticsItem[] }) {
       </div>
       <div className="grid gap-3 md:hidden">
         {links.map((link) => (
-          <article className="rounded-md border p-4 transition-colors hover:bg-muted/40" key={link.id}>
+          <article className="motion-elevate rounded-md border p-4 hover:bg-muted/40" key={link.id}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="break-all font-mono text-xs font-semibold text-primary">{link.shortUrl}</p>

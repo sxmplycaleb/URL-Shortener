@@ -10,7 +10,11 @@ interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> {
 export function Table({ className, disabled = false, loading = false, ...props }: TableProps) {
   return (
     <div
-      className={cn("w-full overflow-x-auto rounded-lg border bg-card shadow-xs", disabled ? "opacity-60" : "", loading ? "animate-pulse" : "")}
+      className={cn(
+        "w-full overflow-x-auto rounded-lg border bg-card shadow-xs transition-[border-color,box-shadow,opacity] duration-base ease-standard focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background",
+        disabled ? "opacity-60" : "",
+        loading ? "animate-pulse" : "",
+      )}
       aria-disabled={disabled || undefined}
       aria-busy={loading || undefined}
     >
@@ -22,12 +26,12 @@ export function Table({ className, disabled = false, loading = false, ...props }
 export function Th({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={cn("h-12 border-b bg-muted/60 px-4 text-left align-middle font-semibold text-muted-foreground", className)}
+      className={cn("h-12 border-b bg-muted/60 px-4 text-left align-middle font-semibold text-muted-foreground transition-colors duration-base ease-standard", className)}
       {...props}
     />
   );
 }
 
 export function Td({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("border-b border-border/70 p-4 align-middle transition-colors", className)} {...props} />;
+  return <td className={cn("border-b border-border/70 p-4 align-middle transition-colors duration-base ease-standard", className)} {...props} />;
 }

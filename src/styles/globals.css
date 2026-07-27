@@ -160,15 +160,27 @@
   }
 
   .surface-card {
-    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+    @apply rounded-lg border bg-card text-card-foreground shadow-sm transition-[border-color,box-shadow,transform] duration-base ease-standard motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-soft;
   }
 
   .surface-secondary {
-    @apply rounded-md border bg-secondary text-secondary-foreground;
+    @apply rounded-md border bg-secondary text-secondary-foreground transition-[border-color,background-color,box-shadow] duration-base ease-standard;
   }
 
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .motion-interactive {
+    @apply transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-base ease-standard motion-safe:will-change-transform motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 motion-safe:active:scale-[0.98];
+  }
+
+  .motion-elevate {
+    @apply transition-[border-color,box-shadow,transform] duration-base ease-standard motion-safe:will-change-transform motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-soft;
+  }
+
+  .motion-enter {
+    animation: motion-enter var(--duration-slow) var(--ease-standard) both;
   }
 }
 
@@ -217,5 +229,48 @@
     font-size: var(--text-xs);
     line-height: 1.5;
     letter-spacing: 0;
+  }
+
+  .animate-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .animate-shimmer::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.06), transparent);
+    animation: shimmer 1.6s var(--ease-standard) infinite;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes motion-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .motion-enter {
+      animation: none;
+    }
+
+    .animate-shimmer::after {
+      animation: none;
+      opacity: 0;
+    }
   }
 }
