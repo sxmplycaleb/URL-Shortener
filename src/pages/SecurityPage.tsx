@@ -1,17 +1,24 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Check,
+  CheckCircle2,
+  CircleAlert,
   Clock3,
+  Globe2,
   KeyRound,
   Laptop,
   Loader2,
   LockKeyhole,
   Mail,
   MapPin,
+  Phone,
   ShieldCheck,
   ShieldOff,
   Smartphone,
   Trash2,
+  UserCheck,
+  type LucideIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -102,6 +109,49 @@ export function SecurityPage() {
     () => security?.loginHistory.filter((entry) => entry.status === "failed").length ?? 0,
     [security?.loginHistory],
   );
+  const emailVerified = session?.user.emailVerified ?? session?.user.isVerified ?? false;
+  const phoneVerified = settings?.phoneVerified ?? session?.user.phoneVerified ?? false;
+  const twoFactorEnabled = Boolean(settings?.emailOtpEnabled || settings?.smsOtpEnabled);
+  const securityScore = useMemo(() => {
+    if (!security) return 0;
+    return (
+      (emailVerified ? 20 : 0) +
+      (phoneVerified ? 15 : 0) +
+      (settings?.googleLinked ? 15 : 0) +
+      (twoFactorEnabled ? 20 : 0) +
+      (activeSessionCount <= 1 ? 15 : 8) +
+      (failedLoginCount === 0 ? 15 : 5)
+    );
+  }, [activeSessionCount, emailVerified, failedLoginCount, phoneVerified, security, settings?.googleLinked, twoFactorEnabled]);
+  const scoreTone = securityScore >= 80 ? "Strong" : securityScore >= 55 ? "Needs attention" : "At risk";
+  const protectionItems = [
+    {
+      label: "Email Verification",
+      description: emailVerified ? "Your recovery email is verified." : "Verify your email to secure recovery.",
+      enabled: emailVerified,
+      icon: Mail,
+    },
+    {
+      label: "Phone Verification",
+      description: phoneVerified ? "Your phone can support recovery." : "Add and verify a phone for recovery.",
+      enabled: phoneVerified,
+      icon: Phone,
+    },
+    {
+      label: "2FA",
+      description: twoFactorEnabled ? "One-time passcodes are enabled." : "Turn on email or SMS OTP.",
+      enabled: twoFactorEnabled,
+      icon: ShieldCheck,
+    },
+    {
+      label: "Google Account",
+      description: settings?.googleLinked
+        ? `Linked${settings.googleLinkedAt ? ` ${formatDate(settings.googleLinkedAt)}` : ""}.`
+        : "Google sign-in is not linked.",
+      enabled: settings?.googleLinked ?? false,
+      icon: Globe2,
+    },
+  ];
 
   const endSession = useCallback((message = "Your session expired. Please log in again.") => {
     clearAuthSession(message);
@@ -283,19 +333,59 @@ export function SecurityPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Security Center</h1>
-          <p className="mt-1 max-w-2xl text-muted-foreground">
-            Review sessions, login activity, trusted devices, and sign-in protections for your account.
-          </p>
+    <div className="mx-auto max-w-7xl space-y-8">
+      <section className="overflow-hidden rounded-lg border bg-card shadow-xs">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)]">
+          <div className="border-b bg-background/70 p-6 sm:p-8 xl:border-b-0 xl:border-r">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="mb-2 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                  Google Account inspired
+                </p>
+                <h1 className="text-title-1">Security Center</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  Review the protections, devices, sessions, and sign-in activity connected to your account.
+                </p>
+              </div>
+              <Button disabled={loading || busyAction === "others"} variant="outline" onClick={() => void handleRevokeOthers()}>
+                {busyAction === "others" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldOff className="h-4 w-4" />}
+                Revoke other sessions
+              </Button>
+            </div>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+              <SecurityScore score={securityScore} loading={loading} />
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Security Score</p>
+                  <p className="text-title-2">{loading ? "Checking..." : scoreTone}</p>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-slow",
+                      securityScore >= 80 ? "bg-success" : securityScore >= 55 ? "bg-warning" : "bg-destructive",
+                    )}
+                    style={{ width: `${loading ? 0 : securityScore}%` }}
+                  />
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {failedLoginCount > 0
+                    ? `${failedLoginCount} failed login ${failedLoginCount === 1 ? "attempt needs" : "attempts need"} review.`
+                    : "No failed login attempts in recent activity."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-0 sm:grid-cols-2">
+            {protectionItems.map((item) => (
+              <ProtectionCard key={item.label} {...item} loading={loading} />
+            ))}
+          </div>
         </div>
-        <Button disabled={loading || busyAction === "others"} variant="outline" onClick={() => void handleRevokeOthers()}>
-          {busyAction === "others" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldOff className="h-4 w-4" />}
-          Revoke other sessions
-        </Button>
-      </div>
+      </section>
 
       {notice ? (
         <Alert
@@ -308,82 +398,75 @@ export function SecurityPage() {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard icon={Laptop} label="Active sessions" value={activeSessionCount} />
-        <SummaryCard icon={Smartphone} label="Trusted devices" value={trustedDeviceCount} />
-        <SummaryCard icon={ShieldOff} label="Failed logins" value={failedLoginCount} />
+        <SummaryCard icon={Laptop} label="Active Sessions" value={activeSessionCount} detail="Signed-in browsers and devices" />
+        <SummaryCard icon={Smartphone} label="Trusted Devices" value={trustedDeviceCount} detail="Remembered for faster login" />
+        <SummaryCard icon={AlertTriangle} label="Recent Logins" value={security?.loginHistory.length ?? 0} detail={`${failedLoginCount} failed`} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Laptop className="h-5 w-5" aria-hidden="true" />
-              Active Sessions
-            </CardTitle>
-            <CardDescription>Devices with a valid login session for this account.</CardDescription>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-background/60">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Laptop className="h-5 w-5 text-primary" aria-hidden="true" />
+                  Active Sessions
+                </CardTitle>
+                <CardDescription>Devices with a valid login session for this account.</CardDescription>
+              </div>
+              <Badge variant={activeSessionCount <= 1 ? "success" : "warning"}>{activeSessionCount} active</Badge>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {loading ? <LoadingRows label="Loading sessions" /> : null}
-            {!loading && security?.sessions.length === 0 ? <p className="text-sm text-muted-foreground">No active sessions found.</p> : null}
+            {!loading && security?.sessions.length === 0 ? <p className="p-6 text-sm text-muted-foreground">No active sessions found.</p> : null}
             {!loading && security?.sessions.length ? (
-              <Table>
-                <thead>
-                  <tr className="border-b">
-                    <Th>Browser</Th>
-                    <Th>Device</Th>
-                    <Th>Operating System</Th>
-                    <Th>IP Address</Th>
-                    <Th>Country</Th>
-                    <Th>Last Active</Th>
-                    <Th>Action</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {security.sessions.map((sessionItem) => (
-                    <tr className="border-b last:border-0" key={sessionItem.id}>
-                      <Td>
-                        <div className="flex min-w-40 items-center gap-2">
-                          <span>{sessionItem.browser}</span>
-                          {sessionItem.current ? <Badge>Current Session</Badge> : null}
-                        </div>
-                      </Td>
-                      <Td>{sessionItem.device}</Td>
-                      <Td>{sessionItem.operatingSystem}</Td>
-                      <Td>{sessionItem.ipAddress}</Td>
-                      <Td>{sessionItem.country ?? "Unknown"}</Td>
-                      <Td>{formatDate(sessionItem.lastActiveAt)}</Td>
-                      <Td>
-                        <Button
-                          aria-label={`Revoke ${sessionItem.current ? "current" : sessionItem.device} session`}
-                          disabled={busyAction === sessionItem.id}
-                          size="sm"
-                          variant={sessionItem.current ? "outline" : "destructive"}
-                          onClick={() =>
-                            sessionItem.current ? setCurrentSessionToRevoke(sessionItem) : void handleRevokeSession(sessionItem)
-                          }
-                        >
-                          {busyAction === sessionItem.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                          Revoke
-                        </Button>
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
+              <div className="divide-y">
+                {security.sessions.map((sessionItem) => (
+                  <SessionRow
+                    key={sessionItem.id}
+                    busy={busyAction === sessionItem.id}
+                    sessionItem={sessionItem}
+                    onRevoke={() => (sessionItem.current ? setCurrentSessionToRevoke(sessionItem) : void handleRevokeSession(sessionItem))}
+                  />
+                ))}
+              </div>
             ) : null}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-background/60">
             <CardTitle className="flex items-center gap-2">
-              <KeyRound className="h-5 w-5" aria-hidden="true" />
-              Security Settings
+              <UserCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+              Sign-in Protections
             </CardTitle>
-            <CardDescription>Manage password and sign-in method protection.</CardDescription>
+            <CardDescription>Password and second-factor controls.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-5 p-5">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <SettingToggle
+                checked={settings?.emailOtpEnabled ?? false}
+                disabled={!settings || busyAction === "settings"}
+                icon={Mail}
+                label="Email Verification"
+                supportingText="Use email OTP as a sign-in check."
+                onClick={() => void handleSecuritySettingChange("emailOtpEnabled")}
+              />
+              <SettingToggle
+                checked={settings?.smsOtpEnabled ?? false}
+                disabled={!settings || busyAction === "settings" || !settings.phoneVerified}
+                icon={Phone}
+                label="Phone Verification"
+                supportingText={settings?.phoneVerified ? "Use SMS OTP as a sign-in check." : "Verify a phone number before SMS OTP."}
+                onClick={() => void handleSecuritySettingChange("smsOtpEnabled")}
+              />
+            </div>
             <form className="space-y-4" noValidate onSubmit={handlePasswordSubmit}>
+              <div className="flex items-center gap-2 border-t pt-5">
+                <KeyRound className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                <h2 className="text-base font-semibold">Password</h2>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="security-current-password">Current password</Label>
                 <PasswordInput
@@ -431,53 +514,24 @@ export function SecurityPage() {
                 Change password
               </Button>
             </form>
-
-            <SettingToggle
-              checked={settings?.emailOtpEnabled ?? false}
-              disabled={!settings || busyAction === "settings"}
-              icon={Mail}
-              label="Email OTP"
-              supportingText="Allow one-time passcodes by email."
-              onClick={() => void handleSecuritySettingChange("emailOtpEnabled")}
-            />
-            <SettingToggle
-              checked={settings?.smsOtpEnabled ?? false}
-              disabled={!settings || busyAction === "settings" || !settings.phoneVerified}
-              icon={Smartphone}
-              label="SMS OTP"
-              supportingText={settings?.phoneVerified ? "Allow one-time passcodes by SMS." : "Verify a phone number before enabling SMS OTP."}
-              onClick={() => void handleSecuritySettingChange("smsOtpEnabled")}
-            />
-            <div className="flex items-center gap-3 rounded-md border p-4">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-muted">
-                <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">Google account</p>
-                <p className="text-sm text-muted-foreground">
-                  {settings?.googleLinked ? `Linked${settings.googleLinkedAt ? ` ${formatDate(settings.googleLinkedAt)}` : ""}` : "Not linked"}
-                </p>
-              </div>
-              <Badge variant={settings?.googleLinked ? "success" : "muted"}>{settings?.googleLinked ? "Linked" : "Not linked"}</Badge>
-            </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-background/60">
             <CardTitle className="flex items-center gap-2">
-              <Clock3 className="h-5 w-5" aria-hidden="true" />
-              Login History
+              <Clock3 className="h-5 w-5 text-primary" aria-hidden="true" />
+              Recent Logins
             </CardTitle>
             <CardDescription>Recent successful and failed sign-in attempts.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {loading ? <LoadingRows label="Loading login history" /> : null}
-            {!loading && security?.loginHistory.length === 0 ? <p className="text-sm text-muted-foreground">No login history yet.</p> : null}
+            {!loading && security?.loginHistory.length === 0 ? <p className="p-6 text-sm text-muted-foreground">No login history yet.</p> : null}
             {!loading && security?.loginHistory.length ? (
-              <Table>
+              <Table className="min-w-[720px]">
                 <thead>
                   <tr className="border-b">
                     <Th>Timestamp</Th>
@@ -511,22 +565,22 @@ export function SecurityPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-background/60">
             <CardTitle className="flex items-center gap-2">
-              <LockKeyhole className="h-5 w-5" aria-hidden="true" />
+              <LockKeyhole className="h-5 w-5 text-primary" aria-hidden="true" />
               Trusted Devices
             </CardTitle>
             <CardDescription>Devices remembered for 30 days after trusted sign-in.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {loading ? <LoadingRows label="Loading trusted devices" /> : null}
-            {!loading && security?.trustedDevices.length === 0 ? <p className="text-sm text-muted-foreground">No trusted devices saved.</p> : null}
+            {!loading && security?.trustedDevices.length === 0 ? <p className="p-6 text-sm text-muted-foreground">No trusted devices saved.</p> : null}
             {!loading && security?.trustedDevices.length ? (
-              <div className="space-y-3">
+              <div className="divide-y">
                 {security.trustedDevices.map((device) => (
-                  <div className="flex flex-col gap-4 rounded-md border p-4 sm:flex-row sm:items-start" key={device.id}>
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-muted">
+                  <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start" key={device.id}>
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
                       <Laptop className="h-5 w-5" aria-hidden="true" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -585,19 +639,127 @@ export function SecurityPage() {
   );
 }
 
-function SummaryCard({ icon: Icon, label, value }: { icon: typeof Laptop; label: string; value: number }) {
+function SecurityScore({ score, loading }: { score: number; loading: boolean }) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-5">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-accent text-accent-foreground">
+    <div className="relative grid h-32 w-32 shrink-0 place-items-center rounded-full bg-muted">
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: `conic-gradient(hsl(var(--primary)) ${loading ? 0 : score * 3.6}deg, hsl(var(--muted)) 0deg)`,
+        }}
+      />
+      <div className="relative grid h-24 w-24 place-items-center rounded-full bg-card shadow-xs">
+        {loading ? (
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+        ) : (
+          <div className="text-center">
+            <p className="text-3xl font-bold leading-none">{score}</p>
+            <p className="mt-1 text-xs text-muted-foreground">of 100</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProtectionCard({
+  description,
+  enabled,
+  icon: Icon,
+  label,
+  loading,
+}: {
+  description: string;
+  enabled: boolean;
+  icon: LucideIcon;
+  label: string;
+  loading: boolean;
+}) {
+  const StatusIcon = enabled ? CheckCircle2 : CircleAlert;
+  return (
+    <div className="flex min-h-40 flex-col justify-between gap-5 border-b p-5 even:sm:border-l sm:[&:nth-child(n+3)]:border-b-0">
+      <div className="flex items-start justify-between gap-4">
+        <span className={cn("grid h-11 w-11 place-items-center rounded-full", enabled ? "bg-success/10 text-success" : "bg-warning/10 text-warning")}>
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
+        <Badge variant={loading ? "muted" : enabled ? "success" : "warning"}>
+          {loading ? "Checking" : enabled ? "On" : "Review"}
+        </Badge>
+      </div>
+      <div>
+        <p className="flex items-center gap-2 font-semibold">
+          <StatusIcon className="h-4 w-4" aria-hidden="true" />
+          {label}
+        </p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function SummaryCard({ detail, icon: Icon, label, value }: { detail: string; icon: LucideIcon; label: string; value: number }) {
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="flex items-center gap-4 p-5">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-muted-foreground">{label}</p>
           <p className="text-2xl font-semibold">{value}</p>
+          <p className="truncate text-xs text-muted-foreground">{detail}</p>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function SessionRow({
+  busy,
+  onRevoke,
+  sessionItem,
+}: {
+  busy: boolean;
+  onRevoke: () => void;
+  sessionItem: SecuritySession;
+}) {
+  return (
+    <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] lg:items-center">
+      <div className="flex min-w-0 gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+          <Laptop className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2 font-semibold">
+            {sessionItem.browser}
+            {sessionItem.current ? <Badge>Current Session</Badge> : null}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {sessionItem.device} on {sessionItem.operatingSystem}
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-1 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
+        <span className="flex items-center gap-2">
+          <MapPin className="h-4 w-4" aria-hidden="true" />
+          {sessionItem.country ?? "Unknown"} / {sessionItem.ipAddress}
+        </span>
+        <span className="flex items-center gap-2">
+          <Clock3 className="h-4 w-4" aria-hidden="true" />
+          {formatDate(sessionItem.lastActiveAt)}
+        </span>
+      </div>
+      <Button
+        aria-label={`Revoke ${sessionItem.current ? "current" : sessionItem.device} session`}
+        disabled={busy}
+        size="sm"
+        variant={sessionItem.current ? "outline" : "destructive"}
+        onClick={onRevoke}
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        Revoke
+      </Button>
+    </div>
   );
 }
 
@@ -611,14 +773,14 @@ function SettingToggle({
 }: {
   checked: boolean;
   disabled: boolean;
-  icon: typeof Mail;
+  icon: LucideIcon;
   label: string;
   supportingText: string;
   onClick: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border p-4">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-muted">
+    <div className="flex items-center gap-3 rounded-md border bg-background/70 p-4">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1">
